@@ -1,0 +1,32 @@
+{
+    "name": "susie-backend",
+    "version": "1.0.0",
+    "description": "API Gateway and Event Producer for SUSIE",
+    "main": "dist/app.js",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/app.js",
+        "dev": "ts-node-dev --respawn --transpile-only src/app.ts"
+    },
+    "keywords": [
+        "fastify",
+        "typescript",
+        "rabbitmq"
+    ],
+    "author": "Ramírez",
+    "license": "ISC",
+    "dependencies": {
+        "fastify": "^4.24.3",
+        "amqplib": "^0.10.3",
+        "pg": "^8.11.3",
+        "redis": "^4.6.10",
+        "dotenv": "^16.3.1"
+    },
+    "devDependencies": {
+        "typescript": "^5.2.2",
+        "@types/node": "^20.8.10",
+        "@types/amqplib": "^0.10.4",
+        "@types/pg": "^8.10.7",
+        "ts-node-dev": "^2.0.0"
+    }
+}
