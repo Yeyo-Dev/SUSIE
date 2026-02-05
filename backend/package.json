@@ -1,32 +1,34 @@
 {
-    "name": "susie-backend",
-    "version": "1.0.0",
-    "description": "API Gateway and Event Producer for SUSIE",
-    "main": "dist/app.js",
-    "scripts": {
-        "build": "tsc",
-        "start": "node dist/app.js",
-        "dev": "ts-node-dev --respawn --transpile-only src/app.ts"
-    },
-    "keywords": [
-        "fastify",
-        "typescript",
-        "rabbitmq"
+  "name": "susie-backend",
+  "version": "1.0.0",
+  "description": "API Gateway and Event Producer for SUSIE",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --exec tsx src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "keywords": [
+    "fastify",
+    "typescript",
+    "rabbitmq"
     ],
-    "author": "Ramírez",
-    "license": "ISC",
-    "dependencies": {
-        "fastify": "^4.24.3",
-        "amqplib": "^0.10.3",
-        "pg": "^8.11.3",
-        "redis": "^4.6.10",
-        "dotenv": "^16.3.1"
-    },
-    "devDependencies": {
-        "typescript": "^5.2.2",
-        "@types/node": "^20.8.10",
-        "@types/amqplib": "^0.10.4",
-        "@types/pg": "^8.10.7",
-        "ts-node-dev": "^2.0.0"
-    }
+  "author": "Ramirez",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^25.2.1",
+    "@types/validator": "^13.15.10",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "fastify": "^5.7.4",
+    "pg": "^8.18.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.7"
+  }
 }
