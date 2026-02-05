@@ -28,21 +28,21 @@ export class EvidenceService {
         const formData = new FormData();
 
         // 1. Agregar Metadata como JSON string
-        formData.append('meta', JSON.stringify(data.meta));
+        formData.append('meta', JSON.stringify(data.metadata.meta));
 
         // 2. Agregar datos del payload (no-binarios)
         const payloadMetadata = {
-            type: data.payload.type,
-            browser_focus: data.payload.browser_focus
+            type: data.metadata.payload.type,
+            browser_focus: data.metadata.payload.browser_focus
         };
         formData.append('payload_info', JSON.stringify(payloadMetadata));
 
         // 3. Agregar el archivo binario si existe
-        if (data.payload.resource_file) {
+        if (data.file) {
             // Nombre de archivo descriptivo: timestamp_type.jpg
-            const ext = this.getExtensionForType(data.payload.type);
-            const filename = `${data.meta.timestamp}_${data.payload.type}.${ext}`;
-            formData.append('file', data.payload.resource_file, filename);
+            const ext = this.getExtensionForType(data.metadata.payload.type);
+            const filename = `${data.metadata.meta.timestamp}_${data.metadata.payload.type}.${ext}`;
+            formData.append('file', data.file, filename);
         }
 
         // Inyectar Authorization header si es necesario (generalmente manejado por Interceptor, 

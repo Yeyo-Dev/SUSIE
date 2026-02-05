@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SusieWrapperComponent, SusieConfig } from 'ngx-susie-proctoring';
+import { ButtonModule } from 'primeng/button';
 
 @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [CommonModule, SusieWrapperComponent],
+    imports: [CommonModule, SusieWrapperComponent, ButtonModule],
     template: `
     <!-- Wrapper de SUSIE protegiendo el contenido del examen -->
     <susie-wrapper [config]="examConfig">

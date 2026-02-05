@@ -66,7 +66,10 @@
               "projects/susie-demo/src/assets"
             ],
             "styles": [
-              "projects/susie-demo/src/styles.scss"
+              "projects/susie-demo/src/styles.scss",
+              "node_modules/primeng/resources/themes/lara-light-blue/theme.css",
+              "node_modules/primeng/resources/primeng.min.css",
+              "node_modules/primeicons/primeicons.css"
             ],
             "scripts": []
           },

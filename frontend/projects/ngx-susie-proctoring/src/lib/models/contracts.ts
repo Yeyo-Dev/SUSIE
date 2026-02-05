@@ -1,27 +1,32 @@
 export interface SusieConfig {
-    sessionContext: {
-        examSessionId: string; // ID único para trazabilidad (Correlation ID)
-        examId: string;
-        durationMinutes?: number; // Duración del examen en minutos
-    };
-    securityPolicies: {
-        requireCamera: boolean;
-        requireFullscreen: boolean;
-        requireMicrophone: boolean;
-    };
-    apiUrl: string; // URL del API Gateway al que debo enviar las fotos
-    authToken: string; // JWT del usuario
+  sessionContext: {
+    examSessionId: string; // Correlation ID (Vital for traceability)
+    examId: string;
+    durationMinutes: number;
+  };
+  securityPolicies: {
+    requireCamera: boolean;
+    requireMicrophone: boolean;
+    requireFullscreen: boolean;
+  };
+  apiUrl: string; // API Gateway URL
+  authToken: string; // User JWT
 }
 
+export interface EvidenceMetadata {
+  meta: {
+    correlation_id: string; // = examSessionId
+    timestamp: string;      // ISO 8601
+    source: 'frontend_client_v1';
+  };
+  payload: {
+    type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'BROWSER_EVENT' | 'FOCUS_LOST';
+    browser_focus: boolean; // Is Tab active?
+  };
+}
+
+// Payload for internal service usage before FormData serialization
 export interface EvidencePayload {
-    meta: {
-        correlation_id: string; // Debe coincidir con examSessionId
-        timestamp: string;      // ISO 8601
-        source: 'frontend_client_v1';
-    };
-    payload: {
-        type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'FOCUS_LOST';
-        browser_focus: boolean;
-        resource_file?: Blob; // Archivo binario opcional (foto o audio)
-    };
+  metadata: EvidenceMetadata;
+  file?: Blob;
 }

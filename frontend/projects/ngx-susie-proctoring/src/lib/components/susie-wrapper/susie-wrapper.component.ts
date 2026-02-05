@@ -182,20 +182,22 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     // Extendemos localmente para incluir el archivo que no está en el contrato estricto JSON
     // pero es necesario para el servicio de FormData
     const payload: EvidencePayload = {
-      meta: {
-        correlation_id: this.config.sessionContext.examSessionId,
-        timestamp: new Date().toISOString(),
-        source: 'frontend_client_v1'
+      metadata: {
+        meta: {
+          correlation_id: this.config.sessionContext.examSessionId,
+          timestamp: new Date().toISOString(),
+          source: 'frontend_client_v1'
+        },
+        payload: {
+          type: 'SNAPSHOT',
+          browser_focus: document.hasFocus()
+        }
       },
-      payload: {
-        type: 'SNAPSHOT',
-        browser_focus: document.hasFocus(),
-        resource_file: imageBlob
-      }
+      file: imageBlob
     };
 
     this.evidenceService.sendEvidence(payload).subscribe({
-      next: () => console.log('Snapshot enviado correctamente', payload.meta.timestamp),
+      next: () => console.log('Snapshot enviado correctamente', payload.metadata.meta.timestamp),
       error: (err: unknown) => console.error('Error enviando snapshot', err)
     });
   }
