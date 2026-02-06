@@ -4,15 +4,15 @@
   "description": "API Gateway and Event Producer for SUSIE",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --exec tsx src/server.ts",
+    "dev": "nodemon --exec tsx src/app.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/app.js"
   },
   "keywords": [
     "fastify",
     "typescript",
     "rabbitmq"
-    ],
+  ],
   "author": "Ramirez",
   "license": "ISC",
   "type": "commonjs",
@@ -20,15 +20,14 @@
     "@types/node": "^25.2.1",
     "@types/validator": "^13.15.10",
     "nodemon": "^3.1.11",
+    "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "dotenv": "^17.2.3",
-    "fastify": "^5.7.4",
-    "pg": "^8.18.0",
-    "pg-hstore": "^2.3.4",
-    "sequelize": "^6.37.7"
+    "fastify": "^5.7.4"
   }
 }
