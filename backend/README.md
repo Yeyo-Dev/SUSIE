@@ -7,8 +7,8 @@ Este es el backend para el proyecto SUSIE, actuando como API Gateway y productor
 -   **Runtime**: Node.js
 -   **Framework**: Fastify
 -   **Lenguaje**: TypeScript
--   **Base de Datos**: PostgreSQL (vía Prisma ORM)
--   **Mensajería**: RabbitMQ
+-   **Base de Datos**: PostgreSQL (vía Prisma ORM) y Dockerfile personalizado.
+-   **Mensajería**: RabbitMQ y Dockerfile personalizado.
 
 ## Requisitos Previos
 
@@ -31,35 +31,42 @@ Asegúrate de tener instalado:
 
 ## Configuración y Variables de Entorno
 
-Crea un archivo `.env` en la raíz de la carpeta `backend` con las siguientes variables. Asegúrate de que coincidan con tu configuración deseada:
+**IMPORTANTE**: Para que Docker funcione correctamente con esta configuración, necesitas un archivo `.env` en la **raíz del proyecto** (un nivel arriba de `backend`) o asegurarte de que las variables de entorno estén disponibles al ejecutar docker-compose.
 
+Variables necesarias (ejemplo):
 ```env
 # Configuración de Base de Datos
 DB_USER=admin
 DB_PASS=root
 DB_NAME=susie_db
-DATABASE_URL="postgresql://admin:root@localhost:5433/susie_db?schema=public"
 
 # Configuración de RabbitMQ
 RABBITMQ_USER=admin
 RABBITMQ_PASS=angel02
 ```
 
-> **Nota**: El puerto de la base de datos en `DATABASE_URL` debe coincidir con el expuesto en `docker-compose.yml` (por defecto `5433`).
+Además, dentro de `backend/.env` necesitas la URL de conexión para Prisma:
+```env
+DATABASE_URL="postgresql://admin:root@localhost:5433/susie_db?schema=public"
+```
 
 ## Levantamiento de Servicios (Docker)
 
-El proyecto incluye un archivo `docker-compose.yml` para levantar PostgreSQL y RabbitMQ fácilmente.
+El archivo `docker-compose.yml` se encuentra en la **raíz del proyecto** y construye imágenes personalizadas para la base de datos y el broker.
 
-1.  Asegúrate de tener el archivo `.env` configurado, ya que Docker Compose lo utiliza.
-2.  Ejecuta el siguiente comando en la carpeta `backend`:
+1.  Navega a la raíz del proyecto (donde está `docker-compose.yml`):
     ```bash
-    docker-compose up -d
+    cd ..
     ```
+2.  Ejecuta:
+    ```bash
+    docker-compose up -d --build
+    ```
+    > Se usa `--build` para asegurar que se construyan las imágenes desde los Dockerfiles en `backend/src/database` y `backend/src/broker`.
 
 Esto levantará:
 -   **PostgreSQL**: En el puerto `5433` (interno 5432).
--   **RabbitMQ**: Panel de administración en `http://localhost:15672` (usuario/pass definidos en .env) y servicio AMQP en el puerto `5672`.
+-   **RabbitMQ**: Panel de administración en `http://localhost:15672` y servicio AMQP en el puerto `5672`.
 
 Para detener los servicios:
 ```bash
