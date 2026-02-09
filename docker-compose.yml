@@ -1,29 +1,36 @@
-version: '3.8'
-
 services:
   rabbitmq:
-    image: rabbitmq:3-management
+    build:
+      context: ./backend/src/broker
+      dockerfile: Dockerfile
     container_name: susie-rabbitmq
     ports:
       - "5672:5672"   # AMQP protocol port
       - "15672:15672" # Management UI port
     environment:
-      RABBITMQ_DEFAULT_USER: user
-      RABBITMQ_DEFAULT_PASS: password
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - susie-network
 
   postgres:
-    image: postgres:15-alpine
+    build:
+      context: ./backend/src/database
+      dockerfile: Dockerfile
     container_name: susie-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: susie_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

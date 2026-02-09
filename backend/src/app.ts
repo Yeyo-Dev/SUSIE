@@ -1,24 +1,23 @@
-import fastify from 'fastify';
 import dotenv from 'dotenv';
+import { buildServer } from './server.js';
 
 dotenv.config();
 
-const server = fastify({
-    logger: true
-});
+const startApp = async () => {
 
-server.get('/', async (request, reply) => {
-    return { hello: 'world', service: 'SUSIE Backend' };
-});
+    const app = buildServer();
 
-const start = async () => {
     try {
-        const port = parseInt(process.env.PORT || '3000');
-        await server.listen({ port, host: '0.0.0.0' });
+        const port = parseInt(process.env.PORT || '8000');
+        const host = '0.0.0.0';
+
+        await app.listen({ port, host });
+
+        console.log(`Servidor corriendo en http://localhost:${port}`);
     } catch (err) {
-        server.log.error(err);
+        app.log.error(err);
         process.exit(1);
     }
 };
 
-start();
+startApp();
