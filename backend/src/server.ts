@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import rabbitMQConnector from './config/rabbitmq';
 import { ProducerService } from './broker/producer.service';
+import { userRoutes } from './modules/user/user.routes';
 
 export let broker : ProducerService; //Variable global para acceder al broker
 
@@ -10,6 +11,7 @@ export const buildServer = (): FastifyInstance => {
     });
 
     server.register(rabbitMQConnector); //conexion a rabbitMQ
+    server.register(userRoutes, { prefix: '/api' });
 
     server.ready().then(() => {
         broker = new ProducerService(server); //Inicializamos el broker
