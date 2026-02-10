@@ -28,6 +28,8 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "dotenv": "^17.2.3",
-    "fastify": "^5.7.4"
+    "fastify": "^5.7.4",
+    "fastify-amqp": "^1.1.0",
+    "fastify-plugin": "^5.1.0"
   }
 }
