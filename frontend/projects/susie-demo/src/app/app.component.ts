@@ -2,11 +2,12 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SusieWrapperComponent, SusieConfig } from 'ngx-susie-proctoring';
 import { ButtonModule } from 'primeng/button';
+import { TestConnectivityComponent } from './components/test-connectivity/test-connectivity.component';
 
 @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [CommonModule, SusieWrapperComponent, ButtonModule],
+    imports: [CommonModule, SusieWrapperComponent, ButtonModule, TestConnectivityComponent],
     template: `
     <!-- Wrapper de SUSIE protegiendo el contenido del examen -->
     <susie-wrapper [config]="examConfig">
@@ -34,6 +35,12 @@ import { ButtonModule } from 'primeng/button';
                     <button class="btn-prev">Anterior</button>
                     <button class="btn-next">Siguiente</button>
                 </div>
+
+                <hr class="my-5">
+                
+                <!-- Componente de Prueba de Conectividad -->
+                 <app-test-connectivity></app-test-connectivity>
+
             </main>
         </div>
 
@@ -84,11 +91,19 @@ export class AppComponent {
             durationMinutes: 60
         },
         securityPolicies: {
-            requireCamera: true,
-            requireMicrophone: false,
-            requireFullscreen: true
+            requireCamera: false,         // ✅ Habilitado para pruebas
+            requireMicrophone: true,     // ✅ Habilitado para pruebas de audio
+            requireFullscreen: true,
+            preventTabSwitch: true,
+            preventInspection: true
         },
-        apiUrl: 'http://localhost:3000/api/v1',
+        audioConfig: {
+            enabled: true,
+            chunkIntervalSeconds: 10,    // Chunks cada 10 segundos
+            bitrate: 32000               // 32 kbps
+        },
+        debugMode: true,  // ✅ Habilitar panel de debug para pruebas
+        apiUrl: 'http://localhost:8000/api/v1',  // ✅ Puerto 8000 (backend)
         authToken: 'demo-jwt-token-xyz'
     };
 }
