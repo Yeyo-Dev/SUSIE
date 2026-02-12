@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MediaService } from '../../services/media.service';
 import { EvidenceService } from '../../services/evidence.service';
 import { SecurityService } from '../../services/security.service';
-import { SusieConfig, EvidencePayload } from '../../models/contracts';
+import { SusieConfig, EvidencePayload, SecurityViolation } from '../../models/contracts';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
@@ -62,13 +62,14 @@ import { interval, Subscription } from 'rxjs';
       position: relative;
       width: 100%;
       height: 100vh;
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
       background: #f4f4f4;
     }
     
     .susie-content {
       width: 100%;
-      height: 100%;
+      min-height: 100%;
       z-index: 1;
     }
 
@@ -159,11 +160,11 @@ import { interval, Subscription } from 'rxjs';
     }
 
     .susie-pip {
-      position: absolute;
+      position: fixed;
       bottom: 20px;
-      right: 20px;
-      width: 240px;
-      height: 135px;
+      left: 20px;
+      width: 200px;
+      height: 112px;
       background: #000;
       border-radius: 8px;
       overflow: hidden;
@@ -293,7 +294,10 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
     // Inicializar servicios
     this.evidenceService.setConfig(this.config);
-    this.securityService.initialize(this.config.securityPolicies);
+    this.securityService.initialize(
+      this.config.securityPolicies,
+      (violation: SecurityViolation) => this.handleSecurityViolation(violation)
+    );
 
     // Determinar si necesitamos audio
     const needsAudio = this.config.securityPolicies.requireMicrophone ||
@@ -337,6 +341,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.securityService.destroy();
     this.mediaService.stopAudioRecording();
     this.mediaService.stopStream();
     this.snapshotSubscription?.unsubscribe();
@@ -354,7 +359,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
   private async startAudioRecording() {
     try {
-      // Obtener intervalo de chunks de la configuración o usar default (10s)
+      // Intervalo de chunks configurable — default 10s es equilibrio entre latencia y carga de red
       const chunkIntervalSeconds = this.config.audioConfig?.chunkIntervalSeconds || 10;
       const chunkIntervalMs = chunkIntervalSeconds * 1000;
 
@@ -415,7 +420,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   }
 
   private startMonitoringCycle() {
-    // Ejemplo: Tomar snapshot cada 30 segundos
+    // Ciclo de snapshots cada 30s — frecuencia balanceada para supervisión sin saturar el almacenamiento
     this.snapshotSubscription = interval(30000).subscribe(async () => {
       const videoEl = this.videoElement()?.nativeElement;
       if (videoEl && this.mediaService.isActive()) {
@@ -429,8 +434,8 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   }
 
   private sendSnapshot(imageBlob: Blob) {
-    // Extendemos localmente para incluir el archivo que no está en el contrato estricto JSON
-    // pero es necesario para el servicio de FormData
+    // El Blob del snapshot se envía junto con metadata JSON en el mismo FormData
+    // El backend separa ambos y almacena el archivo en Azure Blob Storage
     const payload: EvidencePayload = {
       metadata: {
         meta: {
@@ -461,5 +466,19 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
         console.error('❌ Error enviando snapshot:', err);
       }
     });
+  }
+
+  private handleSecurityViolation(violation: SecurityViolation) {
+    this.addDebugLog(
+      'error',
+      '🚨',
+      `Violación: ${violation.type}`,
+      violation.message
+    );
+
+    // Reenviar a la app host — permite que el componente padre (ej: AppComponent) reaccione cancelando el examen
+    if (this.config.onSecurityViolation) {
+      this.config.onSecurityViolation(violation);
+    }
   }
 }
