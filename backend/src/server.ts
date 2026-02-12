@@ -1,5 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import rabbitMQConnector from './config/rabbitmq';
+import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
 import { userRoutes } from './modules/user/user.routes';
 
@@ -11,6 +12,7 @@ export const buildServer = (): FastifyInstance => {
     });
 
     server.register(rabbitMQConnector); //conexion a rabbitMQ
+    server.register(redisPlugin); //conexion a redis
     server.register(userRoutes, { prefix: '/api' });
 
     server.ready().then(() => {
