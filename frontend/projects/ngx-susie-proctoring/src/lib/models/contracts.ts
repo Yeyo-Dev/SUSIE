@@ -9,8 +9,21 @@ export interface SecurityViolation {
 }
 
 /**
+ * Resultado del paso de consentimiento.
+ * Se emite cuando el candidato acepta o rechaza los términos.
+ */
+export interface ConsentResult {
+  accepted: boolean;
+  timestamp: string;
+  permissionsConsented: ConsentPermission[];
+}
+
+/** Permisos individuales que el candidato consiente. */
+export type ConsentPermission = 'camera' | 'microphone' | 'biometrics';
+
+/**
  * Configuración principal de la librería ngx-susie-proctoring.
- * La app host (ej: susie-demo) crea esta configuración y la pasa al <susie-wrapper>.
+ * La app host (ej: Chaindrenciales) crea esta configuración y la pasa al <susie-wrapper>.
  */
 export interface SusieConfig {
   sessionContext: {
@@ -22,10 +35,12 @@ export interface SusieConfig {
     requireCamera: boolean;
     requireMicrophone: boolean;
     requireFullscreen: boolean;
-    preventTabSwitch?: boolean;     // Detecta cambios de pestaña via Page Visibility API
-    preventInspection?: boolean;    // Bloquea DevTools (F12, Ctrl+Shift+I) y clic derecho
+    requireConsent?: boolean;        // Mostrar T&C antes del examen (default: true si requireCamera || requireMicrophone)
+    requireBiometrics?: boolean;     // Verificación de identidad facial antes del examen
+    preventTabSwitch?: boolean;      // Detecta cambios de pestaña via Page Visibility API
+    preventInspection?: boolean;     // Bloquea DevTools (F12, Ctrl+Shift+I) y clic derecho
     preventBackNavigation?: boolean; // Inyecta history.pushState para bloquear botón atrás
-    preventPageReload?: boolean;    // Muestra diálogo de confirmación al recargar/cerrar
+    preventPageReload?: boolean;     // Muestra diálogo de confirmación al recargar/cerrar
   };
   audioConfig?: {
     enabled: boolean;
@@ -34,6 +49,8 @@ export interface SusieConfig {
   };
   /** Callback invocado cada vez que se detecta una violación de seguridad */
   onSecurityViolation?: (violation: SecurityViolation) => void;
+  /** Callback invocado cuando el candidato acepta o rechaza el consentimiento */
+  onConsentResult?: (result: ConsentResult) => void;
   debugMode?: boolean; // Mostrar panel de debug (solo para pruebas, nunca en producción)
   apiUrl: string;      // URL del API Gateway donde se envían las evidencias
   authToken: string;   // JWT del estudiante para autenticación con el backend
