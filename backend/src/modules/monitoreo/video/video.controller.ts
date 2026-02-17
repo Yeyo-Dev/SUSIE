@@ -6,7 +6,7 @@ import { VideoService } from "./video.service";
 interface VideoQuery {
     id_usuario: number;
     nombre_usuario: string;
-    nombre_examen: number;
+    nombre_examen: string;
 }
 
 export class VideoController {
@@ -40,6 +40,12 @@ export class VideoController {
         } catch (error) {
             console.error('Error al manejar el video:', error);
             socket.send(JSON.stringify({ status: 'error', message: 'Error al guardar el video', error: error }))
+        }
+        finally {
+            //Cerramos la conexion si no se cerro por pipeline
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
         }
     }
 }
