@@ -1,7 +1,7 @@
 services:
   rabbitmq:
     build:
-      context: ./backend/src/broker
+      context: ./backend/infraestructure/broker
       dockerfile: Dockerfile
     container_name: susie-rabbitmq
     ports:
@@ -22,7 +22,7 @@ services:
 
   postgres:
     build:
-      context: ./backend/src/database
+      context: ./backend/infraestructure/database
       dockerfile: Dockerfile
     container_name: susie-postgres
     ports:
