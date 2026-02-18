@@ -1,5 +1,5 @@
 import { Component, signal, computed, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
-import { SusieWrapperComponent, SusieConfig, SecurityViolation } from 'ngx-susie-proctoring';
+import { SusieWrapperComponent, SusieConfig, SecurityViolation, ConsentResult } from 'ngx-susie-proctoring';
 
 interface ExamQuestion {
   id: number;
@@ -886,13 +886,14 @@ export class AppComponent implements OnInit, OnDestroy {
       durationMinutes: 5 // 5 min para la demo (en producción se configura por examen)
     },
     securityPolicies: {
-      requireCamera: false,
+      requireCamera: true,
       requireMicrophone: true,
       requireFullscreen: true,
+      requireConsent: true,
       preventTabSwitch: true,
       preventInspection: true,
       preventBackNavigation: true,
-      preventPageReload: true
+      preventPageReload: true,
     },
     audioConfig: {
       enabled: true,
@@ -902,6 +903,12 @@ export class AppComponent implements OnInit, OnDestroy {
     onSecurityViolation: (violation: SecurityViolation) => {
       this.cancelExam(violation.message);
     },
+    onConsentResult: (result: ConsentResult) => {
+      console.log('📋 Resultado del consentimiento:', result);
+      if (result.accepted) {
+        this.startTimer();
+      }
+    },
     debugMode: true,
     apiUrl: 'http://localhost:8000/api/v1',
     authToken: 'demo-jwt-token-xyz'
@@ -910,7 +917,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.totalSeconds = this.questions.length * 60; // 1 min per question
     this.timerSeconds.set(this.totalSeconds);
-    this.startTimer();
+    // Timer NO se inicia aquí — espera a que el consentimiento sea aceptado
   }
 
   ngOnDestroy() {

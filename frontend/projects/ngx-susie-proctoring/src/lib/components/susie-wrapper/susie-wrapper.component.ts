@@ -1,60 +1,94 @@
-import { Component, Input, OnInit, OnDestroy, inject, viewChild, ElementRef, effect, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  Component, ChangeDetectionStrategy, input, OnInit, OnDestroy,
+  inject, viewChild, ElementRef, effect, signal, computed,
+} from '@angular/core';
 import { MediaService } from '../../services/media.service';
 import { EvidenceService } from '../../services/evidence.service';
 import { SecurityService } from '../../services/security.service';
-import { SusieConfig, EvidencePayload, SecurityViolation } from '../../models/contracts';
+import { SusieConfig, EvidencePayload, SecurityViolation, ConsentResult } from '../../models/contracts';
+import { ConsentDialogComponent } from '../consent-dialog/consent-dialog.component';
 import { interval, Subscription } from 'rxjs';
+import { DatePipe } from '@angular/common';
 
 @Component({
   selector: 'susie-wrapper',
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ConsentDialogComponent, DatePipe],
   template: `
     <div class="susie-container">
-      <!-- Slot para la aplicación anfitriona (El Examen) -->
-      <div class="susie-content">
-        <ng-content></ng-content>
-      </div>
-
-      <!-- Overlay de Alertas/Errores -->
-      @if (mediaService.error()) {
-        <div class="susie-alert error">
-          <p>{{ mediaService.error() }}</p>
-          <button (click)="retryMedia()">Reintentar permiso de cámara/micrófono</button>
+      <!-- PASO 1: Consentimiento (si aplica) -->
+      @if (needsConsent() && consentStatus() !== 'accepted') {
+        <susie-consent-dialog
+          [config]="config()"
+          (consentGiven)="onConsentResult($event)" />
+      } @else {
+        <!-- PASO 2: Contenido del examen (solo tras aceptar consentimiento) -->
+        <div class="susie-content">
+          <ng-content />
         </div>
-      }
 
-      <!-- Panel de Debug (solo para pruebas) -->
-      @if (config.debugMode) {
-        <div class="debug-panel">
-          <div class="debug-header">
-            <strong>🔍 Debug Panel</strong>
-            <button (click)="clearDebugLogs()" class="clear-btn">Limpiar</button>
-          </div>
-          <div class="debug-content">
-            @for (log of debugLogs(); track log.timestamp) {
-              <div class="debug-log" [class]="log.type">
-                <span class="timestamp">{{ log.timestamp | date:'HH:mm:ss' }}</span>
-                <span class="icon">{{ log.icon }}</span>
-                <span class="message">{{ log.message }}</span>
-                @if (log.details) {
-                  <div class="details">{{ log.details }}</div>
-                }
+        <!-- Overlay de error de permisos -->
+        @if (mediaService.error()) {
+          <div class="media-error-backdrop" role="alert" aria-live="assertive">
+            <div class="media-error-card">
+              <div class="media-error-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16.5 2.25V6a.75.75 0 0 0 1.28.53l2.72-2.72"/>
+                  <path d="M22.5 7.5V18a3 3 0 0 1-3 3H4.5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3H15"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
               </div>
-            }
+              <h2 class="media-error-title">Permisos de dispositivo requeridos</h2>
+              <p class="media-error-message">{{ mediaService.error() }}</p>
+              <p class="media-error-detail">Este examen requiere acceso a tu cámara y/o micrófono para la supervisión. Por favor, permite el acceso cuando tu navegador lo solicite.</p>
+              <button
+                type="button"
+                class="media-error-retry"
+                (click)="retryMedia()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Reintentar permisos
+              </button>
+            </div>
+          </div>
+        }
+
+        <!-- Panel de Debug (solo para pruebas) -->
+        @if (config().debugMode) {
+          <div class="debug-panel">
+            <div class="debug-header">
+              <strong>🔍 Debug Panel</strong>
+              <button (click)="clearDebugLogs()" class="clear-btn">Limpiar</button>
+            </div>
+            <div class="debug-content">
+              @for (log of debugLogs(); track log.timestamp) {
+                <div class="debug-log" [class]="log.type">
+                  <span class="timestamp">{{ log.timestamp | date:'HH:mm:ss' }}</span>
+                  <span class="icon">{{ log.icon }}</span>
+                  <span class="message">{{ log.message }}</span>
+                  @if (log.details) {
+                    <div class="details">{{ log.details }}</div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Componente PIP (Picture-in-Picture) simulado -->
+        <div class="susie-pip" [class.hidden]="!mediaService.isActive()">
+          <video #userVideo autoplay playsinline muted></video>
+          <div class="recording-indicator">
+            <span class="dot"></span>
+            REC @if (mediaService.audioRecordingActive()) { 🎤 }
           </div>
         </div>
       }
-
-      <!-- Componente PIP (Picture-in-Picture) simulado -->
-      <div class="susie-pip" [class.hidden]="!mediaService.isActive()">
-        <video #userVideo autoplay playsinline muted></video>
-        <div class="recording-indicator">
-          <span class="dot"></span> 
-          REC @if (mediaService.audioRecordingActive()) { 🎤 }
-        </div>
-      </div>
     </div>
   `,
   styles: [`
@@ -66,7 +100,7 @@ import { interval, Subscription } from 'rxjs';
       overflow-x: hidden;
       background: #f4f4f4;
     }
-    
+
     .susie-content {
       width: 100%;
       min-height: 100%;
@@ -168,9 +202,13 @@ import { interval, Subscription } from 'rxjs';
       background: #000;
       border-radius: 8px;
       overflow: hidden;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
       z-index: 1000;
       border: 2px solid #fff;
+    }
+
+    .susie-pip.hidden {
+      display: none;
     }
 
     video {
@@ -208,28 +246,115 @@ import { interval, Subscription } from 'rxjs';
       100% { opacity: 1; }
     }
 
-    .susie-alert.error {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #fff0f0;
-      border: 1px solid #ffcccc;
-      color: #cc0000;
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-      z-index: 2000;
+    /* --- Error de permisos de media --- */
+    .media-error-backdrop {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9000;
+      padding: 1rem;
     }
-  `]
+
+    .media-error-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+      animation: card-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes card-enter {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .media-error-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      background: #fef2f2;
+      border-radius: 50%;
+      color: #dc2626;
+      margin-bottom: 1.5rem;
+    }
+
+    .media-error-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0 0 0.5rem;
+      line-height: 1.3;
+    }
+
+    .media-error-message {
+      font-size: 0.875rem;
+      color: #dc2626;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin: 0 0 1rem;
+      line-height: 1.5;
+    }
+
+    .media-error-detail {
+      font-size: 0.8125rem;
+      color: #64748b;
+      line-height: 1.6;
+      margin: 0 0 1.5rem;
+    }
+
+    .media-error-retry {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    }
+
+    .media-error-retry:hover {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    }
+
+    .media-error-retry:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+  `],
 })
 export class SusieWrapperComponent implements OnInit, OnDestroy {
-  @Input({ required: true }) config!: SusieConfig;
+  /** Configuración completa del examen pasada por la app host (Chaindrenciales). */
+  config = input.required<SusieConfig>();
 
   // Inyección de dependencias
-  public mediaService = inject(MediaService);
-  private evidenceService = inject(EvidenceService);
-  private securityService = inject(SecurityService);
+  readonly mediaService = inject(MediaService);
+  private readonly evidenceService = inject(EvidenceService);
+  private readonly securityService = inject(SecurityService);
 
   // Referencia al elemento de video en el template
   videoElement = viewChild<ElementRef<HTMLVideoElement>>('userVideo');
@@ -239,6 +364,24 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   // Contadores de eventos de comportamiento para AI
   private keyboardEventCount = 0;
   private tabSwitchCount = 0;
+
+  // --- Estado de consentimiento ---
+  /** Determina si el examen necesita mostrar consentimiento. */
+  needsConsent = computed(() => {
+    const policies = this.config().securityPolicies;
+    // Si requireConsent está explícitamente definido, usarlo.
+    // Si no, inferir de los permisos de hardware.
+    if (policies.requireConsent !== undefined) {
+      return policies.requireConsent;
+    }
+    return policies.requireCamera || policies.requireMicrophone;
+  });
+
+  /** Estado del consentimiento: pending, accepted, rejected. */
+  consentStatus = signal<'pending' | 'accepted' | 'rejected'>('pending');
+
+  /** Resultado del consentimiento para reporting. */
+  consentResult = signal<ConsentResult | null>(null);
 
   // Debug logs (solo para pruebas)
   private debugLogsSignal = signal<Array<{
@@ -267,14 +410,30 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     });
   }
 
-  private addDebugLog(type: 'success' | 'error', icon: string, message: string, details?: string) {
+  /** Maneja el resultado del consentimiento. Si acepta, inicializa proctoring. */
+  onConsentResult(result: ConsentResult): void {
+    this.consentResult.set(result);
+
+    if (result.accepted) {
+      this.consentStatus.set('accepted');
+      // Inicializar proctoring ahora que tenemos consentimiento
+      this.initializeProctoring();
+    } else {
+      this.consentStatus.set('rejected');
+    }
+
+    // Notificar a la app host
+    this.config().onConsentResult?.(result);
+  }
+
+  private addDebugLog(type: 'success' | 'error', icon: string, message: string, details?: string): void {
     const logs = this.debugLogsSignal();
     const newLog = {
       timestamp: new Date(),
       type,
       icon,
       message,
-      details
+      details,
     };
 
     // Mantener solo los últimos 5 logs
@@ -282,32 +441,44 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.debugLogsSignal.set(updatedLogs);
   }
 
-  clearDebugLogs() {
+  clearDebugLogs(): void {
     this.debugLogsSignal.set([]);
   }
 
-  async ngOnInit() {
-    if (!this.config) {
+  async ngOnInit(): Promise<void> {
+    const cfg = this.config();
+    if (!cfg) {
       console.error('SusieWrapper: Configuración requerida no provista.');
       return;
     }
 
-    // Inicializar servicios
-    this.evidenceService.setConfig(this.config);
+    // Inicializar servicios que no dependen de consentimiento
+    this.evidenceService.setConfig(cfg);
     this.securityService.initialize(
-      this.config.securityPolicies,
-      (violation: SecurityViolation) => this.handleSecurityViolation(violation)
+      cfg.securityPolicies,
+      (violation: SecurityViolation) => this.handleSecurityViolation(violation),
     );
 
+    // Si NO necesita consentimiento, inicializar proctoring directamente
+    if (!this.needsConsent()) {
+      this.consentStatus.set('accepted');
+      await this.initializeProctoring();
+    }
+  }
+
+  /** Inicializa cámara, audio, tracking y snapshots — solo tras consentimiento. */
+  private async initializeProctoring(): Promise<void> {
+    const cfg = this.config();
+
     // Determinar si necesitamos audio
-    const needsAudio = this.config.securityPolicies.requireMicrophone ||
-      this.config.audioConfig?.enabled;
+    const needsAudio = cfg.securityPolicies.requireMicrophone ||
+      cfg.audioConfig?.enabled;
 
     // Iniciar cámara/micrófono si las políticas lo requieren
-    if (this.config.securityPolicies.requireCamera || needsAudio) {
+    if (cfg.securityPolicies.requireCamera || needsAudio) {
       await this.mediaService.startStream(
-        this.config.securityPolicies.requireCamera,
-        needsAudio
+        cfg.securityPolicies.requireCamera,
+        needsAudio,
       );
     }
 
@@ -320,12 +491,12 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.setupBehavioralTracking();
 
     // Iniciar snapshots periódicos si la cámara está habilitada
-    if (this.config.securityPolicies.requireCamera) {
+    if (cfg.securityPolicies.requireCamera) {
       this.startMonitoringCycle();
     }
   }
 
-  private setupBehavioralTracking() {
+  private setupBehavioralTracking(): void {
     // Trackear eventos de teclado
     document.addEventListener('keydown', () => {
       this.keyboardEventCount++;
@@ -340,32 +511,33 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     this.securityService.destroy();
     this.mediaService.stopAudioRecording();
     this.mediaService.stopStream();
     this.snapshotSubscription?.unsubscribe();
   }
 
-  retryMedia() {
-    const needsAudio = this.config.securityPolicies.requireMicrophone ||
-      this.config.audioConfig?.enabled;
+  retryMedia(): void {
+    const cfg = this.config();
+    const needsAudio = cfg.securityPolicies.requireMicrophone ||
+      cfg.audioConfig?.enabled;
 
     this.mediaService.startStream(
-      this.config.securityPolicies.requireCamera,
-      needsAudio
+      cfg.securityPolicies.requireCamera,
+      needsAudio,
     );
   }
 
-  private async startAudioRecording() {
+  private async startAudioRecording(): Promise<void> {
     try {
       // Intervalo de chunks configurable — default 10s es equilibrio entre latencia y carga de red
-      const chunkIntervalSeconds = this.config.audioConfig?.chunkIntervalSeconds || 10;
+      const chunkIntervalSeconds = this.config().audioConfig?.chunkIntervalSeconds ?? 10;
       const chunkIntervalMs = chunkIntervalSeconds * 1000;
 
       await this.mediaService.startAudioRecording(
         (audioBlob) => this.sendAudioChunk(audioBlob),
-        chunkIntervalMs
+        chunkIntervalMs,
       );
 
       console.log(`✅ Grabación de audio iniciada (chunks cada ${chunkIntervalSeconds}s)`);
@@ -374,24 +546,25 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     }
   }
 
-  private sendAudioChunk(audioBlob: Blob) {
+  private sendAudioChunk(audioBlob: Blob): void {
+    const cfg = this.config();
     const payload: EvidencePayload = {
       metadata: {
         meta: {
-          correlation_id: this.config.sessionContext.examSessionId,
-          exam_id: this.config.sessionContext.examId,
+          correlation_id: cfg.sessionContext.examSessionId,
+          exam_id: cfg.sessionContext.examId,
           student_id: 'STUDENT_ID_PLACEHOLDER', // TODO: Obtener del authToken JWT
           timestamp: new Date().toISOString(),
-          source: 'frontend_client_v1'
+          source: 'frontend_client_v1',
         },
         payload: {
           type: 'AUDIO_CHUNK',
           browser_focus: document.hasFocus(),
           keyboard_events: this.keyboardEventCount,
-          tab_switches: this.tabSwitchCount
-        }
+          tab_switches: this.tabSwitchCount,
+        },
       },
-      file: audioBlob
+      file: audioBlob,
     };
 
     this.evidenceService.sendEvidence(payload).subscribe({
@@ -403,7 +576,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
           'success',
           '🎤',
           'Audio chunk enviado',
-          `URL: ${response.data?.file_url}\nTamaño: ${response.data?.file_size} bytes\nStatus: ${response.status}`
+          `URL: ${response.data?.file_url}\nTamaño: ${response.data?.file_size} bytes\nStatus: ${response.status}`,
         );
       },
       error: (err: unknown) => {
@@ -413,13 +586,13 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
           'error',
           '❌',
           'Error enviando audio',
-          err instanceof Error ? err.message : 'Error desconocido'
+          err instanceof Error ? err.message : 'Error desconocido',
         );
-      }
+      },
     });
   }
 
-  private startMonitoringCycle() {
+  private startMonitoringCycle(): void {
     // Ciclo de snapshots cada 30s — frecuencia balanceada para supervisión sin saturar el almacenamiento
     this.snapshotSubscription = interval(30000).subscribe(async () => {
       const videoEl = this.videoElement()?.nativeElement;
@@ -433,26 +606,27 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     });
   }
 
-  private sendSnapshot(imageBlob: Blob) {
+  private sendSnapshot(imageBlob: Blob): void {
+    const cfg = this.config();
     // El Blob del snapshot se envía junto con metadata JSON en el mismo FormData
     // El backend separa ambos y almacena el archivo en Azure Blob Storage
     const payload: EvidencePayload = {
       metadata: {
         meta: {
-          correlation_id: this.config.sessionContext.examSessionId,
-          exam_id: this.config.sessionContext.examId,
+          correlation_id: cfg.sessionContext.examSessionId,
+          exam_id: cfg.sessionContext.examId,
           student_id: 'STUDENT_ID_PLACEHOLDER', // TODO: Obtener del authToken JWT
           timestamp: new Date().toISOString(),
-          source: 'frontend_client_v1'
+          source: 'frontend_client_v1',
         },
         payload: {
           type: 'SNAPSHOT',
           browser_focus: document.hasFocus(),
           keyboard_events: this.keyboardEventCount,
-          tab_switches: this.tabSwitchCount
-        }
+          tab_switches: this.tabSwitchCount,
+        },
       },
-      file: imageBlob
+      file: imageBlob,
     };
 
     this.evidenceService.sendEvidence(payload).subscribe({
@@ -464,21 +638,19 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       },
       error: (err: unknown) => {
         console.error('❌ Error enviando snapshot:', err);
-      }
+      },
     });
   }
 
-  private handleSecurityViolation(violation: SecurityViolation) {
+  private handleSecurityViolation(violation: SecurityViolation): void {
     this.addDebugLog(
       'error',
       '🚨',
       `Violación: ${violation.type}`,
-      violation.message
+      violation.message,
     );
 
     // Reenviar a la app host — permite que el componente padre (ej: AppComponent) reaccione cancelando el examen
-    if (this.config.onSecurityViolation) {
-      this.config.onSecurityViolation(violation);
-    }
+    this.config().onSecurityViolation?.(violation);
   }
 }
