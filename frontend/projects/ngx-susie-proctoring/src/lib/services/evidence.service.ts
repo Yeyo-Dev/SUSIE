@@ -11,7 +11,6 @@ export class EvidenceService {
 
     private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
 
-    private audioSocket: WebSocket | null = null;
 
     configure(apiUrl: string, authToken: string, sessionContext: any) {
         this.apiUrl = apiUrl;
@@ -23,7 +22,9 @@ export class EvidenceService {
         this.logger = fn;
     }
 
-    sendEvent(payload: Partial<EvidenceMetadata['payload']>) {
+    sendEvent(payload: Partial<EvidenceMetadata['payload']> & { file?: Blob }) {
+        const { file, ...restPayload } = payload;
+
         const metadata: EvidenceMetadata = {
             meta: {
                 correlation_id: this.sessionContext.examSessionId,
@@ -32,46 +33,23 @@ export class EvidenceService {
                 timestamp: new Date().toISOString(),
                 source: 'frontend_client_v1'
             },
-            payload: payload as any
+            payload: restPayload as any
         };
 
-        this.uploadEvidence({ metadata });
+        this.uploadEvidence({ metadata, file });
     }
+
 
     startAudioRecording(stream: MediaStream | null, config: any) {
         if (!stream) {
             this.logger('error', '❌ No hay stream de audio disponible para grabar');
             return;
         }
-
-        // 1. Establecer conexión WebSocket
-        try {
-            // Transformar http/https a ws/wss y ajustar path
-            // apiUrl esperado: http://localhost:8000/api/v1 -> ws://localhost:8000/api/monitoreo/audio
-            const baseUrl = this.apiUrl.replace(/\/v1\/?$/, '').replace(/^http/, 'ws');
-            const wsUrl = `${baseUrl}/monitoreo/audio?id_usuario=${this.sessionContext.userId || 0}&nombre_usuario=${this.sessionContext.userName || 'student'}&nombre_examen=${this.sessionContext.examId}`;
-
-            this.logger('info', `📡 Conectando WebSocket de audio...`, { url: wsUrl });
-
-            this.audioSocket = new WebSocket(wsUrl);
-
-            this.audioSocket.onopen = () => {
-                this.logger('success', '🟢 WebSocket de audio conectado');
-                this.initMediaRecorder(stream, config);
-            };
-
-            this.audioSocket.onerror = (err) => {
-                this.logger('error', '❌ Error en WebSocket de audio', err);
-            };
-
-            this.audioSocket.onclose = () => {
-                this.logger('info', '🔌 WebSocket de audio desconectado');
-            };
-
-        } catch (err: any) {
-            this.logger('error', '❌ Error al conectar WebSocket', err);
-        }
+        this.initMediaRecorder(stream, config);
     }
+
+
+
 
     private initMediaRecorder(stream: MediaStream, config: any) {
         try {
@@ -85,11 +63,11 @@ export class EvidenceService {
             });
 
             this.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0 && this.audioSocket?.readyState === WebSocket.OPEN) {
-                    this.audioSocket.send(event.data);
-                    this.logger('success', `⬆️ Audio chunk enviado (${event.data.size} bytes)`);
+                if (event.data.size > 0) {
+                    this.sendAudioChunk(event.data);
                 }
             };
+
 
             this.mediaRecorder.onerror = (event: any) => {
                 this.logger('error', '❌ Error en MediaRecorder', event.error);
@@ -107,17 +85,19 @@ export class EvidenceService {
     stopAudioRecording() {
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
-            this.logger('info', '🛑 Grabación de audio detenida');
-        }
-        if (this.audioSocket) {
-            this.audioSocket.close();
-            this.audioSocket = null;
+            this.logger('info', '🛑 Grabación de audio detenida'); // Updated log message
         }
     }
 
     private sendAudioChunk(blob: Blob) {
-        // Deprecado: ahora se envía por WebSocket directo
+        this.sendEvent({
+            type: 'AUDIO_CHUNK',
+            browser_focus: document.hasFocus(),
+            file: blob
+        });
+        // Logging moved to uploadEvidence for consistency
     }
+
 
     private async uploadEvidence(data: EvidencePayload) {
         if (!this.apiUrl) return;

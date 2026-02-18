@@ -67,12 +67,18 @@ export interface SusieConfig {
     preventInspection?: boolean;     // Bloquea DevTools
     preventBackNavigation?: boolean; // Inyecta history.pushState
     preventPageReload?: boolean;     // Muestra diálogo de confirmación
+    preventCopyPaste?: boolean;      // Bloquea copy/cut/paste y selección
   };
+
   audioConfig?: {
     enabled: boolean;
     chunkIntervalSeconds: number;
     bitrate: number;
   };
+  capture?: {
+    snapshotIntervalSeconds: number;
+  };
+
 
   /** 
    * (Opcional) Lista de preguntas para que Susie las renderice con su motor interno (Exam Engine).

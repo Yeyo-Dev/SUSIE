@@ -25,6 +25,21 @@ export class SecurityService {
             document.addEventListener('contextmenu', this.preventContextMenu);
             document.addEventListener('keydown', this.preventDevTools);
         }
+
+        if (policies.preventBackNavigation) {
+            history.pushState(null, '', window.location.href);
+            window.addEventListener('popstate', this.preventBack);
+        }
+
+        if (policies.preventPageReload) {
+            window.addEventListener('beforeunload', this.preventReload);
+        }
+
+        if (policies.preventCopyPaste) {
+            ['copy', 'cut', 'paste'].forEach(evt => document.addEventListener(evt, this.preventClipboard));
+            document.addEventListener('selectstart', this.preventSelection);
+            document.addEventListener('contextmenu', this.preventContextMenu); // Re-enforce if not already
+        }
     }
 
     disableProtection() {
@@ -33,7 +48,24 @@ export class SecurityService {
         window.removeEventListener('blur', this.handleBlur);
         document.removeEventListener('contextmenu', this.preventContextMenu);
         document.removeEventListener('keydown', this.preventDevTools);
+        window.removeEventListener('popstate', this.preventBack);
+        window.removeEventListener('beforeunload', this.preventReload);
+
+        ['copy', 'cut', 'paste'].forEach(evt => document.removeEventListener(evt, this.preventClipboard));
+        document.removeEventListener('selectstart', this.preventSelection);
     }
+
+
+    async enterFullscreen() {
+        if (!document.fullscreenElement) {
+            try {
+                await document.documentElement.requestFullscreen();
+            } catch (err) {
+                console.error('Error entering fullscreen:', err);
+            }
+        }
+    }
+
 
     private handleFullscreenChange = () => {
         if (!document.fullscreenElement) {
@@ -68,6 +100,30 @@ export class SecurityService {
             this.reportViolation('INSPECTION_ATTEMPT', 'Intento de abrir herramientas de desarrollador');
         }
     };
+
+    private preventBack = (event: PopStateEvent) => {
+        history.pushState(null, '', window.location.href);
+        this.reportViolation('NAVIGATION_ATTEMPT', 'Intento de navegación hacia atrás');
+    };
+
+    private preventReload = (event: BeforeUnloadEvent) => {
+        event.preventDefault();
+        event.returnValue = ''; // Standard for Chrome
+        this.reportViolation('RELOAD_ATTEMPT', 'Intento de recargar la página');
+    };
+
+    private preventClipboard = (e: Event) => {
+        e.preventDefault();
+        this.reportViolation('CLIPBOARD_ATTEMPT', 'Intento de modificar el portapapeles (Copiar/Pegar)');
+    };
+
+    private preventSelection = (e: Event) => {
+        e.preventDefault();
+        // Silent violation or log it
+        // this.reportViolation('SELECTION_ATTEMPT', 'Intento de seleccionar texto');
+    };
+
+
 
     private reportViolation(type: any, message: string) {
         this.ngZone.run(() => {

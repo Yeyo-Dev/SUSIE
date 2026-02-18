@@ -1,4 +1,9 @@
 <div class="susie-container">
+    <div class="susie-overlay">
+        <!-- Hidden video for snapshots -->
+        <video #snapshotVideo autoplay playsinline muted
+            style="position: absolute; opacity: 0; pointer-events: none; height: 1px; width: 1px;"></video>
+    </div>
     <!-- PANEL DE DEBUG (Solo si debugMode=true) -->
     @if (config().debugMode) {
     <div class="debug-panel">

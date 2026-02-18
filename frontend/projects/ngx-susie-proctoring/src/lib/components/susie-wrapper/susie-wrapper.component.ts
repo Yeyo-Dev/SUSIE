@@ -22,8 +22,10 @@ import { InactivityService } from '../../services/inactivity.service';
 import { CameraPipComponent } from '../camera-pip/camera-pip.component';
 import { ConsentDialogComponent } from '../consent-dialog/consent-dialog.component';
 import { EnvironmentCheckComponent } from '../environment-check/environment-check.component';
-import { BiometricOnboardingComponent } from '../biometric-onboarding/biometric-onboarding.component'; // NUEVO
-import { ExamEngineComponent } from '../exam-engine/exam-engine.component'; // Importante
+import { BiometricOnboardingComponent } from '../biometric-onboarding/biometric-onboarding.component';
+import { ExamEngineComponent } from '../exam-engine/exam-engine.component';
+import { ElementRef, ViewChild } from '@angular/core';
+
 
 /** Estado interno del flujo de proctoring */
 type ProctoringState = 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 'ENVIRONMENT_CHECK' | 'MONITORING';
@@ -72,6 +74,12 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   mediaError = this.mediaService.error;
   isOnline = this.networkService.isOnline;
   inactivityWarning = this.inactivityService.showWarning; // Nuevo: warning signal
+  private snapshotInterval: any = null;
+
+  @ViewChild('snapshotVideo') snapshotVideo!: ElementRef<HTMLVideoElement>;
+
+  // Debug logs
+
 
   // Debug logs
   logs = signal<{ time: string; type: 'info' | 'error' | 'success'; msg: string; details?: any }[]>([]);
@@ -114,7 +122,9 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.log('info', '🛑 Deteniendo SusieWrapper...');
     this.mediaService.stop();
     this.evidenceService.stopAudioRecording();
+    this.stopSnapshotLoop();
     this.securityService.disableProtection();
+
     this.inactivityService.stopMonitoring();
   }
 
@@ -183,9 +193,11 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     try {
       this.evidenceService.sendEvent({
         type: 'SNAPSHOT',
-        browser_focus: document.hasFocus()
+        browser_focus: document.hasFocus(),
+        file: event.photo // Enviar la foto biométrica
       });
       this.log('info', '📤 Evidencia biométrica enviada');
+
     } catch (e) {
       this.log('error', '⚠️ Falló envío de evidencia biométrica', e);
     }
@@ -221,16 +233,18 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     const policies = this.config().securityPolicies;
 
     // Activar protecciones
+    if (policies.requireFullscreen) {
+      this.securityService.enterFullscreen();
+    }
+
     this.securityService.enableProtection(policies, (violation) => {
       this.handleViolation(violation);
+
     });
 
-    // Iniciar grabación de audio (backend integration)
-    if (this.config().audioConfig?.enabled) {
-      this.evidenceService.startAudioRecording(
-        this.mediaService.getAudioStream(),
-        this.config().audioConfig
-      );
+    // Iniciar snapshots periódicos
+    if (this.config().securityPolicies.requireCamera && this.config().capture?.snapshotIntervalSeconds) {
+      this.startSnapshotLoop(this.config().capture!.snapshotIntervalSeconds);
     }
 
     // Iniciar monitoreo de inactividad
@@ -238,6 +252,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
     this.log('info', '🛡️ Monitoreo activo iniciado');
   }
+
 
   private handleViolation(violation: SecurityViolation) {
     this.log('error', `🚨 Violación detectada: ${violation.type} - ${violation.message}`);
@@ -282,4 +297,56 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   clearLogs() {
     this.logs.set([]);
   }
+
+  private startSnapshotLoop(intervalSeconds: number) {
+    this.log('info', `📸 Iniciando snapshots automáticos cada ${intervalSeconds}s`);
+    this.stopSnapshotLoop();
+
+    // Attach stream to hidden video for capture
+    setTimeout(() => {
+      if (this.snapshotVideo && this.mediaStream()) {
+        this.snapshotVideo.nativeElement.srcObject = this.mediaStream();
+      }
+    });
+
+    this.snapshotInterval = setInterval(() => {
+      this.captureSnapshot();
+    }, intervalSeconds * 1000);
+  }
+
+  private stopSnapshotLoop() {
+    if (this.snapshotInterval) {
+      clearInterval(this.snapshotInterval);
+      this.snapshotInterval = null;
+    }
+  }
+
+  private captureSnapshot() {
+    if (!this.snapshotVideo?.nativeElement) return;
+    const video = this.snapshotVideo.nativeElement;
+
+    // Check if video is ready
+    if (video.readyState < 2) return; // HAVE_CURRENT_DATA
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => {
+        if (blob) {
+          this.evidenceService.sendEvent({
+            type: 'SNAPSHOT',
+            browser_focus: document.hasFocus(),
+            file: blob
+          });
+          // Opcional: loguear cada snapshot puede ser ruidoso
+          // this.log('info', '📸 Snapshot enviado');
+        }
+      }, 'image/jpeg', 0.6); // Calidad media
+    }
+  }
 }
+

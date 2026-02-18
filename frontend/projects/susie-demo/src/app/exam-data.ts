@@ -91,17 +91,19 @@ export function createExamConfig(component: {
             durationMinutes: 5,
         },
         securityPolicies: {
-            requireCamera: true,
-            requireMicrophone: true,
+            requireCamera: false, // Desactivado para prueba local
+            requireMicrophone: false, // Desactivado para prueba local
             requireFullscreen: true,
             requireConsent: true,
-            requireEnvironmentCheck: true,
-            requireBiometrics: true,
+            requireEnvironmentCheck: false, // No tiene sentido sin cámara
+            requireBiometrics: false, // Desactivado sin cámara
             preventTabSwitch: true,
             preventInspection: true,
             preventBackNavigation: true,
             preventPageReload: true,
+            preventCopyPaste: true // Nuevo
         },
+
         audioConfig: {
             enabled: true,
             chunkIntervalSeconds: 10,
