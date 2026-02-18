@@ -1,0 +1,69 @@
+<div class="env-backdrop">
+    <div class="env-card">
+        <header class="env-header">
+            <div class="header-icon-container">
+                <span class="header-icon">🛡️</span>
+            </div>
+            <h1>Verificación de Entorno</h1>
+            <p>Preparando tu sesión segura. Por favor espera mientras verificamos tus dispositivos.</p>
+        </header>
+
+        <div class="checks-container">
+            @for (check of checks(); track check.id) {
+            <div class="check-row" [class]="check.status">
+                <div class="check-icon-wrapper">
+                    <span class="check-icon" aria-hidden="true">{{ check.icon }}</span>
+                    @if (check.status === 'success') {
+                    <div class="status-badge success">✓</div>
+                    } @else if (check.status === 'error') {
+                    <div class="status-badge error">✕</div>
+                    } @else if (check.status === 'checking') {
+                    <div class="status-spinner"></div>
+                    }
+                </div>
+
+                <div class="check-info">
+                    <div class="check-title-row">
+                        <h3>{{ check.label }}</h3>
+                        @if (check.optional) { <span class="badge-optional">Opcional</span> }
+                    </div>
+                    <p class="check-status-msg">{{ check.message }}</p>
+                </div>
+            </div>
+            }
+        </div>
+
+        <footer class="env-footer">
+            @if (isChecking()) {
+            <div class="footer-status checking">
+                <div class="spinner-sm"></div>
+                <span>Realizando comprobaciones...</span>
+            </div>
+            } @else if (hasErrors()) {
+            <div class="footer-status error">
+                <div class="error-alert">
+                    <strong>Requisitos no cumplidos</strong>
+                    <p>Por favor soluciona los problemas marcados para continuar.</p>
+                </div>
+                <button class="btn btn-retry" (click)="runChecks()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                    Reintentar
+                </button>
+            </div>
+            } @else {
+            <button class="btn btn-primary" (click)="completeCheck()">
+                Continuar al Examen
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                </svg>
+            </button>
+            }
+        </footer>
+    </div>
+</div>

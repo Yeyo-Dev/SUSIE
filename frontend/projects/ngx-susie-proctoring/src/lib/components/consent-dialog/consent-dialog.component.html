@@ -1,0 +1,89 @@
+<div class="consent-backdrop">
+    <div class="consent-container">
+        @if (consentState() === 'pending') {
+        <div class="consent-card">
+            <header class="consent-header">
+                <div class="header-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                </div>
+                <h1 id="consent-title">Términos y Condiciones de Supervisión</h1>
+                <p class="subtitle">Este examen requiere supervisión digital. Por favor lee y acepta los siguientes
+                    términos para continuar.</p>
+            </header>
+
+            <main class="consent-body" aria-labelledby="consent-title">
+                <section class="terms-section">
+                    <h2>Permisos requeridos</h2>
+                    <ul class="permissions-list" role="list">
+                        @for (item of consentItems(); track item.permission) {
+                        <li class="permission-item">
+                            <span class="permission-icon" aria-hidden="true">{{ item.icon }}</span>
+                            <div class="permission-text">
+                                <strong>{{ item.title }}</strong>
+                                <p>{{ item.description }}</p>
+                            </div>
+                        </li>
+                        }
+                    </ul>
+                </section>
+
+                <section class="terms-section">
+                    <h2>Uso de datos</h2>
+                    <p>Los datos recopilados durante el examen se utilizarán exclusivamente para la supervisión y
+                        verificación de la evaluación. No se compartirán con terceros ni se utilizarán para otros fines.
+                    </p>
+                    <p>Al aceptar estos términos, confirmas que:</p>
+                    <ul role="list">
+                        <li>Eres la persona asignada para presentar este examen.</li>
+                        <li>Autorizas el uso de los recursos indicados durante la evaluación.</li>
+                        <li>Comprendes que cualquier irregularidad detectada será reportada.</li>
+                    </ul>
+                </section>
+            </main>
+
+            <footer class="consent-footer">
+                <label class="checkbox-container" id="consent-checkbox-label">
+                    <input type="checkbox" [checked]="isChecked()" (change)="onCheckboxChange($event)"
+                        aria-describedby="consent-checkbox-label" />
+                    <span class="checkmark" aria-hidden="true"></span>
+                    <span class="checkbox-text">He leído y acepto los términos y condiciones de supervisión</span>
+                </label>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-reject" (click)="onReject()">
+                        Rechazar
+                    </button>
+                    <button type="button" class="btn btn-accept" [disabled]="!isChecked()"
+                        [attr.aria-disabled]="!isChecked()" (click)="onAccept()">
+                        Aceptar y continuar
+                    </button>
+                </div>
+            </footer>
+        </div>
+        } @else {
+        <!-- Estado de rechazo con opción de reconsiderar -->
+        <div class="consent-card rejected-card">
+            <div class="rejected-content">
+                <div class="rejected-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                </div>
+                <h1>Acceso al examen bloqueado</h1>
+                <p>Has rechazado los términos y condiciones de supervisión. No es posible iniciar el examen sin aceptar
+                    estos términos.</p>
+                <p class="reconsider-text">Si deseas reconsiderar, puedes volver a leer los términos.</p>
+                <button type="button" class="btn btn-reconsider" (click)="onReconsider()">
+                    Volver a leer los términos
+                </button>
+            </div>
+        </div>
+        }
+    </div>
+</div>

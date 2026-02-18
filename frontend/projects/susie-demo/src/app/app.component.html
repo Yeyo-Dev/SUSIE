@@ -1,0 +1,53 @@
+<div class="app-container">
+    <!-- Header General (fuera del wrapper, o podría estar dentro) -->
+    <header class="app-header">
+        <div class="brand">
+            <span class="logo">👁️</span>
+            <h1>SUSIE Proctoring Demo</h1>
+        </div>
+    </header>
+
+    <!-- PANTALLA 1: EXAMEN EN CURSO -->
+    @if (examState() === 'taking') {
+    <!-- Wrapper de SUSIE: Gestiona Consentimiento, Entorno y Motor de Examen -->
+    <susie-wrapper [config]="examConfig" [questions]="questions">
+        <!-- 
+        NOTA: Al pasar [questions], el wrapper usa automáticamente el <susie-exam-engine>.
+        Ya no necesitamos proyectar contenido manual aquí.
+      -->
+    </susie-wrapper>
+    }
+
+    <!-- PANTALLA 2: RESULTADOS (Post-Examen) -->
+    @if (examState() === 'submitted') {
+    <div class="result-screen">
+        <div class="result-card success">
+            <div class="result-icon">🎉</div>
+            <h2>¡Examen Completado!</h2>
+            <p>Tus respuestas han sido enviadas correctamente para su análisis supervisado.</p>
+
+            @if (examResult(); as res) {
+            <div class="score-summary">
+                <p>Respuestas enviadas: <strong>{{ res.answers | json }}</strong></p>
+                <p>Fecha: {{ res.completedAt | date:'medium' }}</p>
+            </div>
+            }
+
+            <button class="btn btn-primary" (click)="resetExam()">Reiniciar Demo</button>
+        </div>
+    </div>
+    }
+
+    <!-- PANTALLA 3: CANCELADO (Bloqueo de Seguridad) -->
+    @if (examState() === 'cancelled') {
+    <div class="result-screen">
+        <div class="result-card error">
+            <div class="result-icon">🚫</div>
+            <h2>Examen Cancelado</h2>
+            <p class="error-msg">{{ cancellationReason() }}</p>
+            <p>Se ha detectado una violación grave de las políticas de seguridad.</p>
+            <button class="btn btn-danger" (click)="resetExam()">Intentar de nuevo</button>
+        </div>
+    </div>
+    }
+</div>
