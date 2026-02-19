@@ -4,6 +4,7 @@ import path from 'path';
 import { pipeline } from 'stream/promises';
 import { MultipartFile } from '@fastify/multipart';
 import { SnapshotMetadata, SnapshotPayloadInfo } from './snapshot.interface';
+import { broker } from "../../../server";
 
 export class SnapshotService {
     private uploadDir: string;
@@ -28,6 +29,8 @@ export class SnapshotService {
         metaData: SnapshotMetadata,
         payloadInfo: SnapshotPayloadInfo
     ) {
+        console.log("Metadata recibida:", metaData);
+        console.log("Payload Info recibido:", payloadInfo);
         //Componentes del nombre del snapshot
         const examen = this.sanitizarNombre(metaData.nombre_examen || 'examen');
         const usuario = this.sanitizarNombre(metaData.nombre_usuario || 'usuario');
@@ -51,6 +54,15 @@ export class SnapshotService {
             const mockUrl = `https://mi-storage.blob.core.windows.net/evidencias/${nombreArchivo}`;
 
             console.log(`[Service] Archivo guardado: ${nombreArchivo} (${stats.size} bytes) | Origen: ${payloadInfo.source}`);
+            
+            await broker.publish('stream.snapshot', {
+                sesion_id: metaData.sesion_id,
+                user_id: metaData.usuario_id,
+                timestamp: metaData.timestamp,
+                url_storage: mockUrl
+            });
+
+            console.log(`[Service] Evidencia enviada a RabbitMQ: ${mockUrl}`);
 
             //Retornamos la info combinada
             return {

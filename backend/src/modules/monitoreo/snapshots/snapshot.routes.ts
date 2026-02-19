@@ -13,5 +13,5 @@ export async function snapshotRoutes(fastify: FastifyInstance) {
     });
 
    //Ruta para subir snapshots
-    fastify.post('/snapshots/upload', controller.manejadorSnapshot);
+    fastify.post('/snapshots', controller.manejadorSnapshot);
 }
