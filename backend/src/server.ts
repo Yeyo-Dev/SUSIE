@@ -4,7 +4,7 @@ import cors from '@fastify/cors';
 //import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
 import { userRoutes } from './modules/user/user.routes';
-import {snapshotsRoutes} from './modules/monitoreo/snapshots/snapshots.routes';
+import {snapshotRoutes} from './modules/monitoreo/snapshots/snapshot.routes';
 import {audioRoutes} from './modules/monitoreo/audios/audio.routes';
 import websocket from '@fastify/websocket';
 
@@ -25,8 +25,8 @@ export const buildServer = (): FastifyInstance => {
     //server.register(redisPlugin); //conexion a redis
     server.register(websocket);
     server.register(userRoutes, { prefix: prefixApi + '/user' });
-    server.register(snapshotsRoutes, { prefix: prefixApi + '/monitoreo' });
-    server.register(audioRoutes, { prefix: prefixApi + '/monitoreo' });
+    server.register(snapshotRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
+    server.register(audioRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
 
     server.ready().then(() => {
         broker = new ProducerService(server); //Inicializamos el broker
