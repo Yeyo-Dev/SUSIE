@@ -4,6 +4,7 @@ import path from 'path';
 import { pipeline } from 'stream/promises';
 import { MultipartFile } from '@fastify/multipart';
 import { AudioMetadata, AudioPayloadInfo } from './audio.interface';
+import { broker } from '../../../server';
 
 export class AudioService {
     private uploadDir: string;
@@ -46,6 +47,13 @@ export class AudioService {
             const mockUrl = `https://mi-storage.blob.core.windows.net/audios/${nombreArchivo}`;
 
             console.log(`[Audio Service] Fragmento guardado: ${nombreArchivo} (${stats.size} bytes)`);
+            
+            await broker.publish('stream.audio', {
+                sesion_id: metaData.sesion_id,
+                user_id: metaData.usuario_id,
+                timestamp: metaData.timestamp,
+                url_storage: mockUrl
+            });
 
             return {
                 status: 'success',

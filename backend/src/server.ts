@@ -1,6 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-//import rabbitMQConnector from './config/rabbitmq';
+import rabbitMQConnector from './config/rabbitmq';
 //import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
 import { userRoutes } from './modules/user/user.routes';
@@ -21,7 +21,7 @@ export const buildServer = (): FastifyInstance => {
 
     const prefixApi = '/susie/api/v1';
 
-    //server.register(rabbitMQConnector); //conexion a rabbitMQ
+    server.register(rabbitMQConnector); //conexion a rabbitMQ
     //server.register(redisPlugin); //conexion a redis
     server.register(websocket);
     server.register(userRoutes, { prefix: prefixApi + '/user' });
