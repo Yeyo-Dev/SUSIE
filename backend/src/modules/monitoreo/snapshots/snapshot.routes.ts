@@ -1,8 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
-import { SnapshotController } from './snapshots.controller';
+import { SnapshotController } from './snapshot.controller';
 
-export async function snapshotsRoutes(fastify: FastifyInstance) {
+export async function snapshotRoutes(fastify: FastifyInstance) {
     const controller = new SnapshotController();
 
     //Registrar el plugin para manejar archivos

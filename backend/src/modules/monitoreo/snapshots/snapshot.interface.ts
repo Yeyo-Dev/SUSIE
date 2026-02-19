@@ -1,8 +1,9 @@
 // Metadatos del video
 export interface SnapshotMetadata {
+    sesion_id: number;
     usuario_id: number;
     nombre_usuario: string;
-    examen_id: string;
+    examen_id: number;
     nombre_examen: string;
     timestamp: number;
 }

@@ -1,12 +1,12 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { SnapshotsService } from './snapshots.service';
-import { SnapshotMetadata, SnapshotPayloadInfo } from './snapshots.interface';
+import { SnapshotService } from './snapshot.service';
+import { SnapshotMetadata, SnapshotPayloadInfo } from './snapshot.interface';
 
 export class SnapshotController {
-    private snapshotService: SnapshotsService;
+    private snapshotService: SnapshotService;
 
     constructor() {//instanciamos el servicio
-        this.snapshotService = new SnapshotsService();
+        this.snapshotService = new SnapshotService();
     }
 
     manejadorSnapshot = async (req: FastifyRequest, reply: FastifyReply) => {

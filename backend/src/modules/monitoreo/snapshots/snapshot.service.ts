@@ -3,9 +3,9 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import { pipeline } from 'stream/promises';
 import { MultipartFile } from '@fastify/multipart';
-import { SnapshotMetadata, SnapshotPayloadInfo } from './snapshots.interface';
+import { SnapshotMetadata, SnapshotPayloadInfo } from './snapshot.interface';
 
-export class SnapshotsService {
+export class SnapshotService {
     private uploadDir: string;
 
     constructor() {
