@@ -1,28 +1,51 @@
 <div class="exam-engine-shell">
-    <!-- Header: Timer & Progress -->
+    <!-- Header: Timer, Title & Progress -->
     <header class="engine-header">
-        <div class="timer-badge" [class.urgent]="isUrgent()">
-            <span class="timer-icon">⏳</span>
-            <span class="timer-value">{{ timerFormatted() }}</span>
+        <div class="header-top">
+            <div class="timer-badge" [class.urgent]="isUrgent()">
+                <div class="timer-icon-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                </div>
+                <span class="timer-value">{{ timerFormatted() }}</span>
+            </div>
+
+            @if (config().sessionContext.examTitle; as title) {
+            <div class="exam-title-bar">
+                <h1>{{ title }}</h1>
+            </div>
+            }
+
+            <div class="header-stats">
+                <span class="answered-badge">
+                    <strong>{{ answeredCount() }}</strong>/{{ questions().length }}
+                </span>
+            </div>
         </div>
 
-        @if (config().sessionContext.examTitle; as title) {
-        <div class="exam-title-bar">
-            <h1>{{ title }}</h1>
-        </div>
-        }
-
-        <div class="progress-container">
+        <!-- Progress bar -->
+        <div class="progress-section">
             <div class="progress-bar">
                 <div class="progress-fill" [style.width.%]="progressPercent()"></div>
             </div>
-            <span class="progress-text">
-                Pregunta {{ currentIndex() + 1 }} de {{ questions().length }}
-            </span>
         </div>
+
+        <!-- Question Navigation Pills -->
+        <nav class="question-nav" aria-label="Navegación de preguntas">
+            @for (q of questions(); track q.id; let i = $index) {
+            <button class="nav-pill" [class.current]="currentIndex() === i"
+                [class.answered]="answers()[q.id] !== undefined" (click)="currentIndex.set(i)"
+                [attr.aria-label]="'Pregunta ' + (i + 1)" [attr.aria-current]="currentIndex() === i ? 'step' : null">
+                {{ i + 1 }}
+            </button>
+            }
+        </nav>
     </header>
 
-    <!-- Toasts (Notificaciones) -->
+    <!-- Toasts -->
     @if (toast(); as t) {
     <div class="toast-overlay" [class]="t.type">
         <div class="toast-card">
@@ -34,52 +57,107 @@
                 }
             </span>
             <span class="toast-message">{{ t.message }}</span>
-            <button class="toast-close" (click)="dismissToast()" aria-label="Cerrar notificación">✕</button>
+            <button class="toast-close" (click)="dismissToast()" aria-label="Cerrar notificación">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
         </div>
     </div>
     }
 
-    <!-- Modal de Confirmación de Envío -->
+    <!-- Confirmation Modal -->
     @if (showConfirmModal()) {
     <div class="confirm-backdrop">
         <div class="confirm-card">
-            <div class="confirm-icon">📤</div>
+            <div class="confirm-icon-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+                    <path d="M12 12v9" />
+                    <path d="m8 17 4 4 4-4" />
+                </svg>
+            </div>
             <h3>¿Finalizar Examen?</h3>
-            
-            <p>
-                Has respondido <strong>{{ answeredCount() }}</strong> de <strong>{{ questions().length }}</strong> preguntas.
-            </p>
+
+            <div class="confirm-stats">
+                <div class="confirm-stat">
+                    <span class="confirm-stat-value">{{ answeredCount() }}</span>
+                    <span class="confirm-stat-label">Respondidas</span>
+                </div>
+                <div class="confirm-stat-divider"></div>
+                <div class="confirm-stat">
+                    <span class="confirm-stat-value">{{ questions().length }}</span>
+                    <span class="confirm-stat-label">Total</span>
+                </div>
+            </div>
 
             @if (questions().length > answeredCount()) {
-                <p class="warning-text">⚠️ Tienes preguntas sin responder.</p>
+            <div class="confirm-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>Tienes preguntas sin responder</span>
+            </div>
             }
 
             <div class="confirm-actions">
                 <button class="btn btn-secondary" (click)="cancelSubmit()">Volver</button>
-                <button class="btn btn-submit" (click)="confirmSubmit()">Enviar Todo</button>
+                <button class="btn btn-submit" (click)="confirmSubmit()">
+                    Enviar Todo
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                </button>
             </div>
         </div>
     </div>
     }
 
-    <!-- Main Content: Pregunta Actual -->
+    <!-- Question Body -->
     <main class="engine-body">
         @if (currentQuestion(); as question) {
         <div class="question-card">
-            <h2 class="question-title">
-                <span class="question-number">{{ question.id }}.</span>
-                {{ question.content }}
-            </h2>
+            <div class="question-meta">
+                <span class="question-counter-badge">
+                    Pregunta {{ currentIndex() + 1 }} de {{ questions().length }}
+                </span>
+            </div>
 
-            <!-- Opciones -->
+            <h2 class="question-title">{{ question.content }}</h2>
+
+            <!-- Options with letters -->
             <div class="options-list">
-                @for (opt of question.options; track opt) {
+                @for (opt of question.options; track opt; let i = $index) {
                 <label class="option-item" [class.selected]="answers()[question.id] === opt">
                     <input type="radio" [name]="'q' + question.id" [value]="opt"
                         [checked]="answers()[question.id] === opt" (change)="selectAnswer(question.id, opt)">
                     <div class="option-content">
-                        <div class="radio-circle"></div>
+                        <div class="option-letter">
+                            @switch (i) {
+                            @case (0) { A }
+                            @case (1) { B }
+                            @case (2) { C }
+                            @case (3) { D }
+                            @default { {{ i + 1 }} }
+                            }
+                        </div>
                         <span class="option-text">{{ opt }}</span>
+                    </div>
+                    <div class="option-check" aria-hidden="true">
+                        @if (answers()[question.id] === opt) {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        }
                     </div>
                 </label>
                 }
@@ -88,18 +166,32 @@
         }
     </main>
 
-    <!-- Footer: Navegación -->
+    <!-- Footer: Navigation -->
     <footer class="engine-footer">
         <button class="btn btn-secondary" [disabled]="currentIndex() === 0" (click)="prevQuestion()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+            </svg>
             Anterior
         </button>
 
         @if (currentIndex() < questions().length - 1) { <button class="btn btn-primary" (click)="nextQuestion()">
             Siguiente
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+            </svg>
             </button>
             } @else {
             <button class="btn btn-submit" (click)="submitExam()">
                 Finalizar Examen
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
             </button>
             }
     </footer>

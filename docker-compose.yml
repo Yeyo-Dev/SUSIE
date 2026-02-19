@@ -1,11 +1,11 @@
 services:
   rabbitmq:
     build:
-      context: ./backend/infraestructure/broker
+      context: ./backend/infrastructure/broker
       dockerfile: Dockerfile
     container_name: susie-rabbitmq
     ports:
-      - "5672:5672"   # AMQP protocol port
+      - "5672:5672" # AMQP protocol port
       - "15672:15672" # Management UI port
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
@@ -22,7 +22,7 @@ services:
 
   postgres:
     build:
-      context: ./backend/infraestructure/database
+      context: ./backend/infrastructure/database
       dockerfile: Dockerfile
     container_name: susie-postgres
     ports:

@@ -5,7 +5,6 @@
     width: 100vw;
     height: 100vh;
     background: rgba(15, 23, 42, 0.95);
-    /* Slate-900 with opacity */
     backdrop-filter: blur(8px);
     z-index: 9999;
     display: flex;
@@ -46,14 +45,13 @@
 .icon-wrapper {
     width: 64px;
     height: 64px;
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(16, 185, 129, 0.15);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 1.5rem;
-    color: #60a5fa;
-    /* Blue-400 */
+    color: #34D399;
 }
 
 h2 {
@@ -68,7 +66,6 @@ h2 {
 
 p {
     color: #94a3b8;
-    /* Slate-400 */
     font-size: 0.95rem;
     line-height: 1.5;
 }
@@ -90,7 +87,6 @@ p {
     height: 100%;
     object-fit: cover;
     transform: scaleX(-1);
-    /* Mirror effect */
 }
 
 /* Face Guide Overlay */
@@ -103,7 +99,6 @@ p {
     height: 70%;
     border: 2px dashed rgba(255, 255, 255, 0.3);
     border-radius: 50%;
-    /* Oval for face */
     pointer-events: none;
 }
 
@@ -111,7 +106,7 @@ p {
     position: absolute;
     width: 20px;
     height: 20px;
-    border-color: #60a5fa;
+    border-color: #34D399;
     border-style: solid;
 }
 
@@ -159,32 +154,35 @@ button {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 .btn-capture {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    background: linear-gradient(135deg, #10B981, #059669);
     border: none;
     color: white;
     width: 100%;
     justify-content: center;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
 }
 
 .btn-capture:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+    background: linear-gradient(135deg, #10B981, #059669);
     border: none;
     color: white;
     flex: 2;
     justify-content: center;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
 }
 
 .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+    box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
 }
 
 .btn-secondary {
@@ -197,4 +195,9 @@ button {
 
 .btn-secondary:hover {
     background: rgba(255, 255, 255, 0.05);
+}
+
+button:focus-visible {
+    outline: 2px solid #10B981;
+    outline-offset: 2px;
 }
