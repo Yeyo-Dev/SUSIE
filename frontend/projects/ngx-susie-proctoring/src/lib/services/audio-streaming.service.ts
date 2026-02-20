@@ -72,8 +72,8 @@ export class AudioStreamingService {
                 this.errorSignal.set('Error en grabación de audio');
             };
 
-            // Enviamos chunks cada 1 segundo (1000ms)
-            this.mediaRecorder.start(1000);
+            // Enviamos chunks cada 15 segundos (15000ms)
+            this.mediaRecorder.start(15000);
 
         } catch (err) {
             console.error('Error al iniciar MediaRecorder:', err);

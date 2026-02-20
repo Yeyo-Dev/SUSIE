@@ -73,7 +73,7 @@ export class EvidenceService {
                 this.logger('error', '❌ Error en MediaRecorder', event.error);
             };
 
-            const interval = (config.chunkIntervalSeconds || 10) * 1000;
+            const interval = (config.chunkIntervalSeconds || 15) * 1000;
             this.mediaRecorder.start(interval); // Enviar cada X segundos
             this.logger('success', `🎙️ Streaming de audio iniciado (${mimeType})`, { interval });
 
@@ -102,14 +102,26 @@ export class EvidenceService {
     private async uploadEvidence(data: EvidencePayload) {
         if (!this.apiUrl) return;
 
+        // Determinar endpoint según el tipo de evidencia (asumimos que Snapshot y Audio llegan aquí)
+        // Por simplicidad, podemos usar una lógica condicional basada en el 'type'
+        let endpointUrl = `${this.apiUrl}/evidencias/snapshots`; // default a snapshots si no es audio
+        if (data.metadata?.payload?.type === 'AUDIO_CHUNK') {
+            endpointUrl = `${this.apiUrl}/evidencias/audios`;
+        } else if (data.metadata?.payload?.type === 'SNAPSHOT') {
+            endpointUrl = `${this.apiUrl}/evidencias/snapshots`;
+        }
+
         const formData = new FormData();
-        formData.append('metadata', JSON.stringify(data.metadata));
+        // El orden es vital para que Fastify no falle
+        formData.append('meta', JSON.stringify(data.metadata.meta || {}));
+        formData.append('payload_info', JSON.stringify(data.metadata.payload || {}));
+
         if (data.file) {
             formData.append('file', data.file);
         }
 
         try {
-            await fetch(`${this.apiUrl}/evidence`, {
+            await fetch(endpointUrl, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
