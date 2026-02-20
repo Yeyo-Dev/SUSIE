@@ -247,6 +247,16 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       this.startSnapshotLoop(this.config().capture!.snapshotIntervalSeconds);
     }
 
+    // Iniciar grabación de audio
+    if (this.config().securityPolicies.requireMicrophone && this.config().audioConfig?.enabled) {
+      const audioStream = this.mediaService.getAudioStream();
+      if (audioStream) {
+        this.evidenceService.startAudioRecording(audioStream, this.config().audioConfig);
+      } else {
+        this.log('error', '⚠️ Sin stream de audio. No se grabará audio.');
+      }
+    }
+
     // Iniciar monitoreo de inactividad
     this.inactivityService.startMonitoring();
 

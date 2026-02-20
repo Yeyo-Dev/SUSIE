@@ -4,15 +4,24 @@ import rabbitMQConnector from './config/rabbitmq';
 //import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
 import { userRoutes } from './modules/user/user.routes';
-import {snapshotRoutes} from './modules/monitoreo/snapshots/snapshot.routes';
-import {audioRoutes} from './modules/monitoreo/audios/audio.routes';
+import { snapshotRoutes } from './modules/monitoreo/snapshots/snapshot.routes';
+import { audioRoutes } from './modules/monitoreo/audios/audio.routes';
 import websocket from '@fastify/websocket';
 
 export let broker: ProducerService; //Variable global para acceder al broker
 
 export const buildServer = (): FastifyInstance => {
     const server = Fastify({
-        logger: true
+        logger: {
+            transport: {
+                target: 'pino-pretty',
+                options: {
+                    translateTime: 'HH:MM:ss Z',
+                    ignore: 'pid,hostname',
+                    colorize: true
+                }
+            }
+        }
     });
 
     server.register(cors, {//permite la comunicacion entre el frontend y el backend

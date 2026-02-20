@@ -7,6 +7,7 @@ export class EvidenceService {
     private authToken = '';
     private sessionContext: any = {};
     private mediaRecorder: MediaRecorder | null = null;
+    private recordingInterval: any = null;
     private audioChunks: Blob[] = [];
 
     private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
@@ -51,7 +52,17 @@ export class EvidenceService {
 
 
 
+    private handleUnload = () => {
+        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+            // Detener el grabador fuerza a que dispare el evento ondataavailable
+            // con el fragmento de audio restante.
+            this.mediaRecorder.stop();
+        }
+    };
+
     private initMediaRecorder(stream: MediaStream, config: any) {
+        window.addEventListener('beforeunload', this.handleUnload);
+
         try {
             const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
                 ? 'audio/webm;codecs=opus'
@@ -73,9 +84,20 @@ export class EvidenceService {
                 this.logger('error', '❌ Error en MediaRecorder', event.error);
             };
 
-            const interval = (config.chunkIntervalSeconds || 15) * 1000;
-            this.mediaRecorder.start(interval); // Enviar cada X segundos
-            this.logger('success', `🎙️ Streaming de audio iniciado (${mimeType})`, { interval });
+            const interval = ((config.chunkIntervalSeconds || 15) * 1000) + 500;
+
+            // Iniciar el primer segmento
+            this.mediaRecorder.start();
+
+            // Detener y reiniciar periódicamente para asegurar que cada chunk sea un archivo WebM completamente válido e independiente
+            this.recordingInterval = setInterval(() => {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                    this.mediaRecorder.start();
+                }
+            }, interval);
+
+            this.logger('success', `🎙️ Grabación de audio por bloques iniciada (${mimeType})`, { interval });
 
         } catch (err: any) {
             this.logger('error', '❌ Falló al iniciar MediaRecorder', err);
@@ -83,6 +105,11 @@ export class EvidenceService {
     }
 
     stopAudioRecording() {
+        window.removeEventListener('beforeunload', this.handleUnload);
+        if (this.recordingInterval) {
+            clearInterval(this.recordingInterval);
+            this.recordingInterval = null;
+        }
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
             this.logger('info', '🛑 Grabación de audio detenida'); // Updated log message
@@ -102,13 +129,16 @@ export class EvidenceService {
     private async uploadEvidence(data: EvidencePayload) {
         if (!this.apiUrl) return;
 
-        // Determinar endpoint según el tipo de evidencia (asumimos que Snapshot y Audio llegan aquí)
-        // Por simplicidad, podemos usar una lógica condicional basada en el 'type'
-        let endpointUrl = `${this.apiUrl}/evidencias/snapshots`; // default a snapshots si no es audio
+        // Determinar endpoint según el tipo de evidencia
+        let endpointUrl = '';
         if (data.metadata?.payload?.type === 'AUDIO_CHUNK') {
-            endpointUrl = `${this.apiUrl}/evidencias/audios`;
+            endpointUrl = `${this.apiUrl}/monitoreo/evidencias/audios`;
         } else if (data.metadata?.payload?.type === 'SNAPSHOT') {
-            endpointUrl = `${this.apiUrl}/evidencias/snapshots`;
+            endpointUrl = `${this.apiUrl}/monitoreo/evidencias/snapshots`;
+        } else {
+            // Ignorar otros eventos temporalmente (por ej. BROWSER_EVENT) para no generar errores 404/400
+            this.logger('info', `ℹ️ Evento local detectado: ${data.metadata?.payload?.type} (No se envía a backend)`);
+            return;
         }
 
         const formData = new FormData();
@@ -126,7 +156,8 @@ export class EvidenceService {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
                 },
-                body: formData
+                body: formData,
+                keepalive: true // Permite que la petición sobreviva el cierre del navegador
             });
 
             // Log de éxito para audio/evidencia

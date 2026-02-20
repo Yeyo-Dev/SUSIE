@@ -367,7 +367,7 @@ export function createExamConfig(component: {
         },
         securityPolicies: {
             requireCamera: false, // Desactivado para prueba local
-            requireMicrophone: false, // Desactivado para prueba local
+            requireMicrophone: true, // Desactivado para prueba local
             requireFullscreen: true,
             requireConsent: true,
             requireEnvironmentCheck: false, // No tiene sentido sin cámara
@@ -381,7 +381,7 @@ export function createExamConfig(component: {
 
         audioConfig: {
             enabled: true,
-            chunkIntervalSeconds: 10,
+            chunkIntervalSeconds: 15,
             bitrate: 32000,
         },
         onSecurityViolation: (violation: SecurityViolation) => {
@@ -402,7 +402,7 @@ export function createExamConfig(component: {
         },
         inactivityTimeoutMinutes: 0.25,
         debugMode: true,
-        apiUrl: 'http://localhost:8000/api/v1',
+        apiUrl: 'http://localhost:8000/susie/api/v1',
         authToken: 'demo-jwt-token-xyz',
     };
 }
