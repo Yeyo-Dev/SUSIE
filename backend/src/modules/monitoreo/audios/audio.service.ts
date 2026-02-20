@@ -18,9 +18,9 @@ export class AudioService {
 
     private sanitizarNombre(texto: string): string {
         return texto
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             .toLowerCase()
-            .replace(/[^a-z0-9-_]/g, ''); 
+            .replace(/[^a-z0-9-_]/g, '');
     }
 
     async procesarEvidencia(
@@ -46,14 +46,16 @@ export class AudioService {
             // Simulación Azure
             const mockUrl = `https://mi-storage.blob.core.windows.net/audios/${nombreArchivo}`;
 
-            console.log(`[Audio Service] Fragmento guardado: ${nombreArchivo} (${stats.size} bytes)`);
-            
+            console.log(`[Audio Service] 💾 Guardado en disco local: ${nombreArchivo} (${stats.size} bytes)`);
+
             await broker.publish('stream.audio', {
                 sesion_id: metaData.sesion_id,
                 user_id: metaData.usuario_id,
                 timestamp: metaData.timestamp,
                 url_storage: mockUrl
             });
+
+            console.log(`[RabbitMQ] 🐇✅ Evento de audio encolado exitosamente en 'stream.audio'`);
 
             return {
                 status: 'success',

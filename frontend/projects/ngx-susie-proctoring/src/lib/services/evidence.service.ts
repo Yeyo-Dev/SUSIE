@@ -131,7 +131,9 @@ export class EvidenceService {
 
             // Log de éxito para audio/evidencia
             if (data.file) { // Solo loguear si hay archivo (audio/snapshot)
-                this.logger('success', `📤 Evidencia enviada: ${data.file.size} bytes`);
+                const isAudio = data.metadata?.payload?.type === 'AUDIO_CHUNK';
+                const label = isAudio ? 'Audio (15s)' : 'Snapshot';
+                this.logger('success', `📤 ${label} enviado al servidor (${data.file.size} bytes)`);
             }
 
         } catch (err) {
