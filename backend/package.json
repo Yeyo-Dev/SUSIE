@@ -27,6 +27,8 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/multipart": "^9.4.0",
     "@fastify/redis": "^7.2.0",
     "@fastify/websocket": "^11.2.0",
     "@prisma/client": "^5.22.0",
