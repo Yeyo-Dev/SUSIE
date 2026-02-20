@@ -8,33 +8,45 @@ Este documento define los endpoints que el **Backend** debe implementar para rec
 
 ## 1. Envío de Audio (Chunks)
 
-El frontend graba audio en segmentos pequeños (chunks) y los envía periódicamente.
+El frontend graba audio en segmentos pequeños (chunks) y los envía periódicamente (cada 15 segundos).
 
-- **Endpoint:** `POST /api/monitoreo/audio`
+- **Endpoint:** `POST /susie/api/v1/monitoreo/evidencias/audios`
 - **Content-Type:** `multipart/form-data`
 
 ### 📥 Request Body (FormData)
 
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
+| `meta` | `JSON String` | Metadatos básicos de identificación cruzada. |
+| `payload_info` | `JSON String` | Información y detalles extra sobre el chunk enviado. |
 | `file` | `File` (Blob) | El archivo de audio. Formato: **WebM (Opus)**. |
-| `metadata` | `JSON String` | Metadatos del chunk. Ver esquema abajo. |
 
-**Esquema JSON de `metadata`:**
+> [!IMPORTANT]
+> El orden en el que se envían los campos dentro del FormData es **ESTRICTO**. El campo `file` **SIEMPRE DEBE LLEGAR AL FINAL** (después de `meta` y `payload_info`), o el backend rechazará la petición con un error 400.
+
+**Esquema JSON de `meta`:**
 ```json
 {
+  "correlation_id": "sess_abc", // ID de la sesión única
   "exam_id": "12345",          // ID del examen
   "student_id": "user_789",    // ID del estudiante
-  "examSessionId": "sess_abc", // ID de la sesión única
   "timestamp": "2026-02-19T10:00:00Z",
-  "chunk_index": 1,            // Secuencia del chunk (0, 1, 2...)
   "source": "frontend_client_v1"
+}
+```
+
+**Esquema JSON de `payload_info`:**
+```json
+{
+  "chunk_index": 1,            // Secuencia del chunk (0, 1, 2...)
+  "type": "AUDIO_CHUNK"
 }
 ```
 
 ### 📤 Response
 
 - **200 OK**: Recibido y puesto en cola.
+- **400 Bad Request**: El orden de los parámetros es incorrecto.
 - **500 Error**: Fallo al procesar.
 
 ---
@@ -43,23 +55,23 @@ El frontend graba audio en segmentos pequeños (chunks) y los envía periódicam
 
 El frontend toma fotos de la cámara periódicamente o cuando detecta anomalías.
 
-- **Endpoint:** `POST /api/monitoreo/video` (o `/api/evidence` si se quiere unificar)
+- **Endpoint:** `POST /susie/api/v1/monitoreo/evidencias/snapshots`
 - **Content-Type:** `multipart/form-data`
 
 ### 📥 Request Body (FormData)
 
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
+| `meta` | `JSON String` | Metadatos básicos de identificación cruzada. |
+| `payload_info` | `JSON String` | Información técnica del snapshot. |
 | `file` | `File` (Blob) | La foto capturada. Formato: **JPEG (`image/jpeg`)**. Calidad recomendada: 0.8. |
-| `metadata` | `JSON String` | Metadatos de la evidencia. |
 
-**Esquema JSON de `metadata`:**
+> [!IMPORTANT]
+> Al igual que el audio, el campo `file` debe mandarse **al final**.
+
+**Esquema JSON de `payload_info`:**
 ```json
 {
-  "exam_id": "12345",
-  "student_id": "user_789",
-  "examSessionId": "sess_abc",
-  "timestamp": "2026-02-19T10:05:00Z",
   "type": "SNAPSHOT",          // Tipo de evento
   "trigger": "PERIODIC",       // "PERIODIC" | "TAB_SWITCH" | "FACE_MISSING"
   "browser_focus": true        // Si el usuario tenía el foco en la pestaña
