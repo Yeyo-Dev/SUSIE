@@ -1,0 +1,132 @@
+<div class="susie-container">
+    <div class="susie-overlay">
+        <!-- Hidden video for snapshots -->
+        <video #snapshotVideo autoplay playsinline muted
+            style="position: absolute; opacity: 0; pointer-events: none; height: 1px; width: 1px;"></video>
+    </div>
+    <!-- PANEL DE DEBUG (Solo si debugMode=true) -->
+    @if (config().debugMode) {
+    <div class="debug-panel">
+        <div class="debug-header">
+            <span>🔧 SUSIE Debug Console</span>
+            <button class="clear-btn" (click)="clearLogs()">LIMPIAR</button>
+        </div>
+        <div class="debug-content">
+            @for (l of logs(); track $index) {
+            <div class="debug-log" [class]="l.type">
+                <span class="timestamp">[{{ l.time }}]</span>
+                <span class="message">{{ l.msg }}</span>
+                @if(l.details) { <div class="details">{{ l.details | json }}</div> }
+            </div>
+            } @empty {
+            <div class="debug-log">Esperando eventos...</div>
+            }
+        </div>
+    </div>
+    }
+
+    <!-- PiP Camera (Siempre visible si hay stream) -->
+    @if (mediaStream()) {
+    <div class="susie-pip" [class.hidden]="state() === 'ENVIRONMENT_CHECK'">
+        <susie-camera-pip [stream]="mediaStream()!" [muted]="true"></susie-camera-pip>
+        <div class="recording-indicator">
+            <span class="dot"></span> REC
+        </div>
+    </div>
+    }
+
+    <!-- ERROR DE MEDIOS (Bloqueante) -->
+    @if (mediaError()) {
+    <div class="media-error-backdrop" role="alert" aria-live="assertive">
+        <div class="media-error-card">
+            <div class="media-error-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16.5 2.25V6a.75.75 0 0 0 1.28.53l2.72-2.72" />
+                    <path d="M22.5 7.5V18a3 3 0 0 1-3 3H4.5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3H15" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+            </div>
+            <h2 class="media-error-title">Permisos de dispositivo requeridos</h2>
+            <p class="media-error-message">{{ mediaError() }}</p>
+            <p class="media-error-detail">Este examen requiere acceso a tu cámara y/o micrófono para la supervisión. Por
+                favor, permite el acceso cuando tu navegador lo solicite.</p>
+            <button type="button" class="media-error-retry" (click)="retryMedia()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Reintentar permisos
+            </button>
+        </div>
+    </div>
+    }
+
+    <!-- ALERTA DE INACTIVIDAD -->
+    @if (inactivityWarning()) {
+    <div class="inactivity-backdrop">
+        <div class="inactivity-card">
+            <div class="inactivity-pulse">🕑</div>
+            <h2>¿Estás ahí?</h2>
+            <p>Hemos detectado inactividad. Por favor confirma que sigues presente para continuar el examen.</p>
+            <button class="inactivity-btn" (click)="confirmActivity()">Continuar Examen</button>
+        </div>
+    </div>
+    }
+
+    <!-- BANNERS DE RED -->
+    <div class="network-status">
+        @if (!isOnline()) {
+        <div class="net-banner net-banner--offline">
+            <span>📡</span> Sin conexión a internet. Intentando reconectar...
+        </div>
+        }
+    </div>
+
+
+    <!-- CONTENIDO PRINCIPAL (Máquina de Estados) -->
+    <div class="susie-content">
+
+        @switch (state()) {
+
+        @case ('CHECKING_PERMISSIONS') {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Verificando permisos de dispositivos...</p>
+        </div>
+        }
+
+        @case ('CONSENT') {
+        <susie-consent-dialog [config]="config()" (consentGiven)="handleConsent($event)"></susie-consent-dialog>
+        }
+
+        @case ('BIOMETRIC_CHECK') {
+        <!-- Paso 3: Onboarding Biométrico -->
+        <susie-biometric-onboarding (completed)="handleBiometricCompleted($event)" />
+        }
+
+        @case ('ENVIRONMENT_CHECK') {
+        <!-- Paso 4: Verificación de Entorno -->
+        <susie-environment-check [policies]="config().securityPolicies"
+            (checkCompleted)="handleEnvironmentCheck($event)">
+        </susie-environment-check>
+        }
+
+        @case ('MONITORING') {
+        <!-- Paso 5: Monitoreo Activo (Todo listo) -->
+        <!-- Modo Examen Activo -->
+        @if (questions().length > 0) {
+        <!-- Usar Motor Interno -->
+        <susie-exam-engine [config]="config()" [questions]="questions()" (examFinished)="handleExamFinished($event)">
+        </susie-exam-engine>
+        } @else {
+        <!-- Modo Wrapper: Proyectar contenido externo -->
+        <ng-content></ng-content>
+        }
+        }
+
+        }
+    </div>
+</div>

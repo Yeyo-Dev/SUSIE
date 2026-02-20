@@ -1,0 +1,138 @@
+<div class="consent-backdrop">
+    <div class="consent-container">
+        @if (consentState() === 'pending') {
+        <div class="consent-card">
+            <!-- Step indicator -->
+            <div class="step-indicator" aria-label="Paso 1 de 3">
+                <div class="step active">
+                    <div class="step-dot current"></div>
+                    <span class="step-label">Consentimiento</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step">
+                    <div class="step-dot"></div>
+                    <span class="step-label">Verificación</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step">
+                    <div class="step-dot"></div>
+                    <span class="step-label">Examen</span>
+                </div>
+            </div>
+
+            <header class="consent-header">
+                <div class="header-icon-glow" aria-hidden="true">
+                    <div class="header-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                    </div>
+                </div>
+                <span class="flow-badge">Supervisión Digital</span>
+                <h1 id="consent-title">Términos y Condiciones</h1>
+                <p class="subtitle">Este examen requiere supervisión digital. Por favor lee y acepta los siguientes
+                    términos para continuar.</p>
+            </header>
+
+            <main class="consent-body" aria-labelledby="consent-title">
+                <section class="terms-section">
+                    <h2>Permisos requeridos</h2>
+                    <ul class="permissions-list" role="list">
+                        @for (item of consentItems(); track item.permission) {
+                        <li class="permission-item">
+                            <div class="permission-icon-wrap">
+                                <span class="permission-icon" aria-hidden="true">{{ item.icon }}</span>
+                            </div>
+                            <div class="permission-text">
+                                <strong>{{ item.title }}</strong>
+                                <p>{{ item.description }}</p>
+                            </div>
+                            <div class="permission-arrow" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                            </div>
+                        </li>
+                        }
+                    </ul>
+                </section>
+
+                <section class="terms-section data-section">
+                    <div class="data-header">
+                        <div class="data-icon" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                        </div>
+                        <h2>Uso de datos</h2>
+                    </div>
+                    <p>Los datos recopilados durante el examen se utilizarán exclusivamente para la supervisión y
+                        verificación de la evaluación.</p>
+                    <ul class="data-list" role="list">
+                        <li>Eres la persona asignada para presentar este examen.</li>
+                        <li>Autorizas el uso de los recursos indicados durante la evaluación.</li>
+                        <li>Comprendes que cualquier irregularidad detectada será reportada.</li>
+                    </ul>
+                </section>
+            </main>
+
+            <footer class="consent-footer">
+                <label class="checkbox-container" id="consent-checkbox-label">
+                    <input type="checkbox" [checked]="isChecked()" (change)="onCheckboxChange($event)"
+                        aria-describedby="consent-checkbox-label" />
+                    <span class="checkmark" aria-hidden="true"></span>
+                    <span class="checkbox-text">He leído y acepto los términos y condiciones de supervisión</span>
+                </label>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-reject" (click)="onReject()">
+                        Rechazar
+                    </button>
+                    <button type="button" class="btn btn-accept" [disabled]="!isChecked()"
+                        [attr.aria-disabled]="!isChecked()" (click)="onAccept()">
+                        Aceptar y continuar
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                            <polyline points="12 5 19 12 12 19" />
+                        </svg>
+                    </button>
+                </div>
+            </footer>
+        </div>
+        } @else {
+        <!-- Rejected state -->
+        <div class="consent-card rejected-card">
+            <div class="rejected-content">
+                <div class="rejected-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                </div>
+                <span class="result-badge error-badge">Acceso Denegado</span>
+                <h1>Acceso al examen bloqueado</h1>
+                <p>Has rechazado los términos y condiciones de supervisión. No es posible iniciar el examen sin aceptar
+                    estos términos.</p>
+                <p class="reconsider-text">Si deseas reconsiderar, puedes volver a leer los términos.</p>
+                <button type="button" class="btn btn-reconsider" (click)="onReconsider()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                    Volver a leer los términos
+                </button>
+            </div>
+        </div>
+        }
+    </div>
+</div>

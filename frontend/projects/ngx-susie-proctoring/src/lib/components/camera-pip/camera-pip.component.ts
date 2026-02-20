@@ -1,75 +1,58 @@
-import { Component, Input, ViewChild, ElementRef, effect, inject } from '@angular/core';
+import { Component, input, effect, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MediaService } from '../../services/media.service';
 
 @Component({
-    selector: 'susie-camera-pip',
-    standalone: true,
-    imports: [CommonModule],
-    template: `
-    <div class="pip-container" [class.hidden]="!mediaService.isActive()">
-      <video #pipVideo autoplay playsinline muted></video>
+  selector: 'susie-camera-pip',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="pip-container">
+      <video #pipVideo autoplay playsinline [muted]="muted()"></video>
       <div class="status-indicator">
-        <span class="recording-dot"></span> Grabo
+        <span class="recording-dot"></span> REC
       </div>
     </div>
   `,
-    styles: [`
+  styles: [`
     .pip-container {
       position: relative;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
+      width: 100%; height: 100%;
+      background: #000; overflow: hidden;
+      border-radius: inherit;
     }
-
     video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);
+      width: 100%; height: 100%;
+      object-fit: cover; transform: scaleX(-1);
     }
-
     .status-indicator {
-      position: absolute;
-      top: 5px;
-      left: 5px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: rgba(0,0,0,0.5);
-      padding: 2px 5px;
-      border-radius: 4px;
-      color: white;
-      font-size: 0.7rem;
+      position: absolute; top: 8px; left: 8px;
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(0,0,0,0.6); padding: 2px 6px;
+      border-radius: 4px; color: white; font-size: 10px;
     }
-
     .recording-dot {
-      width: 8px;
-      height: 8px;
-      background-color: #ff3b30;
-      border-radius: 50%;
-      animation: pulse 1.5s infinite;
+      width: 6px; height: 6px; background-color: #ef4444;
+      border-radius: 50%; animation: pulse 1.5s infinite;
     }
-
     @keyframes pulse {
-      0% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.9); }
-      100% { opacity: 1; transform: scale(1); }
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
     }
   `]
 })
 export class CameraPipComponent {
-    public mediaService = inject(MediaService);
+  stream = input.required<MediaStream>();
+  muted = input(true);
 
-    @ViewChild('pipVideo') pipVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('pipVideo') pipVideo!: ElementRef<HTMLVideoElement>;
 
-    constructor() {
-        effect(() => {
-            const stream = this.mediaService.stream();
-            if (this.pipVideo && this.pipVideo.nativeElement && stream) {
-                this.pipVideo.nativeElement.srcObject = stream;
-            }
-        });
-    }
+  constructor() {
+    effect(() => {
+      const s = this.stream();
+      if (this.pipVideo && this.pipVideo.nativeElement && s) {
+        this.pipVideo.nativeElement.srcObject = s;
+      }
+    });
+  }
 }

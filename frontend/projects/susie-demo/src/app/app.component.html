@@ -1,0 +1,117 @@
+<div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand">
+                <div class="logo-mark">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>SUSIE</h1>
+                    <span class="brand-label">Proctoring System</span>
+                </div>
+            </div>
+            @if (examState() === 'taking') {
+            <div class="header-meta">
+                <span class="session-badge">
+                    <span class="live-dot"></span>
+                    Sesión activa
+                </span>
+            </div>
+            }
+        </div>
+        <div class="header-accent"></div>
+    </header>
+
+    <!-- SCREEN: EXAM IN PROGRESS -->
+    @if (examState() === 'taking') {
+    <susie-wrapper [config]="examConfig" [questions]="questions"></susie-wrapper>
+    }
+
+    <!-- SCREEN: RESULTS -->
+    @if (examState() === 'submitted') {
+    <div class="result-screen">
+        <div class="result-card success">
+            <div class="result-icon-ring success-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+            </div>
+            <span class="result-badge success-badge">Completado</span>
+            <h2>¡Examen Completado!</h2>
+            <p>Tus respuestas han sido enviadas correctamente para su análisis supervisado.</p>
+
+            @if (examResult(); as res) {
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-value">{{ questions.length }}</span>
+                    <span class="stat-label">Respuestas enviadas</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">{{ questions.length }}</span>
+                    <span class="stat-label">Total preguntas</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">{{ res.completedAt | date:'shortTime' }}</span>
+                    <span class="stat-label">Hora de envío</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">{{ examConfig.sessionContext.examSessionId }}</span>
+                    <span class="stat-label">ID de sesión</span>
+                </div>
+            </div>
+            }
+
+            <button class="btn btn-primary" (click)="resetExam()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Reiniciar Demo
+            </button>
+        </div>
+    </div>
+    }
+
+    <!-- SCREEN: CANCELLED -->
+    @if (examState() === 'cancelled') {
+    <div class="result-screen">
+        <div class="result-card error">
+            <div class="result-icon-ring error-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+            </div>
+            <span class="result-badge error-badge">Bloqueado</span>
+            <h2>Examen Cancelado</h2>
+            <div class="error-detail">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{{ cancellationReason() }}</span>
+            </div>
+            <p>Se ha detectado una violación grave de las políticas de seguridad. El intento ha sido registrado.</p>
+            <button class="btn btn-danger" (click)="resetExam()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Intentar de nuevo
+            </button>
+        </div>
+    </div>
+    }
+</div>
