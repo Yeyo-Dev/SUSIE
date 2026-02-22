@@ -9,4 +9,5 @@ export * from './lib/components/consent-dialog/consent-dialog.component';
 export * from './lib/components/susie-wrapper/susie-wrapper.component';
 export * from './lib/components/camera-pip/camera-pip.component';
 export * from './lib/services/security.service';
+export * from './lib/services/exam-config.service';
 

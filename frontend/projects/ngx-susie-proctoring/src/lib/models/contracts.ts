@@ -105,6 +105,98 @@ export interface SusieConfig {
   authToken: string;   // JWT del estudiante
 }
 
+// --- Integración con Chaindrenciales ---
+
+/**
+ * Los 6 campos configurables por examen.
+ * Todo lo demás (fullscreen, preventCopyPaste, etc.) lo maneja SUSIE internamente.
+ */
+export interface SupervisionConfig {
+  requireCamera: boolean;
+  requireMicrophone: boolean;
+  requireBiometrics: boolean;
+  requireGazeTracking: boolean;
+  /** Máximo de cambios de pestaña permitidos (0 = cancelar al primero). */
+  maxTabSwitches: number;
+  /** Minutos sin actividad antes de alertar. */
+  inactivityTimeoutMinutes: number;
+}
+
+/**
+ * Contrato de lo que el endpoint de Chaindrenciales nos devuelve.
+ * GET /api/evaluaciones/:evaluacionId/susie-config
+ */
+export interface ChaindrencialesExamConfig {
+  sessionContext: {
+    examSessionId: string;
+    examId: string;
+    examTitle: string;
+    durationMinutes: number;
+    assignmentId: number;
+  };
+  supervision: SupervisionConfig;
+  questions: SusieQuestion[];
+  susieApiUrl: string;
+  authToken: string;
+}
+
+/**
+ * Transforma la respuesta de Chaindrenciales → SusieConfig interna.
+ * Deriva las políticas siempre-ON y configura audio/consent automáticamente.
+ */
+export function mapToSusieConfig(
+  source: ChaindrencialesExamConfig,
+  callbacks?: {
+    onSecurityViolation?: (v: SecurityViolation) => void;
+    onExamFinished?: (r: ExamResult) => void;
+    onConsentResult?: (r: ConsentResult) => void;
+    onEnvironmentCheckResult?: (r: { passed: boolean }) => void;
+    onInactivityDetected?: () => void;
+  },
+  options?: { debugMode?: boolean }
+): SusieConfig {
+  const s = source.supervision;
+  const needsConsent = s.requireCamera || s.requireMicrophone || s.requireBiometrics;
+
+  return {
+    sessionContext: {
+      examSessionId: source.sessionContext.examSessionId,
+      examId: source.sessionContext.examId,
+      examTitle: source.sessionContext.examTitle,
+      durationMinutes: source.sessionContext.durationMinutes,
+    },
+    securityPolicies: {
+      // Configurables (vienen de BD)
+      requireCamera: s.requireCamera,
+      requireMicrophone: s.requireMicrophone,
+      requireBiometrics: s.requireBiometrics,
+      // Derivados
+      requireConsent: needsConsent,
+      requireEnvironmentCheck: s.requireCamera,
+      // Siempre ON (base de SUSIE)
+      requireFullscreen: true,
+      preventTabSwitch: true,
+      preventInspection: true,
+      preventBackNavigation: true,
+      preventPageReload: true,
+      preventCopyPaste: true,
+    },
+    audioConfig: {
+      enabled: s.requireMicrophone,
+      chunkIntervalSeconds: 15,
+      bitrate: 32000,
+    },
+    questions: source.questions,
+    inactivityTimeoutMinutes: s.inactivityTimeoutMinutes,
+    apiUrl: source.susieApiUrl,
+    authToken: source.authToken,
+    debugMode: options?.debugMode ?? false,
+    ...callbacks,
+  };
+}
+
+// --- Evidencias ---
+
 /**
  * Metadatos que acompañan cada evidencia (snapshot, audio, evento).
  */

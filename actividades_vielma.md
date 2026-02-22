@@ -12,11 +12,11 @@ Asegurar que los datos salgan del usuario y lleguen a la puerta del servidor (AP
 
 - [x] **Crear proyecto Angular + PrimeNG**
     - Configurar workspace con librería `ngx-susie-proctoring` y demo app (PrimeNG instalado).
-- [ ] **Implementar RF4 (Consentimiento)**
+- [x] **Implementar RF4 (Consentimiento)**
     - Crear UI para solicitar y gestión de permisos de cámara/micrófono.
-- [ ] **Captura de Medios**
+- [x] **Captura de Medios**
     - Lograr capturar stream de video y audio usando `navigator.mediaDevices`.
-- [ ] **Punto de Integración 1**
+- [x] **Punto de Integración 1**
     - Enviar un JSON de prueba al Gateway de Ramírez (API Fastify).
 
 ---
@@ -24,15 +24,15 @@ Asegurar que los datos salgan del usuario y lleguen a la puerta del servidor (AP
 ## FASE 2: Desarrollo del Núcleo (Semanas 5-9)
 **Meta:** Desarrollo funcional en "caja negra" (Interfaz envía, aunque IA no procese real).
 
-- [ ] **Implementar RF1 (Sesión Segura)**
+- [x] **Implementar RF1 (Sesión Segura)**
     - Bloqueo de pestañas.
     - Modo Full-screen forzado.
     - Detección de pérdida de foco.
-- [ ] **Envío de Capturas (Evidencia)**
+- [x] **Envío de Capturas (Evidencia)**
     - Tomar snapshots (frames) del video.
     - Comprimir imágenes antes del envío.
     - Enviar al Gateway via HTTP/WebSocket.
-- [ ] **RF2 (Monitoreo Cámara) UI**
+- [x] **RF2 (Monitoreo Cámara) UI**
     - Mostrar feedback visual al usuario (cámara activa, grabando).
 
 ---
