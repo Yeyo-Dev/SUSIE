@@ -8,7 +8,8 @@ Este documento define los endpoints que el **Backend** debe implementar para rec
 
 ## 1. Envío de Audio (Chunks)
 
-El frontend graba audio en segmentos pequeños (chunks) y los envía periódicamente (cada 15 segundos).
+El frontend graba audio en segmentos pequeños (chunks) y los envía periódicamente (cada **15 segundos**).
+*Nota: Se usan 15 segundos porque modelos como Whisper son imprecisos con fragmentos muy cortos.*
 
 - **Endpoint:** `POST /susie/api/v1/monitoreo/evidencias/audios`
 - **Content-Type:** `multipart/form-data`
@@ -84,7 +85,44 @@ El frontend toma fotos de la cámara periódicamente o cuando detecta anomalías
 
 ---
 
-## 3. Ejemplo de Implementación (Fastify)
+## 3. Envío de Eventos del Navegador (Anomalías Lógicas)
+
+El frontend también rastrea eventos lógicos (sin archivo multimedia) que son determinantes para el cálculo final de probabilidad de fraude (Motor de Inferencia).
+
+- **Endpoint:** `POST /susie/api/v1/monitoreo/evidencias/eventos`
+- **Content-Type:** `application/json`
+
+### 📥 Request Body (JSON)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `meta` | `Object` | Metadatos básicos (mismos que en Audio/Snapshots). |
+| `payload_info` | `Object` | Detalles del evento lógíco. |
+
+**Esquema de Ejemplo:**
+```json
+{
+  "meta": {
+    "correlation_id": "sess_abc",
+    "exam_id": "12345",
+    "student_id": "user_789",
+    "timestamp": "2026-02-19T10:05:00Z"
+  },
+  "payload_info": {
+    "type": "BROWSER_EVENT",
+    "trigger": "TAB_SWITCH", // "LOSS_FOCUS" | "DEVTOOLS_OPENED" | "FULLSCREEN_EXIT"
+    "duration_seconds": 12 // Cuánto duró la anomalía (opcional)
+  }
+}
+```
+
+### 📤 Response
+
+- **200 OK**: Evento registrado.
+
+---
+
+## 4. Ejemplo de Implementación (Fastify)
 
 Para que el backend pueda recibir estos archivos, debe usar `@fastify/multipart`.
 

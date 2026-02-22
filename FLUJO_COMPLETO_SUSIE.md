@@ -175,9 +175,9 @@ sequenceDiagram
         SS->>SS: Bloquea right-click
         SS->>SS: Fuerza fullscreen
     and Captura de evidencia (async)
-        ES->>API: Envía snapshot cada N seg (JPEG)
+        ES->>API: Envía snapshot (JPEG) al detectar anomalía o periodo
+        ES->>API: Envía evento lógico del navegador (JSON)
         ES->>API: Envía audio chunk cada 15 seg (WebM)
-        ES->>API: Envía browser events
     and Inactividad
         IS->>IS: Monitorea teclas y mouse
         IS-->>C: "¿Sigues ahí?" (si inactivo)
@@ -217,10 +217,10 @@ sequenceDiagram
     GW->>RMQ: Publica mensaje en cola
     RMQ->>AI: Worker consume mensaje
 
-    AI->>AI: YOLO (objetos sospechosos)
-    AI->>AI: DeepFace (verificación facial)
-    AI->>AI: MediaPipe (gaze tracking)
-    AI->>AI: Whisper (transcripción audio)
+    AI->>AI: YOLO (objetos sospechosos en snapshots)
+    AI->>AI: DeepFace (verificación facial en snapshots)
+    AI->>AI: MediaPipe (gaze tracking en snapshots)
+    AI->>AI: Whisper (transcripción audio en webm)
 
     AI->>GW: Resultados de análisis
     GW->>GW: Guarda en BD de SUSIE
@@ -434,6 +434,41 @@ flowchart TD
     I -->|"No"| J["Marca como válido"]
     I -->|"Sí"| K["Invalida examen + notifica"]
 ```
+
+---
+
+## Fase 9: Infraestructura y Despliegue (Dónde vive SUSIE)
+
+SUSIE opera bajo un modelo de infraestructura dividida para asegurar alta disponibilidad y rendimiento asíncrono.
+
+```mermaid
+flowchart LR
+    subgraph Cliente["Navegador del Candidato"]
+        A("Chaindrenciales UI") --> B("ngx-susie-proctoring (npm)")
+    end
+
+    subgraph ServidorCH["Servidor Chaindrenciales"]
+        C("Backend Spring Boot\nCrear encuestas y evaluar")
+    end
+
+    subgraph ServidorSU["Servidor SUSIE"]
+        D("API Gateway Fastify\nPuerto: 8000")
+        E("RabbitMQ Event Bus\nPuerto: 5672")
+        F("PostgreSQL / Redis\nPuertos: 5432 / 6379")
+        G("AI Workers: Python\nYOLO, Whisper, DeepFace")
+    end
+    
+    B -- "HTTPS (API + Auth)" --> D
+    D -- "Fire & Forget" --> E
+    E -- "Consume" --> G
+    D -- "Save Data" --> F
+    A -- "UI Data fetch" --> C
+```
+
+**Puntos Clave:**
+1. **Frontend:** No hay servidor de frontend para SUSIE; la librería vive empaquetada dentro de la aplicación de Chaindrenciales en el navegador.
+2. **API Autenticada:** Toda comunicación se hace al API Gateway utilizando el `apiUrl` y `authToken` proveído en la configuración inicial (`SusieExamConfig`).
+3. **Escalabilidad Oculta:** Chaindrenciales ignora la complejidad de los AI Workers, RabbitMQ y bases de datos; estos son componentes internos de la infraestructura de SUSIE gestionados via Docker Compose o Kubernetes.
 
 ---
 
