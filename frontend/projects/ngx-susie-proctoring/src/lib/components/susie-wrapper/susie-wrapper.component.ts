@@ -75,6 +75,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   isOnline = this.networkService.isOnline;
   inactivityWarning = this.inactivityService.showWarning; // Nuevo: warning signal
   private snapshotInterval: any = null;
+  private tabSwitchCount = signal(0);
 
   @ViewChild('snapshotVideo') snapshotVideo!: ElementRef<HTMLVideoElement>;
 
@@ -266,13 +267,41 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
   private handleViolation(violation: SecurityViolation) {
     this.log('error', `🚨 Violación detectada: ${violation.type} - ${violation.message}`);
-    this.config().onSecurityViolation?.(violation);
 
-    // Enviar evidencia al backend (opcionalmente snapshot)
+    // Mapear el tipo de violación al trigger esperado por el backend
+    const triggerMap: Record<string, string> = {
+      'TAB_SWITCH': 'TAB_SWITCH',
+      'FULLSCREEN_EXIT': 'FULLSCREEN_EXIT',
+      'FOCUS_LOST': 'LOSS_FOCUS',
+      'INSPECTION_ATTEMPT': 'DEVTOOLS_OPENED',
+      'NAVIGATION_ATTEMPT': 'NAVIGATION_ATTEMPT',
+      'RELOAD_ATTEMPT': 'RELOAD_ATTEMPT',
+      'CLIPBOARD_ATTEMPT': 'CLIPBOARD_ATTEMPT',
+    };
+
+    // Enviar evento al backend con trigger específico
     this.evidenceService.sendEvent({
-      type: 'BROWSER_EVENT', // O 'FOCUS_LOST'
+      type: 'BROWSER_EVENT',
+      trigger: triggerMap[violation.type] || violation.type,
       browser_focus: document.hasFocus()
-    });
+    } as any);
+
+    // Lógica de maxTabSwitches: solo cancelar cuando se alcance el límite
+    if (violation.type === 'TAB_SWITCH') {
+      const count = this.tabSwitchCount() + 1;
+      this.tabSwitchCount.set(count);
+      const max = this.config().maxTabSwitches;
+
+      if (max !== undefined && count >= max) {
+        this.log('error', `❌ Límite de cambios de pestaña alcanzado (${count}/${max}). Cancelando examen.`);
+        this.config().onSecurityViolation?.(violation);
+      } else {
+        this.log('error', `⚠️ Cambio de pestaña ${count}/${max ?? '∞'} — siguiente cancelará el examen`);
+      }
+    } else {
+      // Otras violaciones se reportan inmediatamente
+      this.config().onSecurityViolation?.(violation);
+    }
   }
 
   /** Reintenta solicitar permisos tras un error */

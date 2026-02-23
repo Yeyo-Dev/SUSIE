@@ -3,7 +3,7 @@
  * Se usa para notificar tanto al wrapper (debug panel) como a la app host (cancelar examen).
  */
 export interface SecurityViolation {
-  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST';
+  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST' | 'INSPECTION_ATTEMPT' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT';
   message: string;
   timestamp: string;
 }
@@ -99,6 +99,8 @@ export interface SusieConfig {
   onInactivityDetected?: () => void;
   /** Tiempo en minutos antes de considerar inactivo (default: 3) */
   inactivityTimeoutMinutes?: number;
+  /** Máximo de cambios de pestaña permitidos antes de cancelar (0 = cancelar al primero) */
+  maxTabSwitches?: number;
 
   debugMode?: boolean; // Mostrar panel de debug
   apiUrl: string;      // URL del API Gateway
@@ -187,6 +189,7 @@ export function mapToSusieConfig(
       bitrate: 32000,
     },
     questions: source.questions,
+    maxTabSwitches: s.maxTabSwitches,
     inactivityTimeoutMinutes: s.inactivityTimeoutMinutes,
     apiUrl: source.susieApiUrl,
     authToken: source.authToken,
@@ -211,6 +214,7 @@ export interface EvidenceMetadata {
   payload: {
     type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'BROWSER_EVENT' | 'FOCUS_LOST';
     browser_focus: boolean;    // ¿Está la pestaña activa al momento de capturar?
+    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT';  // Trigger del evento (para BROWSER_EVENT)
     keyboard_events?: number;  // Contador acumulado de teclas presionadas
     tab_switches?: number;     // Cantidad de cambios de pestaña detectados
   };

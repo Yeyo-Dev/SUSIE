@@ -131,40 +131,62 @@ export class EvidenceService {
 
         // Determinar endpoint según el tipo de evidencia
         let endpointUrl = '';
+        let useJson = false;
+
         if (data.metadata?.payload?.type === 'AUDIO_CHUNK') {
             endpointUrl = `${this.apiUrl}/monitoreo/evidencias/audios`;
         } else if (data.metadata?.payload?.type === 'SNAPSHOT') {
             endpointUrl = `${this.apiUrl}/monitoreo/evidencias/snapshots`;
+        } else if (data.metadata?.payload?.type === 'BROWSER_EVENT') {
+            endpointUrl = `${this.apiUrl}/monitoreo/evidencias/eventos`;
+            useJson = true;
         } else {
-            // Ignorar otros eventos temporalmente (por ej. BROWSER_EVENT) para no generar errores 404/400
             this.logger('info', `ℹ️ Evento local detectado: ${data.metadata?.payload?.type} (No se envía a backend)`);
             return;
         }
 
-        const formData = new FormData();
-        // El orden es vital para que Fastify no falle
-        formData.append('meta', JSON.stringify(data.metadata.meta || {}));
-        formData.append('payload_info', JSON.stringify(data.metadata.payload || {}));
-
-        if (data.file) {
-            formData.append('file', data.file);
-        }
-
         try {
-            await fetch(endpointUrl, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`
-                },
-                body: formData,
-                keepalive: true // Permite que la petición sobreviva el cierre del navegador
-            });
+            if (useJson) {
+                // Eventos lógicos (BROWSER_EVENT) → JSON POST
+                await fetch(endpointUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        meta: data.metadata.meta || {},
+                        payload_info: data.metadata.payload || {}
+                    }),
+                    keepalive: true
+                });
+                this.logger('success', `📤 Evento de navegador enviado al servidor (${data.metadata?.payload?.trigger || data.metadata?.payload?.type})`);
+            } else {
+                // Audio/Snapshots → FormData (multipart)
+                const formData = new FormData();
+                // El orden es vital para que Fastify no falle
+                formData.append('meta', JSON.stringify(data.metadata.meta || {}));
+                formData.append('payload_info', JSON.stringify(data.metadata.payload || {}));
 
-            // Log de éxito para audio/evidencia
-            if (data.file) { // Solo loguear si hay archivo (audio/snapshot)
-                const isAudio = data.metadata?.payload?.type === 'AUDIO_CHUNK';
-                const label = isAudio ? 'Audio (15s)' : 'Snapshot';
-                this.logger('success', `📤 ${label} enviado al servidor (${data.file.size} bytes)`);
+                if (data.file) {
+                    formData.append('file', data.file);
+                }
+
+                await fetch(endpointUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.authToken}`
+                    },
+                    body: formData,
+                    keepalive: true
+                });
+
+                // Log de éxito para audio/evidencia
+                if (data.file) {
+                    const isAudio = data.metadata?.payload?.type === 'AUDIO_CHUNK';
+                    const label = isAudio ? 'Audio (15s)' : 'Snapshot';
+                    this.logger('success', `📤 ${label} enviado al servidor (${data.file.size} bytes)`);
+                }
             }
 
         } catch (err) {
