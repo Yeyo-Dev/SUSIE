@@ -2,19 +2,35 @@
   "version": 1,
   "chunks": [
     {
-      "id": "156d6f81",
+      "id": "02edc7b3",
       "created_by": "moarimikashi",
-      "created_at": "2026-02-22T06:31:31Z",
+      "created_at": "2026-02-22T07:07:57Z",
       "sessions": 1,
-      "memories": 4,
+      "memories": 5,
       "prompts": 0
     },
     {
-      "id": "5c00a3a4",
+      "id": "10aba59f",
       "created_by": "moarimikashi",
-      "created_at": "2026-02-22T07:16:10Z",
+      "created_at": "2026-02-23T00:23:04Z",
       "sessions": 0,
-      "memories": 1,
+      "memories": 5,
+      "prompts": 0
+    },
+    {
+      "id": "c465400b",
+      "created_by": "moarimikashi",
+      "created_at": "2026-02-23T03:57:44Z",
+      "sessions": 0,
+      "memories": 3,
+      "prompts": 0
+    },
+    {
+      "id": "0473f5c2",
+      "created_by": "moarimikashi",
+      "created_at": "2026-02-23T18:33:30Z",
+      "sessions": 0,
+      "memories": 2,
       "prompts": 0
     }
   ]
