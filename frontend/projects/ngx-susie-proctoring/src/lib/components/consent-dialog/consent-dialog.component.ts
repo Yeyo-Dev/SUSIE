@@ -73,6 +73,18 @@ export class ConsentDialogComponent {
       });
     }
 
+    if (policies.preventTabSwitch) {
+      const max = this.config().maxTabSwitches;
+      items.push({
+        permission: 'fullscreen' as any,
+        icon: '🖥️',
+        title: 'Pantalla completa obligatoria',
+        description: max !== undefined
+          ? `Debes permanecer en esta ventana durante todo el examen. Tienes un máximo de ${max} cambio(s) de pestaña permitidos. Si los superas, tu examen será cancelado automáticamente.`
+          : 'Debes permanecer en esta ventana durante todo el examen. Cambiar de pestaña o salir de pantalla completa será registrado como una infracción.',
+      });
+    }
+
     return items;
   });
 

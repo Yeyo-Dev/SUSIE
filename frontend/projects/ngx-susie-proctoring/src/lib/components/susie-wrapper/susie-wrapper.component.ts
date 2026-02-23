@@ -75,7 +75,16 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   isOnline = this.networkService.isOnline;
   inactivityWarning = this.inactivityService.showWarning; // Nuevo: warning signal
   private snapshotInterval: any = null;
-  private tabSwitchCount = signal(0);
+  tabSwitchCount = signal(0);
+  needsFullscreenReturn = signal(false);
+  private visibilityReturnHandler = this.onVisibilityReturn.bind(this);
+
+  /** Intentos de cambio de pestaña restantes */
+  remainingTabSwitches = computed(() => {
+    const max = this.config().maxTabSwitches;
+    if (max === undefined) return undefined;
+    return Math.max(0, max - this.tabSwitchCount());
+  });
 
   @ViewChild('snapshotVideo') snapshotVideo!: ElementRef<HTMLVideoElement>;
 
@@ -125,7 +134,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.evidenceService.stopAudioRecording();
     this.stopSnapshotLoop();
     this.securityService.disableProtection();
-
+    document.removeEventListener('visibilitychange', this.visibilityReturnHandler);
     this.inactivityService.stopMonitoring();
   }
 
@@ -261,6 +270,11 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     // Iniciar monitoreo de inactividad
     this.inactivityService.startMonitoring();
 
+    // Registrar listener para recuperación de fullscreen al regresar a la pestaña
+    if (policies.requireFullscreen) {
+      document.addEventListener('visibilitychange', this.visibilityReturnHandler);
+    }
+
     this.log('info', '🛡️ Monitoreo activo iniciado');
   }
 
@@ -298,9 +312,32 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       } else {
         this.log('error', `⚠️ Cambio de pestaña ${count}/${max ?? '∞'} — siguiente cancelará el examen`);
       }
+    } else if (violation.type === 'FULLSCREEN_EXIT') {
+      // No cancelar — mostrar overlay de recuperación para que el usuario restaure fullscreen
+      this.needsFullscreenReturn.set(true);
+      this.log('error', '⚠️ Pantalla completa perdida. Mostrando overlay de recuperación.');
     } else {
       // Otras violaciones se reportan inmediatamente
       this.config().onSecurityViolation?.(violation);
+    }
+  }
+
+  /** Listener de visibilidad: al regresar a la pestaña, verifica si requiere fullscreen */
+  private onVisibilityReturn() {
+    if (!document.hidden && this.config().securityPolicies.requireFullscreen && !document.fullscreenElement) {
+      this.needsFullscreenReturn.set(true);
+      this.log('error', '⚠️ Se perdió la pantalla completa. Esperando al usuario para restaurarla.');
+    }
+  }
+
+  /** Restaurar pantalla completa tras regresar de otra pestaña */
+  async returnToFullscreen() {
+    try {
+      await this.securityService.enterFullscreen();
+      this.needsFullscreenReturn.set(false);
+      this.log('success', '✅ Pantalla completa restaurada.');
+    } catch (err) {
+      this.log('error', '❌ No se pudo restaurar la pantalla completa.');
     }
   }
 

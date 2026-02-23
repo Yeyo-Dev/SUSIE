@@ -76,6 +76,29 @@
     </div>
     }
 
+    <!-- RECUPERACIÓN DE PANTALLA COMPLETA -->
+    @if (needsFullscreenReturn()) {
+    <div class="inactivity-backdrop">
+        <div class="inactivity-card">
+            <div class="inactivity-pulse">⚠️</div>
+            <h2>¡Está prohibido cambiar de pestaña!</h2>
+            <p>Has salido de la pantalla completa. El examen requiere que permanezcas en esta ventana durante toda la
+                evaluación.</p>
+            @if (remainingTabSwitches() !== undefined) {
+            <p style="font-weight: 600; color: #ef4444; margin-top: 0.5rem;">
+                @if (remainingTabSwitches()! > 0) {
+                Te quedan <strong>{{ remainingTabSwitches() }}</strong> intento(s). Si se agotan, tu examen será
+                cancelado automáticamente.
+                } @else {
+                <strong>Este es tu último aviso.</strong> El próximo cambio de pestaña cancelará tu examen.
+                }
+            </p>
+            }
+            <button class="inactivity-btn" (click)="returnToFullscreen()">Volver al Examen</button>
+        </div>
+    </div>
+    }
+
     <!-- BANNERS DE RED -->
     <div class="network-status">
         @if (!isOnline()) {
