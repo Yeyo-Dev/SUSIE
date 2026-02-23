@@ -125,6 +125,52 @@ export class EvidenceService {
         // Logging moved to uploadEvidence for consistency
     }
 
+    async startSession(): Promise<void> {
+        if (!this.apiUrl) return;
+        const url = `${this.apiUrl}/monitoreo/sesiones/start`;
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    examSessionId: this.sessionContext.examSessionId,
+                    examId: this.sessionContext.examId,
+                    userId: this.sessionContext.userId || 'anonymous',
+                    timestamp: new Date().toISOString()
+                })
+            });
+            this.logger('success', '🟢 Sesión de examen iniciada en el servidor');
+        } catch (error) {
+            this.logger('error', '⚠️ Falló el registro de inicio de sesión en el servidor');
+        }
+    }
+
+    async endSession(status: 'submitted' | 'cancelled'): Promise<void> {
+        if (!this.apiUrl) return;
+        const url = `${this.apiUrl}/monitoreo/sesiones/end`;
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    examSessionId: this.sessionContext.examSessionId,
+                    status,
+                    timestamp: new Date().toISOString()
+                }),
+                keepalive: true // Permite completar el request al cerrar la pestaña
+            });
+            this.logger('success', `🔴 Sesión de examen finalizada (${status})`);
+        } catch (error) {
+            this.logger('error', '⚠️ Falló el registro de fin de sesión en el servidor');
+        }
+    }
+
 
     private async uploadEvidence(data: EvidencePayload) {
         if (!this.apiUrl) return;

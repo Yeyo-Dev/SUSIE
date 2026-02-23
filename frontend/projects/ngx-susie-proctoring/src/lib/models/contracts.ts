@@ -188,6 +188,9 @@ export function mapToSusieConfig(
       chunkIntervalSeconds: 15,
       bitrate: 32000,
     },
+    capture: {
+      snapshotIntervalSeconds: 30,
+    },
     questions: source.questions,
     maxTabSwitches: s.maxTabSwitches,
     inactivityTimeoutMinutes: s.inactivityTimeoutMinutes,

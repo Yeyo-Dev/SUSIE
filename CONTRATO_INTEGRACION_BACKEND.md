@@ -122,9 +122,45 @@ El frontend también rastrea eventos lógicos (sin archivo multimedia) que son d
 
 ---
 
-## 4. Ejemplo de Implementación (Fastify)
+## 4. Eventos de Sesión (Start/End)
 
-Para que el backend pueda recibir estos archivos, debe usar `@fastify/multipart`.
+El frontend notifica al backend cuando el monitoreo de un examen inicia y finaliza (ya sea por envío regular o porque el usuario cierra/cancela).
+
+> [!IMPORTANT]
+> El Endpoint de `end` usa *keepalive* para garantizar su envío incluso si el navegador se está cerrando, por lo que el backend debe responder rápidamente.
+
+### 4.1 Inicio de Sesión
+- **Endpoint:** `POST /susie/api/v1/monitoreo/sesiones/start`
+- **Content-Type:** `application/json`
+
+**Esquema JSON:**
+```json
+{
+  "examSessionId": "sess_eval_42_1708456789",
+  "examId": "12345",
+  "userId": "user_789",
+  "timestamp": "2026-02-23T18:00:00.000Z"
+}
+```
+
+### 4.2 Fin de Sesión
+- **Endpoint:** `POST /susie/api/v1/monitoreo/sesiones/end`
+- **Content-Type:** `application/json`
+
+**Esquema JSON:**
+```json
+{
+  "examSessionId": "sess_eval_42_1708456789",
+  "status": "submitted", // "submitted" | "cancelled"
+  "timestamp": "2026-02-23T19:30:00.000Z"
+}
+```
+
+---
+
+## 5. Ejemplo de Implementación (Fastify)
+
+Para que el backend pueda recibir los archivos multimedia, debe usar `@fastify/multipart`.
 
 ```typescript
 // En audio.routes.ts (o controller)
@@ -146,3 +182,4 @@ fastify.post('/audio', async (req, reply) => {
     return { status: 'ok' };
 });
 ```
+

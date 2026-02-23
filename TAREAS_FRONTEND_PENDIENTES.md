@@ -7,19 +7,19 @@
 
 ## 🔴 Prioridad Alta (el sistema no cumple su propósito sin estos)
 
-- [ ] **1. Violaciones → Backend** (~1h)
-  - Conectar `SecurityService` con `EvidenceService` para enviar cada violación como `BROWSER_EVENT` al Gateway
-  - Actualmente solo ejecuta callback local, las violaciones no se persisten
+- [x] **1. Violaciones → Backend** (~1h) ✅ _Completada 23-Feb-2026_
+  - `SecurityService` → `susie-wrapper.handleViolation()` → `EvidenceService.sendEvent({ type: 'BROWSER_EVENT' })` → `POST /monitoreo/evidencias/eventos`
+  - El flujo ya estaba implementado y fue verificado contra `PAYLOAD_EVENTOS_SUSIE.md`
 
-- [ ] **2. Activar snapshots periódicos de video** (~1h)
-  - `captureSnapshot()` existe pero nunca se activa (falta default en `snapshotIntervalSeconds`)
-  - Poner default razonable (ej: 30s) y validar envío al endpoint `/evidence`
+- [x] **2. Activar snapshots periódicos de video** (~1h) ✅ _Completada 23-Feb-2026_
+  - Agregado `capture: { snapshotIntervalSeconds: 30 }` en `mapToSusieConfig` de `contracts.ts`
+  - El `susie-wrapper` activa `startSnapshotLoop()` solo cuando `requireCamera === true`
 
-- [ ] **3. Eventos de sesión (start/end)** (~2h)
-  - `POST /sessions/start` al iniciar examen (examSessionId, examId, userId, timestamp)
-  - `POST /sessions/end` al finalizar (status: submitted/cancelled, timestamp)
-  - El Gateway necesita esto para crear registros en PostgreSQL
-
+- [x] **3. Eventos de sesión (start/end)** (~2h) ✅ _Frontend Completado 23-Feb-2026_
+  - `POST /monitoreo/sesiones/start` al iniciar examen (examSessionId, examId, userId, timestamp)
+  - `POST /monitoreo/sesiones/end` al terminar o abortar (añadido keepalive=true)
+  - *Nota: Queda pendiente la implementación del módulo sesiones/ en el backend (registrado en Engram).*
+  
 ---
 
 ## 🟡 Prioridad Media

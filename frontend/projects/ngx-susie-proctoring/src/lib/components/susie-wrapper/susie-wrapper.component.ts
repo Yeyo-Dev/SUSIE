@@ -130,6 +130,11 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.log('info', '🛑 Deteniendo SusieWrapper...');
+    // Si se destruye el componente y la sesión estaba activa, notificar al servidor
+    if (this.state() === 'MONITORING') {
+      this.evidenceService.endSession('cancelled');
+    }
+
     this.mediaService.stop();
     this.evidenceService.stopAudioRecording();
     this.stopSnapshotLoop();
@@ -275,6 +280,9 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       document.addEventListener('visibilitychange', this.visibilityReturnHandler);
     }
 
+    // Notificar al backend que inició la sesión
+    this.evidenceService.startSession();
+
     this.log('info', '🛡️ Monitoreo activo iniciado');
   }
 
@@ -355,6 +363,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   /** Callback del motor de examen */
   handleExamFinished(result: ExamResult) {
     this.log('success', '🏁 Examen finalizado');
+    this.evidenceService.endSession('submitted');
     this.config().onExamFinished?.(result);
   }
 
