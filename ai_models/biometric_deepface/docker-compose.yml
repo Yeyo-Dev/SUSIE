@@ -1,0 +1,13 @@
+services:
+  api-biometricos:
+    build: .
+    container_name: contenedor_api_facial
+    ports:
+      # Conecta el puerto de tu PC con el del contenedor usando el .env
+      - "${API_PORT}:${API_PORT}"
+    volumes:
+      # Sincroniza la carpeta para guardar el database.json en tu disco
+      - .:/app
+    env_file:
+      - .env
+    restart: unless-stopped

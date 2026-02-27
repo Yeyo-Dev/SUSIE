@@ -1,0 +1,604 @@
+{
+  "dataset": [
+    {
+      "text": "Oye, pásame rápido la fórmula del EBITDA por WhatsApp, que se me olvidó.",
+      "label": "SOSPECHOSO",
+      "demographic": "Joven/Adulto",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Hey Siri, define 'polimorfismo en programación orientada a objetos'.",
+      "label": "SOSPECHOSO",
+      "demographic": "Gen Z",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Pst, wey, ¿es la A o la C? Dímelo bajito.",
+      "label": "SOSPECHOSO",
+      "demographic": "Joven (Mexicano)",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Espérame, le voy a tomar foto a la pantalla y te la mando al grupo.",
+      "label": "SOSPECHOSO",
+      "demographic": "Gen Z",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "Amor, búscame rápido en Google qué año fue la caída del muro de Berlín.",
+      "label": "SOSPECHOSO",
+      "demographic": "Adulto en pareja",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Ok Google, ¿cuál es la capital de Australia?",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Mmm, a ver... Chat GPT, redáctame una respuesta sobre liderazgo situacional.",
+      "label": "SOSPECHOSO",
+      "demographic": "Profesional",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "No manches, pásame el acordeón por Discord, rápido.",
+      "label": "SOSPECHOSO",
+      "demographic": "Gen Z (Mexicano)",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "¿Seguro que es esa? Confírmame con un pulgar arriba si me escuchas.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Oye, checa en StackOverflow cómo se cierra esta conexión SQL.",
+      "label": "SOSPECHOSO",
+      "demographic": "Tech/Junior",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Te estoy compartiendo pantalla por Skype, dime cuál elijo.",
+      "label": "SOSPECHOSO",
+      "demographic": "Senior",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "Susúrrame la respuesta, que el micrófono está sensible.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Alexa, traduce 'supply chain management' al español.",
+      "label": "SOSPECHOSO",
+      "demographic": "Hogar inteligente",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Mira, te mando captura, resuélvelo en chinga.",
+      "label": "SOSPECHOSO",
+      "demographic": "Joven (Mexicano)",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "¿Cómo se decía? Ehh... búscalo tú rápido en el libro.",
+      "label": "SOSPECHOSO",
+      "demographic": "Estudiante",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Dime la sintaxis de este loop, que me trabé.",
+      "label": "SOSPECHOSO",
+      "demographic": "Junior Dev",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Oye tía, pásame la chuleta por debajo de la mesa.",
+      "label": "SOSPECHOSO",
+      "demographic": "Joven (España)",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "Copiame el texto ese y pégalo en el chat de la otra ventana.",
+      "label": "SOSPECHOSO",
+      "demographic": "Gen Z",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "¿La tres es falsa o verdadera? Asiente con la cabeza.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Oye Siri, calcula el 16% de 4500.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Pásame el cel para ver la foto de los apuntes.",
+      "label": "SOSPECHOSO",
+      "demographic": "Estudiante",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "Dictale al Copilot: función para ordenar un array.",
+      "label": "SOSPECHOSO",
+      "demographic": "Tech/Gen Z",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "No, no, esa no... dime la otra opción.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Güey, tírame un paro con la pregunta cinco.",
+      "label": "SOSPECHOSO",
+      "demographic": "Joven (Mexicano)",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Voy a mutearme rápido, tú dime qué escribo.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Manda la foto al grupo de 'Examen Final' en Telegram.",
+      "label": "SOSPECHOSO",
+      "demographic": "Estudiante",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "¿Es la de la izquierda? ¿Sí? Vale, marco esa.",
+      "label": "SOSPECHOSO",
+      "demographic": "General (España)",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Oye, busca en Wikipedia quién inventó la máquina de vapor.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Pst, ¿cuál era la diferencia entre TCP y UDP?",
+      "label": "SOSPECHOSO",
+      "demographic": "Tech/Junior",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "A ver, Gemini, resume este texto en tres puntos.",
+      "label": "SOSPECHOSO",
+      "demographic": "Gen Z",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Te paso el link del examen, ábrelo en incógnito.",
+      "label": "SOSPECHOSO",
+      "demographic": "Gen Z",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "No se ve la cámara, aprovecha y dime.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Cariño, ¿te sabes la capital de Noruega? Dímela rápido.",
+      "label": "SOSPECHOSO",
+      "demographic": "Adulto en pareja",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Mírame los labios... ¿es la opción B?",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Oye, abre el PDF en la tablet y ponlo ahí enfrente.",
+      "label": "SOSPECHOSO",
+      "demographic": "Estudiante",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "DeepL, traduce esto al inglés formal.",
+      "label": "SOSPECHOSO",
+      "demographic": "Profesional",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Méteme la respuesta por el audífono izquierdo.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Checa si la respuesta es 1945 o 1946.",
+      "label": "SOSPECHOSO",
+      "demographic": "Joven (Mexicano)",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Siri, ¿cuántos lados tiene un dodecaedro?",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Hazme señas con la mano, uno para A, dos para B.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Búscalo en el libro de texto, página 40.",
+      "label": "SOSPECHOSO",
+      "demographic": "Estudiante",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Tómale screenshot y mándaselo al experto.",
+      "label": "SOSPECHOSO",
+      "demographic": "Profesional",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "Susúrrame la definición de 'activo circulante'.",
+      "label": "SOSPECHOSO",
+      "demographic": "Profesional",
+      "intent": "Susurros de confirmación"
+    },
+    {
+      "text": "Oye Google, sinónimos de 'resiliencia'.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "Pásame el post-it con las fórmulas.",
+      "label": "SOSPECHOSO",
+      "demographic": "Estudiante",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "¿Qué dijo? No escuché, repítemelo tú.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Transcribe lo que digo y búscalo.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Pon el celular detrás de la laptop para que no se vea.",
+      "label": "SOSPECHOSO",
+      "demographic": "Gen Z",
+      "intent": "Compartir contenido"
+    },
+    {
+      "text": "Hey, ¿estás ahí? Necesito ayuda con la última.",
+      "label": "SOSPECHOSO",
+      "demographic": "General",
+      "intent": "Colaboración remota"
+    },
+    {
+      "text": "Busca 'diagrama de Gantt ejemplo' en imágenes.",
+      "label": "SOSPECHOSO",
+      "demographic": "Profesional",
+      "intent": "Uso de IA/Tecnología"
+    },
+    {
+      "text": "¡Mamá! Ciérrame la puerta por favor, estoy en una entrevista importante.",
+      "label": "DOMESTICO",
+      "demographic": "Joven adulto",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "A ver... si X es mayor que Y, entonces... mmm...",
+      "label": "DOMESTICO",
+      "demographic": "Estudiante",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Bobby, ¡quieto! Deja de ladrar, bájate del sofá.",
+      "label": "DOMESTICO",
+      "demographic": "Dueño de mascota",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "Perdón, es que están taladrando en el piso de arriba.",
+      "label": "DOMESTICO",
+      "demographic": "Adulto en departamento",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Amor, ¿has visto dónde dejé las llaves del coche?",
+      "label": "DOMESTICO",
+      "demographic": "Adulto con pareja",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "Maldita sea, se me fue el internet otra vez... ah no, ya volvió.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "¡Ya va! Dejen el paquete en la puerta, ahorita salgo.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Logística"
+    },
+    {
+      "text": "Shh, bajen la voz que estoy presentando un examen.",
+      "label": "DOMESTICO",
+      "demographic": "Roommates",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Michi, quítate del teclado, no me dejas escribir.",
+      "label": "DOMESTICO",
+      "demographic": "Gen Z con gato",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "Uff, qué pregunta más difícil... a ver, respira.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Hijo, baja a comer que se enfría la sopa.",
+      "label": "DOMESTICO",
+      "demographic": "Padre/Madre",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "Oye, ¿le puedes bajar a la música? Se escucha hasta acá.",
+      "label": "DOMESTICO",
+      "demographic": "Convivencia",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Ay, no me acuerdo de esto... ¿era la opción A? Creo que sí.",
+      "label": "DOMESTICO",
+      "demographic": "Estudiante",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "¡No toquen el timbre! Estoy ocupado.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Logística"
+    },
+    {
+      "text": "Gato loco, deja de rasguñar la puerta.",
+      "label": "DOMESTICO",
+      "demographic": "Dueño de mascota",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "Cariño, ¿me pasas una toalla? Perdón por gritar.",
+      "label": "DOMESTICO",
+      "demographic": "Adulto en pareja",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "Ehh... bueno, sigamos. Creo que la respuesta correcta es...",
+      "label": "DOMESTICO",
+      "demographic": "Profesional",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Por favor, silencio en el pasillo, estoy en una call.",
+      "label": "DOMESTICO",
+      "demographic": "Oficina/Coworking",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Firulais, ¡fuera de aquí! Vete a tu cama.",
+      "label": "DOMESTICO",
+      "demographic": "Dueño de mascota",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "¿Quién es? Ah, es el del agua... diles que pasen mañana.",
+      "label": "DOMESTICO",
+      "demographic": "Hogar (Mexicano)",
+      "intent": "Logística"
+    },
+    {
+      "text": "Papá, ¿me ayudas con la tarea de mate? ... Ahorita no puedo hijo.",
+      "label": "DOMESTICO",
+      "demographic": "Padre de familia",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "A ver, leyendo la pregunta cuatro... 'Describa el proceso de...'",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Mmm, tengo sed... ¿dónde dejé mi botella de agua?",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Oigan, ¿pueden dejar de hablar tan fuerte? Se oye todo.",
+      "label": "DOMESTICO",
+      "demographic": "Roommates",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Luna, bájate de la mesa, ¡ahora!",
+      "label": "DOMESTICO",
+      "demographic": "Dueño de mascota",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "Amor, llegaron tus papás, ¿les abro?",
+      "label": "DOMESTICO",
+      "demographic": "Adulto en pareja",
+      "intent": "Logística"
+    },
+    {
+      "text": "No manches, qué calor hace aquí... a ver, me concentro.",
+      "label": "DOMESTICO",
+      "demographic": "Joven (Mexicano)",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "¡Mamá! ¡El perro se vomitó en la alfombra!",
+      "label": "DOMESTICO",
+      "demographic": "Familia",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "Shh, shh, silencio por favor.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Vale, entonces la derivada de esto sería... cero.",
+      "label": "DOMESTICO",
+      "demographic": "Estudiante",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Disculpe, ¿me puede repetir la pregunta? Se cortó el audio.",
+      "label": "DOMESTICO",
+      "demographic": "Entrevista",
+      "intent": "Logística/Técnico"
+    },
+    {
+      "text": "Gordo, ¿viste si llegó el recibo de la luz?",
+      "label": "DOMESTICO",
+      "demographic": "Pareja (Latam)",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "Ay dios, qué ruido hace ese camión... perdón.",
+      "label": "DOMESTICO",
+      "demographic": "Urbano",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Rocky, deja ese zapato en paz.",
+      "label": "DOMESTICO",
+      "demographic": "Dueño de mascota",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "Ok, analicemos... opción A es incorrecta, opción B es...",
+      "label": "DOMESTICO",
+      "demographic": "Profesional",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Espere un momento, creo que están tocando la puerta.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Logística"
+    },
+    {
+      "text": "¡Cierra la ventana que entra mucho ruido!",
+      "label": "DOMESTICO",
+      "demographic": "Hogar",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Mmm... interesante planteamiento. Déjeme pensar.",
+      "label": "DOMESTICO",
+      "demographic": "Profesional",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Oye, ¿me prestas el cargador? Se me apaga la compu.",
+      "label": "DOMESTICO",
+      "demographic": "Roommates",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "¡Gato! ¡No tires el vaso!",
+      "label": "DOMESTICO",
+      "demographic": "Dueño de mascota",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "Perdón, es mi hijo pequeño llorando.",
+      "label": "DOMESTICO",
+      "demographic": "Padre/Madre",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "A ver, concéntrate... respira hondo.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "No gracias, no quiero nada... es un vendedor.",
+      "label": "DOMESTICO",
+      "demographic": "Hogar",
+      "intent": "Logística"
+    },
+    {
+      "text": "Tío, bajad la tele un poco que estoy liado.",
+      "label": "DOMESTICO",
+      "demographic": "Joven (España)",
+      "intent": "Gestión de entorno"
+    },
+    {
+      "text": "Ay, qué comezón me dio en la nariz.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "Cariño, ¿qué vamos a cenar hoy?",
+      "label": "DOMESTICO",
+      "demographic": "Pareja",
+      "intent": "Interrupciones familiares"
+    },
+    {
+      "text": "Toby, ven aquí, siéntate.",
+      "label": "DOMESTICO",
+      "demographic": "Dueño de mascota",
+      "intent": "Mascotas"
+    },
+    {
+      "text": "Mmm, o sea que la respuesta no puede ser negativa.",
+      "label": "DOMESTICO",
+      "demographic": "Estudiante",
+      "intent": "Auto-habla (Thinking out loud)"
+    },
+    {
+      "text": "¡Ya voy! ¡Denme cinco minutos!",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Logística"
+    },
+    {
+      "text": "Por favor, no entren a la habitación hasta que termine.",
+      "label": "DOMESTICO",
+      "demographic": "General",
+      "intent": "Gestión de entorno"
+    }
+  ]
+}

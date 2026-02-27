@@ -1,0 +1,9 @@
+numpy
+scipy
+faster-whisper
+python-dotenv
+sentence-transformers
+torch --extra-index-url https://download.pytorch.org/whl/cpu
+requests
+pika
+redis
