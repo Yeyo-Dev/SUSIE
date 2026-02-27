@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import redis
 import pika
 import os
@@ -100,24 +101,43 @@ def procesar_mensaje_rabbit(ch, method, properties, body):
         # Rechazamos para reintentar si hay un error de código
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-# --- 4. INICIALIZAR RABBITMQ ---
+# --- 4. INICIALIZAR RABBITMQ CON RETRY ---
 def iniciar_worker():
     RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST', 'localhost')
     QUEUE_NAME = 'gaze_tasks_queue' # <--- Cola exclusiva para el Gaze Tracker
-    
-    try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
-        channel = connection.channel()
-        
-        channel.queue_declare(queue=QUEUE_NAME, durable=True)
-        channel.basic_qos(prefetch_count=1)
-        channel.basic_consume(queue=QUEUE_NAME, on_message_callback=procesar_mensaje_rabbit)
+    MAX_BACKOFF = 60  # Segundos máximos entre reintentos
+    retry_delay = 5   # Delay inicial en segundos
 
-        print(f"[*] Worker Gaze Tracking (DBSCAN/IsolationForest) iniciado. Esperando lotes en '{QUEUE_NAME}'...")
-        channel.start_consuming()
-        
-    except pika.exceptions.AMQPConnectionError:
-        print(f"[!] No se pudo conectar a RabbitMQ en {RABBITMQ_HOST}. Reintentando...")
+    while True:
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(
+                host=RABBITMQ_HOST,
+                heartbeat=600,
+                blocked_connection_timeout=300
+            ))
+            channel = connection.channel()
+            
+            channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            channel.basic_qos(prefetch_count=1)
+            channel.basic_consume(queue=QUEUE_NAME, on_message_callback=procesar_mensaje_rabbit)
+
+            retry_delay = 5  # Reset del backoff al conectar exitosamente
+            print(f"[*] Worker Gaze Tracking (DBSCAN/IsolationForest) iniciado. Esperando lotes en '{QUEUE_NAME}'...")
+            channel.start_consuming()
+            
+        except pika.exceptions.AMQPConnectionError:
+            logger.warning(f"No se pudo conectar a RabbitMQ en {RABBITMQ_HOST}. Reintentando en {retry_delay}s...")
+            time.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, MAX_BACKOFF)
+
+        except KeyboardInterrupt:
+            print("[*] Worker detenido manualmente.")
+            break
+
+        except Exception as e:
+            logger.error(f"Error inesperado en el worker: {e}. Reconectando en {retry_delay}s...")
+            time.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, MAX_BACKOFF)
 
 if __name__ == "__main__":
     iniciar_worker()

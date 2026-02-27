@@ -46,6 +46,91 @@ services:
     networks:
       - susie-network
 
+  # --- AI Workers ---
+
+  whisper-worker:
+    build:
+      context: ./ai_models/audio_whisper
+      dockerfile: Dockerfile
+    container_name: susie-whisper
+    restart: on-failure
+    environment:
+      RABBITMQ_HOST: susie-rabbitmq
+      REDIS_HOST: susie-redis
+      REDIS_PORT: 6379
+    depends_on:
+      - rabbitmq
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - susie-network
+
+  gaze-worker:
+    build:
+      context: ./ai_models/gaze_mediapipe
+      dockerfile: Dockerfile
+    container_name: susie-gaze
+    restart: on-failure
+    environment:
+      RABBITMQ_HOST: susie-rabbitmq
+      REDIS_HOST: susie-redis
+      REDIS_PORT: 6379
+    depends_on:
+      - rabbitmq
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - susie-network
+
+  yolo-worker:
+    build:
+      context: ./ai_models/vision_yolo
+      dockerfile: Dockerfile
+    container_name: susie-yolo
+    restart: on-failure
+    environment:
+      RABBITMQ_HOST: susie-rabbitmq
+      REDIS_HOST: susie-redis
+      REDIS_PORT: 6379
+    depends_on:
+      - rabbitmq
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - susie-network
+
+  deepface-api:
+    build:
+      context: ./ai_models/biometric_deepface
+      dockerfile: Dockerfile
+    container_name: susie-deepface
+    restart: on-failure
+    ports:
+      - "8001:8000"
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      ALLOWED_ORIGINS: "*"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - susie-network
+
 networks:
   susie-network:
     driver: bridge
