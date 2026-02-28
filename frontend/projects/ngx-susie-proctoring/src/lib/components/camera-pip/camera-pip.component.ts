@@ -51,7 +51,12 @@ export class CameraPipComponent {
     effect(() => {
       const s = this.stream();
       if (this.pipVideo && this.pipVideo.nativeElement && s) {
-        this.pipVideo.nativeElement.srcObject = s;
+        const videoEl = this.pipVideo.nativeElement;
+        videoEl.srcObject = s;
+        // Forzar muted imperativo — Angular [muted] binding no siempre
+        // aplica el atributo HTML correctamente en todos los navegadores
+        videoEl.muted = true;
+        videoEl.volume = 0;
       }
     });
   }

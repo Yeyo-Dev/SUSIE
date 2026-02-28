@@ -236,8 +236,14 @@ export class EvidenceService {
             }
 
         } catch (err) {
-            this.logger('error', '❌ Falló subida de evidencia', err);
-            console.error('Failed to upload evidence', err);
+            const evidenceType = data.metadata?.payload?.type;
+            let label = 'evidencia';
+            if (evidenceType === 'AUDIO_CHUNK') label = 'audio';
+            else if (evidenceType === 'SNAPSHOT') label = 'snapshot';
+            else if (evidenceType === 'BROWSER_EVENT') label = 'evento de navegador';
+
+            this.logger('error', `❌ Error al subir ${label}`, err);
+            console.error(`[EVIDENCE] Failed to upload ${label}:`, err);
         }
     }
 }

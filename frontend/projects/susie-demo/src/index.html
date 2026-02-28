@@ -1,17 +1,81 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8">
   <title>SUSIE — Plataforma de Certificación Supervisada</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="SUSIE: Sistema Unificado de Supervisión Inteligente para Exámenes. Plataforma profesional de certificación con proctoring avanzado.">
+  <meta name="description"
+    content="SUSIE: Sistema Unificado de Supervisión Inteligente para Exámenes. Plataforma profesional de certificación con proctoring avanzado.">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
   <app-root></app-root>
+  <script>
+    // === DIAGNÓSTICO WEBGAZER ===
+    // Esperar a que webgazer cargue y exponer métodos
+    (function () {
+      function checkWebGazer() {
+        if (window.webgazer) {
+          var wg = window.webgazer;
+          var methods = [];
+          for (var k in wg) {
+            if (typeof wg[k] === 'function') methods.push(k);
+          }
+          console.log('[WG-DIAG] ✅ webgazer cargado. Métodos disponibles:', methods.join(', '));
+          console.log('[WG-DIAG] webgazer object:', wg);
+
+          // Exponer función de test global
+          window._testGaze = function () {
+            console.log('[WG-DIAG] --- TEST MANUAL ---');
+            console.log('[WG-DIAG] webgazer ref:', !!window.webgazer);
+
+            // Probar cada método conocido
+            var testMethods = ['getCurrentPrediction', 'predict', 'pause', 'resume',
+              'isReady', 'getTracker', 'getRegression', 'getStoredPoints',
+              'showVideoPreview', 'showPredictionPoints', 'showFaceFeedbackBox',
+              'showFaceOverlay', 'setGazeListener', 'begin', 'end'];
+            testMethods.forEach(function (m) {
+              console.log('[WG-DIAG]  ' + m + ':', typeof wg[m]);
+            });
+
+            // Intentar getCurrentPrediction
+            if (typeof wg.getCurrentPrediction === 'function') {
+              var result = wg.getCurrentPrediction();
+              console.log('[WG-DIAG] getCurrentPrediction() result:', result);
+              if (result && typeof result.then === 'function') {
+                result.then(function (data) {
+                  console.log('[WG-DIAG] getCurrentPrediction() RESOLVED:', data);
+                }).catch(function (err) {
+                  console.log('[WG-DIAG] getCurrentPrediction() REJECTED:', err);
+                });
+              }
+            }
+
+            // Intentar predict
+            if (typeof wg.predict === 'function') {
+              try {
+                var pred = wg.predict();
+                console.log('[WG-DIAG] predict() result:', pred);
+              } catch (e) {
+                console.log('[WG-DIAG] predict() error:', e.message);
+              }
+            }
+          };
+
+          console.log('[WG-DIAG] 💡 Escribe _testGaze() en la consola para diagnosticar');
+        } else {
+          setTimeout(checkWebGazer, 500);
+        }
+      }
+      setTimeout(checkWebGazer, 1000);
+    })();
+  </script>
 </body>
+
 </html>

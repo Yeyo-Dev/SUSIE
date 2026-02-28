@@ -16,10 +16,10 @@ export const MOCK_CHAINDRENCIALES_CONFIG: ChaindrencialesExamConfig = {
         assignmentId: 1,
     },
     supervision: {
-        requireCamera: false,
+        requireCamera: true,
         requireMicrophone: true,
-        requireBiometrics: false,
-        requireGazeTracking: false,
+        requireBiometrics: true,
+        requireGazeTracking: true,
         maxTabSwitches: 3,
         inactivityTimeoutMinutes: 0.25,
     },

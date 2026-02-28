@@ -17,6 +17,7 @@ import { EvidenceService } from '../../services/evidence.service';
 import { SecurityService } from '../../services/security.service';
 import { NetworkMonitorService } from '../../services/network-monitor.service';
 import { InactivityService } from '../../services/inactivity.service';
+import { GazeTrackingService } from '../../services/gaze-tracking.service';
 
 // Child components
 import { CameraPipComponent } from '../camera-pip/camera-pip.component';
@@ -24,11 +25,12 @@ import { ConsentDialogComponent } from '../consent-dialog/consent-dialog.compone
 import { EnvironmentCheckComponent } from '../environment-check/environment-check.component';
 import { BiometricOnboardingComponent } from '../biometric-onboarding/biometric-onboarding.component';
 import { ExamEngineComponent } from '../exam-engine/exam-engine.component';
+import { GazeCalibrationComponent } from '../gaze-calibration/gaze-calibration.component';
 import { ElementRef, ViewChild } from '@angular/core';
 
 
 /** Estado interno del flujo de proctoring */
-type ProctoringState = 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 'ENVIRONMENT_CHECK' | 'MONITORING';
+type ProctoringState = 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 'ENVIRONMENT_CHECK' | 'GAZE_CALIBRATION' | 'MONITORING';
 
 
 @Component({
@@ -41,7 +43,8 @@ type ProctoringState = 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 
     ConsentDialogComponent,
     BiometricOnboardingComponent,
     EnvironmentCheckComponent,
-    ExamEngineComponent
+    ExamEngineComponent,
+    GazeCalibrationComponent
   ],
 
   templateUrl: './susie-wrapper.component.html',
@@ -52,7 +55,8 @@ type ProctoringState = 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 
     EvidenceService,
     SecurityService,
     NetworkMonitorService,
-    InactivityService
+    InactivityService,
+    GazeTrackingService
   ]
 })
 export class SusieWrapperComponent implements OnInit, OnDestroy {
@@ -67,6 +71,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   private securityService = inject(SecurityService);
   private networkService = inject(NetworkMonitorService);
   private inactivityService = inject(InactivityService);
+  private gazeService = inject(GazeTrackingService);
 
   // --- State Signals ---
   state = signal<ProctoringState>('CHECKING_PERMISSIONS');
@@ -139,6 +144,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.evidenceService.stopAudioRecording();
     this.stopSnapshotLoop();
     this.securityService.disableProtection();
+    this.gazeService.stop();
     document.removeEventListener('visibilitychange', this.visibilityReturnHandler);
     this.inactivityService.stopMonitoring();
   }
@@ -167,6 +173,8 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       this.state.set('CONSENT');
     } else if (policies.requireEnvironmentCheck) {
       this.state.set('ENVIRONMENT_CHECK');
+    } else if (policies.requireGazeTracking) {
+      this.state.set('GAZE_CALIBRATION');
     } else {
       this.startMonitoring();
     }
@@ -221,6 +229,15 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     if (this.config().securityPolicies.requireEnvironmentCheck) {
       this.log('info', '🔜 Avanzando a Environment Check');
       this.state.set('ENVIRONMENT_CHECK');
+    } else if (this.config().securityPolicies.requireGazeTracking) {
+      this.log('info', '🔜 Avanzando a Calibración de Gaze');
+      // Configurar el logger del gazeService ANTES de calibrar para que los logs sean visibles
+      this.gazeService.configure(
+        {},
+        (type, msg, details) => this.log(type, msg, details),
+        () => this.handleGazeDeviation()
+      );
+      this.state.set('GAZE_CALIBRATION');
     } else {
       this.log('info', '🔜 Iniciando Monitoreo');
       this.startMonitoring();
@@ -234,10 +251,30 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
     if (result.passed) {
       this.log('success', '✅ Verificación de entorno exitosa');
-      this.startMonitoring();
+      if (this.config().securityPolicies.requireGazeTracking) {
+        this.log('info', '🔜 Avanzando a Calibración de Gaze');
+        // Configurar el logger del gazeService ANTES de calibrar para que los logs sean visibles
+        this.gazeService.configure(
+          {},
+          (type, msg, details) => this.log(type, msg, details),
+          () => this.handleGazeDeviation()
+        );
+        this.state.set('GAZE_CALIBRATION');
+      } else {
+        this.log('info', '🔜 Iniciando Monitoreo (Gaze no requerido)');
+        this.startMonitoring();
+      }
     } else {
       this.log('error', '❌ Falló verificación de entorno');
     }
+  }
+
+  /**
+   * Maneja la finalización exitosa de la calibración de gaze tracking.
+   */
+  handleGazeCalibrationCompleted() {
+    this.log('success', '👁️ Calibración de gaze completada — Iniciando monitoreo');
+    this.startMonitoring();
   }
 
   /**
@@ -272,6 +309,11 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Gaze Tracking ya fue configurado antes de la calibración
+    if (policies.requireGazeTracking && this.gazeService.isCalibrated()) {
+      this.log('info', '👁️ Gaze Tracking activo durante monitoreo');
+    }
+
     // Iniciar monitoreo de inactividad
     this.inactivityService.startMonitoring();
 
@@ -284,6 +326,18 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.evidenceService.startSession();
 
     this.log('info', '🛡️ Monitoreo activo iniciado');
+  }
+
+  /**
+   * Maneja una desviación sostenida de la mirada (GAZE_DEVIATION).
+   */
+  private handleGazeDeviation() {
+    const violation: SecurityViolation = {
+      type: 'GAZE_DEVIATION',
+      message: 'La mirada del usuario se desvió fuera del área de la pantalla por un período prolongado',
+      timestamp: new Date().toISOString()
+    };
+    this.handleViolation(violation);
   }
 
 
@@ -299,6 +353,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       'NAVIGATION_ATTEMPT': 'NAVIGATION_ATTEMPT',
       'RELOAD_ATTEMPT': 'RELOAD_ATTEMPT',
       'CLIPBOARD_ATTEMPT': 'CLIPBOARD_ATTEMPT',
+      'GAZE_DEVIATION': 'GAZE_DEVIATION',
     };
 
     // Enviar evento al backend con trigger específico
@@ -390,7 +445,11 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     // Attach stream to hidden video for capture
     setTimeout(() => {
       if (this.snapshotVideo && this.mediaStream()) {
-        this.snapshotVideo.nativeElement.srcObject = this.mediaStream();
+        const videoEl = this.snapshotVideo.nativeElement;
+        videoEl.srcObject = this.mediaStream();
+        // Forzar muted para evitar eco de audio
+        videoEl.muted = true;
+        videoEl.volume = 0;
       }
     });
 
@@ -422,13 +481,17 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       canvas.toBlob(blob => {
         if (blob) {
+          // Adjuntar coordenadas de gaze si el tracking está activo
+          const gazeHistory = this.gazeService.isCalibrated()
+            ? this.gazeService.flushGazeBuffer()
+            : undefined;
+
           this.evidenceService.sendEvent({
             type: 'SNAPSHOT',
             browser_focus: document.hasFocus(),
-            file: blob
-          });
-          // Opcional: loguear cada snapshot puede ser ruidoso
-          // this.log('info', '📸 Snapshot enviado');
+            file: blob,
+            ...(gazeHistory?.length ? { gaze_history: gazeHistory } : {})
+          } as any);
         }
       }, 'image/jpeg', 0.6); // Calidad media
     }

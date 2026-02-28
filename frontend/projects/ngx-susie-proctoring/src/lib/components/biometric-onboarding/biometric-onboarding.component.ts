@@ -40,7 +40,11 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
         this.stream = this.mediaService.stream();
 
         if (this.stream && this.videoElement) {
-            this.videoElement.nativeElement.srcObject = this.stream;
+            const videoEl = this.videoElement.nativeElement;
+            videoEl.srcObject = this.stream;
+            // Forzar muted imperativo para evitar eco de audio
+            videoEl.muted = true;
+            videoEl.volume = 0;
         }
     }
 

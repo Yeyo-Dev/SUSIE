@@ -3,7 +3,7 @@
  * Se usa para notificar tanto al wrapper (debug panel) como a la app host (cancelar examen).
  */
 export interface SecurityViolation {
-  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST' | 'INSPECTION_ATTEMPT' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT';
+  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST' | 'INSPECTION_ATTEMPT' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION';
   message: string;
   timestamp: string;
 }
@@ -68,6 +68,7 @@ export interface SusieConfig {
     preventBackNavigation?: boolean; // Inyecta history.pushState
     preventPageReload?: boolean;     // Muestra diálogo de confirmación
     preventCopyPaste?: boolean;      // Bloquea copy/cut/paste y selección
+    requireGazeTracking?: boolean;   // Activar seguimiento ocular con WebGazer
   };
 
   audioConfig?: {
@@ -172,6 +173,7 @@ export function mapToSusieConfig(
       requireCamera: s.requireCamera,
       requireMicrophone: s.requireMicrophone,
       requireBiometrics: s.requireBiometrics,
+      requireGazeTracking: s.requireGazeTracking,
       // Derivados
       requireConsent: needsConsent,
       requireEnvironmentCheck: s.requireCamera,
@@ -189,7 +191,7 @@ export function mapToSusieConfig(
       bitrate: 32000,
     },
     capture: {
-      snapshotIntervalSeconds: 30,
+      snapshotIntervalSeconds: 5,
     },
     questions: source.questions,
     maxTabSwitches: s.maxTabSwitches,
@@ -217,9 +219,10 @@ export interface EvidenceMetadata {
   payload: {
     type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'BROWSER_EVENT' | 'FOCUS_LOST';
     browser_focus: boolean;    // ¿Está la pestaña activa al momento de capturar?
-    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT';  // Trigger del evento (para BROWSER_EVENT)
+    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION';  // Trigger del evento (para BROWSER_EVENT)
     keyboard_events?: number;  // Contador acumulado de teclas presionadas
     tab_switches?: number;     // Cantidad de cambios de pestaña detectados
+    gaze_history?: { x: number; y: number; ts: number }[];  // Buffer de coordenadas oculares
   };
 }
 

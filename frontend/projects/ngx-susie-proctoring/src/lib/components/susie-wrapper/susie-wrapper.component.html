@@ -27,7 +27,7 @@
 
     <!-- PiP Camera (Siempre visible si hay stream) -->
     @if (mediaStream()) {
-    <div class="susie-pip" [class.hidden]="state() === 'ENVIRONMENT_CHECK'">
+    <div class="susie-pip" [class.hidden]="state() === 'ENVIRONMENT_CHECK' || state() === 'GAZE_CALIBRATION'">
         <susie-camera-pip [stream]="mediaStream()!" [muted]="true"></susie-camera-pip>
         <div class="recording-indicator">
             <span class="dot"></span> REC
@@ -135,6 +135,12 @@
         <susie-environment-check [policies]="config().securityPolicies"
             (checkCompleted)="handleEnvironmentCheck($event)">
         </susie-environment-check>
+        }
+
+        @case ('GAZE_CALIBRATION') {
+        <!-- Paso 5: Calibración de Seguimiento Ocular -->
+        <susie-gaze-calibration [stream]="mediaStream()" (calibrationCompleted)="handleGazeCalibrationCompleted()">
+        </susie-gaze-calibration>
         }
 
         @case ('MONITORING') {
