@@ -1,5 +1,6 @@
 <div class="app-container">
-    <!-- Header -->
+    <!-- Header (Mostrar solo durante el examen en sí o fuera del proceso) -->
+    @if (examState() !== 'taking' || wrapperState() === 'MONITORING') {
     <header class="app-header">
         <div class="header-inner">
             <div class="brand">
@@ -26,10 +27,12 @@
         </div>
         <div class="header-accent"></div>
     </header>
+    }
 
     <!-- SCREEN: EXAM IN PROGRESS -->
     @if (examState() === 'taking') {
-    <susie-wrapper [config]="examConfig" [questions]="questions"></susie-wrapper>
+    <susie-wrapper [config]="examConfig" [questions]="questions"
+        (stateChange)="handleStateChange($event)"></susie-wrapper>
     }
 
     <!-- SCREEN: RESULTS -->

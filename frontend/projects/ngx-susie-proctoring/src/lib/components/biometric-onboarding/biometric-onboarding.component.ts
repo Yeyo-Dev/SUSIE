@@ -1,17 +1,22 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, signal, output, inject } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, signal, output, input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MediaService } from '../../services/media.service';
+import { StepInfo } from '../../models/contracts';
+import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
 
 @Component({
     selector: 'susie-biometric-onboarding',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, StepIndicatorComponent],
     templateUrl: './biometric-onboarding.component.html',
     styleUrl: './biometric-onboarding.component.css'
 })
 export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     // Outputs
     completed = output<{ photo: Blob }>();
+
+    /** Pasos dinámicos del indicador (recibidos del wrapper) */
+    steps = input<StepInfo[]>([]);
 
     // Access to video element
     @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;

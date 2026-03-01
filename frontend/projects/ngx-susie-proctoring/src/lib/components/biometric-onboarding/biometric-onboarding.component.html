@@ -1,6 +1,11 @@
 <div class="bio-overlay">
     <div class="bio-card" [class.slide-up]="showCard">
 
+        <!-- Indicador de pasos dinámico -->
+        @if (steps().length > 0) {
+        <susie-step-indicator [steps]="steps()" />
+        }
+
         <!-- Header -->
         <div class="bio-header">
             <div class="icon-wrapper">

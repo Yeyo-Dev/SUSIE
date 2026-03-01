@@ -2,23 +2,10 @@
     <div class="consent-container">
         @if (consentState() === 'pending') {
         <div class="consent-card">
-            <!-- Step indicator -->
-            <div class="step-indicator" aria-label="Paso 1 de 3">
-                <div class="step active">
-                    <div class="step-dot current"></div>
-                    <span class="step-label">Consentimiento</span>
-                </div>
-                <div class="step-line"></div>
-                <div class="step">
-                    <div class="step-dot"></div>
-                    <span class="step-label">Verificación</span>
-                </div>
-                <div class="step-line"></div>
-                <div class="step">
-                    <div class="step-dot"></div>
-                    <span class="step-label">Examen</span>
-                </div>
-            </div>
+            <!-- Indicador de pasos dinámico -->
+            @if (steps().length > 0) {
+            <susie-step-indicator [steps]="steps()" />
+            }
 
             <header class="consent-header">
                 <div class="header-icon-glow" aria-hidden="true">

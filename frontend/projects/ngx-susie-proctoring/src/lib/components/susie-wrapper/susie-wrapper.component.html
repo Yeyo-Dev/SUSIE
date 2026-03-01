@@ -4,8 +4,8 @@
         <video #snapshotVideo autoplay playsinline muted
             style="position: absolute; opacity: 0; pointer-events: none; height: 1px; width: 1px;"></video>
     </div>
-    <!-- PANEL DE DEBUG (Solo si debugMode=true) -->
-    @if (config().debugMode) {
+    <!-- PANEL DE DEBUG (Solo si debugMode=true y no estamos en calibración visual) -->
+    @if (config().debugMode && state() !== 'GAZE_CALIBRATION') {
     <div class="debug-panel">
         <div class="debug-header">
             <span>🔧 SUSIE Debug Console</span>
@@ -25,9 +25,9 @@
     </div>
     }
 
-    <!-- PiP Camera (Siempre visible si hay stream) -->
-    @if (mediaStream()) {
-    <div class="susie-pip" [class.hidden]="state() === 'ENVIRONMENT_CHECK' || state() === 'GAZE_CALIBRATION'">
+    <!-- PiP Camera (Solo visible durante el examen) -->
+    @if (mediaStream() && state() === 'MONITORING') {
+    <div class="susie-pip">
         <susie-camera-pip [stream]="mediaStream()!" [muted]="true"></susie-camera-pip>
         <div class="recording-indicator">
             <span class="dot"></span> REC
@@ -110,9 +110,18 @@
 
 
     <!-- CONTENIDO PRINCIPAL (Máquina de Estados) -->
-    <div class="susie-content">
+    <div class="susie-content" [class.is-exam]="state() === 'MONITORING'">
 
         @switch (state()) {
+
+        @case ('PERMISSION_PREP') {
+        <susie-permission-prep
+            [policies]="config().securityPolicies"
+            [steps]="stepsWithStatus()"
+            (permissionPrepared)="handlePermissionPrepared()"
+            (permissionRequested)="log('info', 'Solicitando permisos...')">
+        </susie-permission-prep>
+        }
 
         @case ('CHECKING_PERMISSIONS') {
         <div class="loading-state">
@@ -122,25 +131,34 @@
         }
 
         @case ('CONSENT') {
-        <susie-consent-dialog [config]="config()" (consentGiven)="handleConsent($event)"></susie-consent-dialog>
+        <susie-consent-dialog [config]="config()" [steps]="stepsWithStatus()"
+            (consentGiven)="handleConsent($event)"></susie-consent-dialog>
         }
 
         @case ('BIOMETRIC_CHECK') {
         <!-- Paso 3: Onboarding Biométrico -->
-        <susie-biometric-onboarding (completed)="handleBiometricCompleted($event)" />
+        <susie-biometric-onboarding [steps]="stepsWithStatus()" (completed)="handleBiometricCompleted($event)" />
         }
 
         @case ('ENVIRONMENT_CHECK') {
         <!-- Paso 4: Verificación de Entorno -->
-        <susie-environment-check [policies]="config().securityPolicies"
+        <susie-environment-check [policies]="config().securityPolicies" [steps]="stepsWithStatus()"
             (checkCompleted)="handleEnvironmentCheck($event)">
         </susie-environment-check>
         }
 
         @case ('GAZE_CALIBRATION') {
         <!-- Paso 5: Calibración de Seguimiento Ocular -->
-        <susie-gaze-calibration [stream]="mediaStream()" (calibrationCompleted)="handleGazeCalibrationCompleted()">
+        <susie-gaze-calibration [stream]="mediaStream()" [steps]="stepsWithStatus()"
+            (calibrationCompleted)="handleGazeCalibrationCompleted()">
         </susie-gaze-calibration>
+        }
+
+        @case ('EXAM_BRIEFING') {
+        <!-- Paso: Briefing / Preparación del Examen -->
+        <susie-exam-briefing [config]="config()" [steps]="stepsWithStatus()"
+            (briefingAcknowledged)="handleBriefingAcknowledged()">
+        </susie-exam-briefing>
         }
 
         @case ('MONITORING') {

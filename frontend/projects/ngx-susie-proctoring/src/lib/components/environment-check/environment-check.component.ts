@@ -1,8 +1,10 @@
 import { Component, input, output, signal, computed, inject, ElementRef, ViewChild, AfterViewInit, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SusieConfig } from '../../models/contracts';
+import { StepInfo } from '../../models/contracts';
 import { MediaService } from '../../services/media.service';
 import { NetworkMonitorService } from '../../services/network-monitor.service';
+import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
 
 interface SystemCheck {
   id: 'browser' | 'camera' | 'microphone' | 'network';
@@ -20,13 +22,14 @@ interface SystemCheck {
 @Component({
   selector: 'susie-environment-check',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StepIndicatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './environment-check.component.html',
   styleUrl: './environment-check.component.css'
 })
 export class EnvironmentCheckComponent implements OnInit {
   policies = input<SusieConfig['securityPolicies'] | undefined>(undefined);
+  steps = input<StepInfo[]>([]);
   checkCompleted = output<{ passed: boolean }>();
 
   // Checks

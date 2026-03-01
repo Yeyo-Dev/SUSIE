@@ -11,7 +11,7 @@ import {
   OnInit
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SusieConfig, SecurityViolation, EvidenceMetadata, EvidencePayload, SusieQuestion, ExamResult, ConsentResult } from '../../models/contracts';
+import { SusieConfig, SecurityViolation, EvidenceMetadata, EvidencePayload, SusieQuestion, ExamResult, ConsentResult, StepInfo } from '../../models/contracts';
 import { MediaService } from '../../services/media.service';
 import { EvidenceService } from '../../services/evidence.service';
 import { SecurityService } from '../../services/security.service';
@@ -26,11 +26,14 @@ import { EnvironmentCheckComponent } from '../environment-check/environment-chec
 import { BiometricOnboardingComponent } from '../biometric-onboarding/biometric-onboarding.component';
 import { ExamEngineComponent } from '../exam-engine/exam-engine.component';
 import { GazeCalibrationComponent } from '../gaze-calibration/gaze-calibration.component';
+import { ExamBriefingComponent } from '../exam-briefing/exam-briefing.component';
+import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
+import { PermissionPrepComponent } from '../permission-prep/permission-prep.component';
 import { ElementRef, ViewChild } from '@angular/core';
 
 
 /** Estado interno del flujo de proctoring */
-type ProctoringState = 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 'ENVIRONMENT_CHECK' | 'GAZE_CALIBRATION' | 'MONITORING';
+type ProctoringState = 'PERMISSION_PREP' | 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 'ENVIRONMENT_CHECK' | 'GAZE_CALIBRATION' | 'EXAM_BRIEFING' | 'MONITORING';
 
 
 @Component({
@@ -40,11 +43,13 @@ type ProctoringState = 'CHECKING_PERMISSIONS' | 'CONSENT' | 'BIOMETRIC_CHECK' | 
     CommonModule,
     CameraPipComponent,
     ConsentDialogComponent,
-    ConsentDialogComponent,
     BiometricOnboardingComponent,
     EnvironmentCheckComponent,
     ExamEngineComponent,
-    GazeCalibrationComponent
+    GazeCalibrationComponent,
+    ExamBriefingComponent,
+    StepIndicatorComponent,
+    PermissionPrepComponent
   ],
 
   templateUrl: './susie-wrapper.component.html',
@@ -75,6 +80,8 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
   // --- State Signals ---
   state = signal<ProctoringState>('CHECKING_PERMISSIONS');
+  stateChange = output<ProctoringState>(); // Nuevo: emitir cambios de estado
+
   mediaStream = this.mediaService.stream;
   mediaError = this.mediaService.error;
   isOnline = this.networkService.isOnline;
@@ -83,6 +90,35 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   tabSwitchCount = signal(0);
   needsFullscreenReturn = signal(false);
   private visibilityReturnHandler = this.onVisibilityReturn.bind(this);
+
+  /** Lista dinámica de pasos calculada desde securityPolicies */
+  computedSteps = computed(() => {
+    const p = this.config().securityPolicies;
+    const steps: { id: string; label: string }[] = [];
+
+    if (p.requireConsent) steps.push({ id: 'CONSENT', label: 'Consentimiento' });
+    if (p.requireBiometrics) steps.push({ id: 'BIOMETRIC_CHECK', label: 'Biometría' });
+    if (p.requireEnvironmentCheck) steps.push({ id: 'ENVIRONMENT_CHECK', label: 'Verificación' });
+    if (p.requireGazeTracking) steps.push({ id: 'GAZE_CALIBRATION', label: 'Calibración' });
+    steps.push({ id: 'EXAM_BRIEFING', label: 'Preparación' });
+    steps.push({ id: 'MONITORING', label: 'Examen' });
+
+    return steps;
+  });
+
+  /** Pasos con estado calculado según el estado actual de la máquina */
+  stepsWithStatus = computed<StepInfo[]>(() => {
+    const current = this.state();
+    const steps = this.computedSteps();
+    const currentIdx = steps.findIndex(s => s.id === current);
+
+    return steps.map((step, i) => ({
+      ...step,
+      status: i < currentIdx ? 'completed' as const
+        : i === currentIdx ? 'current' as const
+          : 'upcoming' as const
+    }));
+  });
 
   /** Intentos de cambio de pestaña restantes */
   remainingTabSwitches = computed(() => {
@@ -100,6 +136,11 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   logs = signal<{ time: string; type: 'info' | 'error' | 'success'; msg: string; details?: any }[]>([]);
 
   constructor() {
+    // Emitir cambios de estado al componente padre
+    effect(() => {
+      this.stateChange.emit(this.state());
+    });
+
     // Efecto para monitoreo de red
     effect(() => {
       if (!this.isOnline()) {
@@ -150,23 +191,40 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   }
 
   private async initializeFlow() {
+
     const policies = this.config().securityPolicies;
 
-    // 1. Permisos de Media
+    // 1. Permisos de Media - Ir a pantalla de preparación
     // Si requiere Biometría, IMPLÍCITAMENTE requiere cámara, aunque requireCamera sea false
     const needsCamera = Boolean(policies.requireCamera || policies.requireBiometrics);
 
     if (needsCamera || policies.requireMicrophone) {
-      this.state.set('CHECKING_PERMISSIONS');
-      try {
-        await this.mediaService.requestPermissions(needsCamera, policies.requireMicrophone);
-        this.log('success', '🎥 Permisos de media concedidos');
-      } catch (err: any) {
-        this.log('error', `❌ Error solicitando permisos: ${err.message}`);
-        return; // Se queda en estado de error (UI manejada por template)
-      }
+      // NUEVO: Ir a la pantalla de preparación de permisos primero
+      this.state.set('PERMISSION_PREP');
+      // El PermissionPrepComponent maneja la solicitud de permisos
+      // y emite permissionPrepared cuando el usuario confirma el preview
+      return;
     }
 
+    // Si no se requieren permisos, continuar al flujo normal (solicitar en background)
+    // pero ir directo al siguiente paso
+    this.advanceAfterPermissions();
+  }
+
+  /**
+   * Avanza al siguiente paso después de que los permisos fueron concedidos
+   * (usado después de PERMISSION_PREP)
+   */
+  handlePermissionPrepared() {
+    this.log('success', '🎥 Permisos listos - Avanzando');
+    this.advanceAfterPermissions();
+  }
+
+  /**
+   * Lógica para avanzar después de que los permisos fueron concedidos
+   */
+  private advanceAfterPermissions() {
+    const policies = this.config().securityPolicies;
 
     // 2. Consentimiento
     if (policies.requireConsent) {
@@ -176,7 +234,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     } else if (policies.requireGazeTracking) {
       this.state.set('GAZE_CALIBRATION');
     } else {
-      this.startMonitoring();
+      this.goToExamBriefing();
     }
   }
 
@@ -197,7 +255,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       } else if (this.config().securityPolicies.requireEnvironmentCheck) {
         this.state.set('ENVIRONMENT_CHECK');
       } else {
-        this.startMonitoring();
+        this.goToExamBriefing();
       }
 
     } else {
@@ -231,16 +289,16 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       this.state.set('ENVIRONMENT_CHECK');
     } else if (this.config().securityPolicies.requireGazeTracking) {
       this.log('info', '🔜 Avanzando a Calibración de Gaze');
-      // Configurar el logger del gazeService ANTES de calibrar para que los logs sean visibles
+      // Configurar el gazeService SIN logger para no ensuciar la consola durante calibración
       this.gazeService.configure(
         {},
-        (type, msg, details) => this.log(type, msg, details),
+        () => { }, // Empty logger
         () => this.handleGazeDeviation()
       );
       this.state.set('GAZE_CALIBRATION');
     } else {
-      this.log('info', '🔜 Iniciando Monitoreo');
-      this.startMonitoring();
+      this.log('info', '🔜 Avanzando a Briefing del Examen');
+      this.goToExamBriefing();
     }
   }
 
@@ -253,16 +311,16 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       this.log('success', '✅ Verificación de entorno exitosa');
       if (this.config().securityPolicies.requireGazeTracking) {
         this.log('info', '🔜 Avanzando a Calibración de Gaze');
-        // Configurar el logger del gazeService ANTES de calibrar para que los logs sean visibles
+        // Configurar el gazeService SIN logger para no ensuciar la consola durante calibración
         this.gazeService.configure(
           {},
-          (type, msg, details) => this.log(type, msg, details),
+          () => { }, // Empty logger
           () => this.handleGazeDeviation()
         );
         this.state.set('GAZE_CALIBRATION');
       } else {
-        this.log('info', '🔜 Iniciando Monitoreo (Gaze no requerido)');
-        this.startMonitoring();
+        this.log('info', '🔜 Avanzando a Briefing del Examen');
+        this.goToExamBriefing();
       }
     } else {
       this.log('error', '❌ Falló verificación de entorno');
@@ -273,7 +331,23 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
    * Maneja la finalización exitosa de la calibración de gaze tracking.
    */
   handleGazeCalibrationCompleted() {
-    this.log('success', '👁️ Calibración de gaze completada — Iniciando monitoreo');
+    this.log('success', '👁️ Calibración de gaze completada');
+    this.goToExamBriefing();
+  }
+
+  /**
+   * Transiciona al briefing pre-examen.
+   */
+  private goToExamBriefing() {
+    this.log('info', '📋 Mostrando briefing del examen');
+    this.state.set('EXAM_BRIEFING');
+  }
+
+  /**
+   * Maneja la confirmación del briefing — inicia el monitoreo y el examen.
+   */
+  handleBriefingAcknowledged() {
+    this.log('success', '✅ Briefing confirmado — Iniciando examen');
     this.startMonitoring();
   }
 
@@ -311,6 +385,11 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
     // Gaze Tracking ya fue configurado antes de la calibración
     if (policies.requireGazeTracking && this.gazeService.isCalibrated()) {
+      // Habilitar logger de nuevo para la fase de monitoreo
+      this.gazeService.configure(
+        {},
+        (type, msg, details) => this.log(type, msg, details)
+      );
       this.log('info', '👁️ Gaze Tracking activo durante monitoreo');
     }
 

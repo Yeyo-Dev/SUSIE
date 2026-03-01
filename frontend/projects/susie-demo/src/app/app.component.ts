@@ -27,6 +27,9 @@ export class AppComponent {
   /** Razón por la cual el examen fue cancelado. */
   cancellationReason = signal('');
 
+  /** Estado interno del wrapper SUSIE (para ocultar el topbar durante el onboarding) */
+  wrapperState = signal<string>('CHECKING_PERMISSIONS');
+
   /**
    * Configuración SUSIE construida a partir de la config de Chaindrenciales.
    * mapToSusieConfig() transforma supervision → securityPolicies, deriva
@@ -46,6 +49,11 @@ export class AppComponent {
 
   /** Lista de preguntas extraída del config (para referencia en el template). */
   readonly questions: SusieQuestion[] = MOCK_CHAINDRENCIALES_CONFIG.questions;
+
+  /** Captura cambios de estado desde el wrapper */
+  handleStateChange(newState: string) {
+    this.wrapperState.set(newState);
+  }
 
   /**
    * Callback invocado cuando el motor de examen finaliza (por envío o tiempo).

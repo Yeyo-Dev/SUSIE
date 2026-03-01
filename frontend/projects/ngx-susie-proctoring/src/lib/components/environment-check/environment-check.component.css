@@ -23,6 +23,7 @@
         0 0 0 1px rgba(255, 255, 255, 0.05);
       width: 100%;
       max-width: 520px;
+      max-height: 90vh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -41,75 +42,9 @@
       }
     }
 
-    /* ── Step Indicator ── */
-    .step-indicator {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem 2rem 0;
-    }
 
-    .step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-    }
+    /* ── Step indicator is now a shared component (susie-step-indicator) ── */
 
-    .step-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #e2e8f0;
-      border: 2px solid #e2e8f0;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .step-dot.current {
-      background: #10B981;
-      border-color: #10B981;
-      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
-    }
-
-    .step-dot.completed {
-      background: #10B981;
-      border-color: #10B981;
-      color: white;
-    }
-
-    .step-label {
-      font-size: 0.6875rem;
-      color: #94a3b8;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .step.active .step-label {
-      color: #10B981;
-      font-weight: 600;
-    }
-
-    .step.completed .step-label {
-      color: #059669;
-    }
-
-    .step-line {
-      width: 48px;
-      height: 2px;
-      background: #e2e8f0;
-      margin: 0 0.5rem;
-      margin-bottom: 1.5rem;
-      border-radius: 1px;
-      transition: background 0.3s ease;
-    }
-
-    .step-line.filled {
-      background: #10B981;
-    }
 
     /* ── Header ── */
     .env-header {
@@ -117,6 +52,7 @@
       text-align: center;
       background: linear-gradient(to bottom, #f8fafc, #ffffff);
       border-bottom: 1px solid #f1f5f9;
+      flex-shrink: 0;
     }
 
     .header-icon-container {
@@ -184,6 +120,8 @@
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      overflow-y: auto;
+      flex: 1 1 auto;
     }
 
     .check-row {
@@ -402,6 +340,7 @@
       padding: 1.25rem 2rem 1.75rem;
       background: #ffffff;
       border-top: 1px solid #f1f5f9;
+      flex-shrink: 0;
     }
 
     .footer-status {

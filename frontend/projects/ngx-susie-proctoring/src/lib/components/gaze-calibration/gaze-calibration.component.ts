@@ -10,6 +10,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GazeTrackingService } from '../../services/gaze-tracking.service';
+import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
+import { StepInfo } from '../../models/contracts';
 
 interface CalibrationPoint {
   id: number;
@@ -24,10 +26,16 @@ const REQUIRED_CLICKS = 5;
 @Component({
   selector: 'susie-gaze-calibration',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StepIndicatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="calibration-container">
+      <!-- Indicador de pasos dinámico (posicionado arriba) -->
+      @if (steps().length > 0) {
+        <div class="calibration-steps">
+          <susie-step-indicator [steps]="steps()" />
+        </div>
+      }
       <!-- Instrucciones -->
       <div class="calibration-header">
         <div class="calibration-icon">👁️</div>
@@ -90,9 +98,19 @@ const REQUIRED_CLICKS = 5;
       z-index: 9999;
     }
 
+    .calibration-steps {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 15;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+    }
+
     .calibration-header {
       position: absolute;
-      top: 50%;
+      top: 30%;
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
@@ -100,29 +118,29 @@ const REQUIRED_CLICKS = 5;
       z-index: 10;
       background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(12px);
-      padding: 2rem 3rem;
+      padding: 1.25rem 2rem;
       border-radius: 1rem;
       border: 1px solid rgba(148, 163, 184, 0.15);
-      max-width: 420px;
+      max-width: 360px;
     }
 
     .calibration-icon {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
+      font-size: 1.75rem;
+      margin-bottom: 0.375rem;
     }
 
     .calibration-header h2 {
-      margin: 0 0 0.5rem;
-      font-size: 1.25rem;
+      margin: 0 0 0.375rem;
+      font-size: 1rem;
       font-weight: 600;
       color: #f1f5f9;
     }
 
     .calibration-header p {
-      margin: 0 0 1rem;
-      font-size: 0.875rem;
+      margin: 0 0 0.75rem;
+      font-size: 0.75rem;
       color: #94a3b8;
-      line-height: 1.5;
+      line-height: 1.4;
     }
 
     .progress-bar {
@@ -259,6 +277,9 @@ const REQUIRED_CLICKS = 5;
 export class GazeCalibrationComponent implements OnInit, OnDestroy {
   /** Emite cuando la calibración finaliza exitosamente */
   calibrationCompleted = output<void>();
+
+  /** Pasos dinámicos del indicador (recibidos del wrapper) */
+  steps = input<StepInfo[]>([]);
 
   /** Stream existente de la cámara (para compartir con WebGazer) */
   stream = input<MediaStream | null>(null);

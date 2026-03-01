@@ -26,32 +26,32 @@ export const MOCK_CHAINDRENCIALES_CONFIG: ChaindrencialesExamConfig = {
     questions: [
         {
             id: 1,
-            content: '¿Cuál es el principal beneficio de usar Standalone Components en Angular?',
+            content: 'En un entorno empresarial de alto rendimiento utilizando arquitecturas de micro-frontends distribuidos a gran escala, equipos interfuncionales suelen adoptar Angular debido a sus capacidades completas que trae la estructura de serie. Sin embargo, en implementaciones más recientes después de Angular v15, se ha recomendado una reestructuración significativa en cómo se organizan y construyen estos elementos aislables dentro del código base. Según la documentación oficial y considerando las migraciones de módulos legados a enfoques más modernos, ¿cuál es el beneficio primario y el impacto arquitectónico más significativo de la adopción exhaustiva del concepto de Standalone Components en proyectos masivos de Angular?',
             options: [
-                'Reducción de Boilerplate (No NgModules)',
-                'Mayor velocidad de ejecución',
-                'Compatibilidad con AngularJS',
-                'Soporte para Web Workers'
+                'Reducción drástica del "Boilerplate" estructural, permitiendo que los componentes, directivas y pipes operen de manera completamente independiente de los NgModules tradicionales, lo que reduce la carga cognitiva, simplifica la carga diferida (lazy loading) a nivel granular y remueve capas innecesarias de anidación.',
+                'Aumento exponencial verificable en la velocidad bruta de ejecución del framework y renderizado durante tiempo de ejecución mediante la paralelización de hilos asíncronos en navegadores modernos sin usar Web Workers.',
+                'Retrocompatibilidad absoluta y nativa incorporada por defecto que permite correr e incrustar de forma transparente directivas directas de AngularJS legado dentro de nuevos flujos de renderizado zoneless.',
+                'El aislamiento intrínseco garantizado proporciona un entorno que compila y empaca individualmente todo el CSS y código JS dependiente que hace transparente la delegación directa de UI render a Web Workers usando el DOM virtual exclusivo del framework.'
             ],
         },
         {
             id: 2,
-            content: '¿Qué función de Angular se usa para crear estado reactivo con Signals?',
+            content: 'La reactividad en Angular históricamente dependía fuertemente de RxJS y zone.js para el seguimiento y propagación de los cambios de estado hacia la capa visual de la aplicación. Con la introducción de paradigmas reactivos más finos y síncronos en las versiones recientes de Angular, inspirados de frameworks pares en el ecosistema front-end moderno, ¿qué primitiva reactiva principal ofrece ahora Angular, la cual permite notificar a componentes dependientes cuándo ha habido una modificación de valor sin requerir suscripciones explícitas complejas ni chequeos impuros del árbol de componentes completo?',
             options: [
-                'observable()',
-                'signal()',
-                'watch()',
-                'reactive()'
+                'observable() - una nueva variante nativa del navegador soportada dentro del motor central de Angular que reemplaza Observable de RxJS.',
+                'signal() - una envoltura de un valor reactivo primitivo puro que alerta a sus consumidores dependientes (como plantillas y funciones computed) automáticamente notificando cuándo ha cambiado, haciendo el sistema más predecible.',
+                'watch() - un decorador integrado derivado de Vue.js adaptado mediante inyección de dependencias para monitorear inputs en tiempo real.',
+                'reactive() - una función que proxyfica internamente cualquier objeto o arreglo completo pasado a los componentes para lograr reactividad en profundidad, tal como OnPush mutado.'
             ],
         },
         {
             id: 3,
-            content: '¿Cuál es la estrategia de detección de cambios recomendada para rendimiento?',
+            content: 'Al diseñar aplicaciones Angular optimizadas y eficientes para dominios de gran volumen transaccional, es crítico gestionar de qué manera y con qué frecuencia el framework interroga a los componentes para confirmar si el estado del modelo base ha cambiado y amerita reflejarlo actualizando el DOM subyacente interactivo. En ese contexto estricto, ¿cuál de las alternativas detalla mejor la única configuración estratégica recomendada comúnmente en desarrollo profesional a gran escala y de forma generalizada aplicable en los decoradores de cada Component para forzar la eficiencia máxima, la inmutabilidad en entradas y acotar cascadas innecesarias?',
             options: [
-                'ChangeDetectionStrategy.Default',
-                'ChangeDetectionStrategy.OnPush',
-                'ChangeDetectionStrategy.Manual',
-                'ChangeDetectionStrategy.Lazy'
+                'ChangeDetectionStrategy.Default - delegar la gestión del chequeo top-down en cada evento del usuario (clicks, keyups) a través del motor genérico de Zone.js.',
+                'ChangeDetectionStrategy.OnPush - instruir al framework a saltarse el chequeo de dicho componente a menos que sus Input bindings cambien de referencia (inmutabilidad), se reciba explícitamente un evento de UI, o se lo marque como "sucio" de forma imperativa.',
+                'ChangeDetectionStrategy.Manual - desconectar integralmente el componente de por vida del árbol de inyecciones y llamar manualmente a detectChanges() o markForCheck() repetidamente.',
+                'ChangeDetectionStrategy.Lazy - deferir la operación al browser paint layout en una RequestAnimationFrame priorizando estilos sobre re-renders directos de vistas dinámicas locales.'
             ],
         },
         {
@@ -323,6 +323,106 @@ export const MOCK_CHAINDRENCIALES_CONFIG: ChaindrencialesExamConfig = {
                 'Una librería de UI',
                 'Un framework de CSS'
             ],
+        },
+        {
+            id: 31,
+            content: '¿En qué año se lanzó Angular (la versión reescrita, v2)?',
+            options: ['2010', '2014', '2016', '2018'],
+        },
+        {
+            id: 32,
+            content: '¿Qué patrón arquitectónico predominante utiliza Angular?',
+            options: ['MVC', 'MVVM', 'Component-Based Architecture', 'MVI'],
+        },
+        {
+            id: 33,
+            content: '¿Cuál es el decorador para inyectar un valor directamente por token?',
+            options: ['@Inject()', '@Injectable()', '@Input()', '@Output()'],
+        },
+        {
+            id: 34,
+            content: '¿Qué comando de CLI genera un nuevo componente?',
+            options: ['ng new comp', 'ng create comp', 'ng g c', 'ng make component'],
+        },
+        {
+            id: 35,
+            content: '¿Qué es ViewEncapsulation.Emulated?',
+            options: ['Usa Shadow DOM real', 'Finge Shadow DOM añadiendo atributos únicos al HTML y CSS', 'No aplica encapsulación', 'Es obsoleto'],
+        },
+        {
+            id: 36,
+            content: '¿Cómo se lee un parámetro de ruta dinámica en Angular?',
+            options: ['Router.getParams', 'ActivatedRoute.snapshot.paramMap', 'window.location', 'this.route.params()'],
+        },
+        {
+            id: 37,
+            content: '¿Qué operador de RxJS filtra valores basados en una condición?',
+            options: ['map', 'filter', 'reduce', 'tap'],
+        },
+        {
+            id: 38,
+            content: '¿Para qué se utiliza el operador "tap" de RxJS?',
+            options: ['Para pausar el stream', 'Para depurar o realizar efectos secundarios sin mutar los datos', 'Para mapear valores', 'Para cerrar el stream'],
+        },
+        {
+            id: 39,
+            content: '¿Qué hace "behaviorSubject" que no hace un "Subject" normal?',
+            options: ['Se completa automáticamente', 'Requiere un valor inicial y emite su valor actual a nuevos suscriptores', 'Solo emite el primer evento', 'Es más rápido'],
+        },
+        {
+            id: 40,
+            content: '¿Cuál directiva te permite aplicar estilos dinámicamente?',
+            options: ['[style]', '[ngStyle]', '[class]', 'Todas las anteriores'],
+        },
+        {
+            id: 41,
+            content: '¿Qué módulo es necesario para usar ngModel?',
+            options: ['CommonModule', 'FormsModule', 'ReactiveFormsModule', 'BrowserModule'],
+        },
+        {
+            id: 42,
+            content: '¿Qué es un HttpInterceptor?',
+            options: ['Un firewall', 'Una clase que intercepta y modifica peticiones/respuestas HTTP globales', 'Un pipe de Angular', 'Un guardia de rutas'],
+        },
+        {
+            id: 43,
+            content: '¿Para qué sirve CanActivateFn en Angular Router?',
+            options: ['Para activar animaciones', 'Para proteger una ruta previniendo su carga si no se cumple una condición (Guard)', 'Para activar módulos', 'Para encender el debug'],
+        },
+        {
+            id: 44,
+            content: '¿Cómo defines una ruta "comodín" de 404?',
+            options: ['{ path: "*", component: ... }', '{ path: "**", component: ... }', '{ path: "404", component: ... }', '{ error: true, component: ... }'],
+        },
+        {
+            id: 45,
+            content: '¿Qué es un FormArray?',
+            options: ['Un arreglo de primitivos', 'Una clase para gestionar un número dinámico de controles de formulario reactivo', 'Un tipo de input HTML', 'Una variable del componente'],
+        },
+        {
+            id: 46,
+            content: '¿Dónde se define típicamente la inyección de servicios a nivel global?',
+            options: ['En el constructor', 'providedIn: "root"', 'providers: [] del componente', 'En tsconfig.json'],
+        },
+        {
+            id: 47,
+            content: '¿Qué decorador de clase prepara una clase para Inyección de Dependencias?',
+            options: ['@Component', '@Injectable()', '@Directive', '@Pipe'],
+        },
+        {
+            id: 48,
+            content: '¿En SSR moderno de Angular, qué indica que un código debe correr solo en el cliente?',
+            options: ['isPlatformBrowser()', 'if(window)', 'afterNextRender() / afterRender()', 'Todas las anteriores'],
+        },
+        {
+            id: 49,
+            content: '¿Qué es TestBed?',
+            options: ['Una cama inteligente', 'La clase principal de Angular para configurar e inicializar entornos para pruebas unitarias', 'Un archivo JSON', 'Un comando de la CLI'],
+        },
+        {
+            id: 50,
+            content: '¿Qué significa AOT en Angular?',
+            options: ['Ahead Of Time (compilación de plantillas a JS durante el build)', 'Angular Object Type', 'Application Output Testing', 'All Override Template'],
         },
     ],
     susieApiUrl: 'http://localhost:8000/susie/api/v1',

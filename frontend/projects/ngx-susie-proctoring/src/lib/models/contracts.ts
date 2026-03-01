@@ -21,6 +21,13 @@ export interface ConsentResult {
 /** Permisos individuales que el candidato consiente. */
 export type ConsentPermission = 'camera' | 'microphone' | 'biometrics';
 
+/** Información de un paso en el indicador dinámico del flujo de proctoring. */
+export interface StepInfo {
+  id: string;
+  label: string;
+  status: 'completed' | 'current' | 'upcoming';
+}
+
 // --- NUEVO: Estructuras para el Motor de Examen ---
 
 /**

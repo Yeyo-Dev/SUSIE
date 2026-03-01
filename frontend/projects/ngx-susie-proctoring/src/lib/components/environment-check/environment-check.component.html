@@ -1,27 +1,9 @@
 <div class="env-backdrop">
     <div class="env-card">
-        <!-- Step indicator (Step 2 active) -->
-        <div class="step-indicator" aria-label="Paso 2 de 3">
-            <div class="step completed">
-                <div class="step-dot completed">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                </div>
-                <span class="step-label">Consentimiento</span>
-            </div>
-            <div class="step-line filled"></div>
-            <div class="step active">
-                <div class="step-dot current"></div>
-                <span class="step-label">Verificación</span>
-            </div>
-            <div class="step-line"></div>
-            <div class="step">
-                <div class="step-dot"></div>
-                <span class="step-label">Examen</span>
-            </div>
-        </div>
+        <!-- Indicador de pasos dinámico -->
+        @if (steps().length > 0) {
+        <susie-step-indicator [steps]="steps()" />
+        }
 
         <header class="env-header">
             <div class="header-icon-container">

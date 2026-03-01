@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, input, output, computed, signal } from '@angular/core';
-import { ConsentResult, ConsentPermission, SusieConfig } from '../../models/contracts';
+import { ConsentResult, ConsentPermission, SusieConfig, StepInfo } from '../../models/contracts';
+import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
 
 /**
  * Componente de consentimiento de términos y condiciones.
@@ -18,6 +19,7 @@ import { ConsentResult, ConsentPermission, SusieConfig } from '../../models/cont
 @Component({
   selector: 'susie-consent-dialog',
   standalone: true,
+  imports: [StepIndicatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     'class': 'susie-consent-dialog',
@@ -31,6 +33,9 @@ import { ConsentResult, ConsentPermission, SusieConfig } from '../../models/cont
 export class ConsentDialogComponent {
   /** Configuración completa del examen — se usa para derivar permisos necesarios. */
   config = input.required<SusieConfig>();
+
+  /** Pasos dinámicos del indicador (recibidos del wrapper) */
+  steps = input<StepInfo[]>([]);
 
   /** Emite el resultado del consentimiento (aceptado o rechazado). */
   consentGiven = output<ConsentResult>();
