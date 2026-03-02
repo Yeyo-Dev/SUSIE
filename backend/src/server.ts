@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 //import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
 import { userRoutes } from './modules/user/user.routes';
+import { biometricoRoutes } from './modules/user/biometricos/biometrico.routes';
 import { sesionEvaluacionRoutes } from './modules/sesiones_evaluacion/sesion.routes';
 import {snapshotRoutes} from './modules/monitoreo/snapshots/snapshot.routes';
 import {audioRoutes} from './modules/monitoreo/audios/audio.routes';
@@ -30,8 +31,12 @@ export const buildServer = (): FastifyInstance => {
     //server.register(rabbitMQConnector); //conexion a rabbitMQ
     //server.register(redisPlugin); //conexion a redis
     server.register(websocket);
+    //RUTAS PARA USUARIOS
     server.register(userRoutes, { prefix: prefixApi + '/user' });
+    server.register(biometricoRoutes, { prefix: prefixApi + '/user/biometricos' });
+    //RUTAS PARA SESIONES DE EVALUACION
     server.register(sesionEvaluacionRoutes, { prefix: prefixApi + '/sesiones' });
+    //RUTAS PARA MONITOREO
     server.register(snapshotRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
     server.register(audioRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
 
