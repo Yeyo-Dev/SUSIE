@@ -44,7 +44,8 @@ class SemanticAnalyzer:
 
     def analizar(self, texto_alumno):
         if not texto_alumno or len(texto_alumno.split()) < 2:
-            return {"category": "NEUTRAL", "score": 0.0, "flagged": False}
+            return {"category": "NEUTRAL", "score": 0.0, "flagged": False,
+                    "raw_score_trampa": 0.0, "raw_score_domestico": 0.0}
 
         # 1. Convertir lo que dijo el alumno a vector
         embedding_alumno = self.model.encode(texto_alumno, convert_to_tensor=True)
@@ -66,7 +67,10 @@ class SemanticAnalyzer:
             "text": texto_alumno,
             "category": "NEUTRAL",
             "score": 0.0,
-            "flagged": False
+            "flagged": False,
+            # Scores crudos para el módulo de Soft Evidence (Softmax con temperatura)
+            "raw_score_trampa": round(max_score_trampa, 4),
+            "raw_score_domestico": round(max_score_domestico, 4),
         }
 
         if max_score_trampa > UMBRAL_ALERTA:

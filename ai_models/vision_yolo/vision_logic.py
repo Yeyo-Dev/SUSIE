@@ -23,6 +23,7 @@ def analizar_frame(image_np):
     
     person_count = 0
     phone_count = 0
+    max_phone_confidence = 0.0  # Confianza máxima de detección de celular
     detected_objects = []
 
     # Procesamos la primera imagen del lote (solo mandamos una)
@@ -31,13 +32,14 @@ def analizar_frame(image_np):
     # Iteramos sobre las cajas detectadas
     for box in result.boxes:
         class_id = int(box.cls[0])
-        class_name = model.names[class_id]
+        confidence = float(box.conf[0])
         
         if class_id == CLASS_PERSON:
             person_count += 1
             detected_objects.append("persona")
         elif class_id == CLASS_CELLPHONE:
             phone_count += 1
+            max_phone_confidence = max(max_phone_confidence, confidence)
             detected_objects.append("celular")
             
     # --- LÓGICA DE NEGOCIO ---
@@ -73,8 +75,7 @@ def analizar_frame(image_np):
         "details": {
             "persons": person_count,
             "phones": phone_count,
+            "max_phone_confidence": round(max_phone_confidence, 4),
             "flags": flags,
-            # Opcional: devolver objetos detectados para debug
-            # "raw_objects": detected_objects 
         }
     }
