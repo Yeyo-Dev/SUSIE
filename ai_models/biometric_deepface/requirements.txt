@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+requests
+python-dotenv
+# Nota: opencv, numpy y face_recognition NO van aquí
+# porque usaremos la imagen base que ya los trae instalados.
