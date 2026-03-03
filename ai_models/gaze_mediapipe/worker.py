@@ -15,13 +15,13 @@ from soft_evidence import normalizar_gaze
 logger = logging.getLogger("GazeTrackingWorker")
 
 
-def procesar_gaze(student_id: str, session_id: str, buffer_coordenadas: list) -> dict | None:
+def procesar_gaze(user_id: str, sesion_id: str, buffer_coordenadas: list) -> dict | None:
     """
     Pipeline completo de gaze: validación → análisis IA → soft evidence.
 
     Args:
-        student_id:         ID del estudiante.
-        session_id:         ID de la sesión de examen.
+        user_id:            ID del usuario (estudiante).
+        sesion_id:          ID de la sesión de examen.
         buffer_coordenadas: Lista de tuplas [(x1,y1), (x2,y2), ...] con
                             las coordenadas de mirada del buffer temporal.
 
@@ -31,7 +31,7 @@ def procesar_gaze(student_id: str, session_id: str, buffer_coordenadas: list) ->
     """
     # 1. Validar datos suficientes
     if not buffer_coordenadas or len(buffer_coordenadas) < 15:
-        logger.info(f"Buffer muy corto para {student_id}, ignorando...")
+        logger.info(f"Buffer muy corto para {user_id}, ignorando...")
         return None
 
     # 2. Análisis con la IA (Heurísticas + DBSCAN + Isolation Forest)
@@ -53,8 +53,8 @@ def procesar_gaze(student_id: str, session_id: str, buffer_coordenadas: list) ->
     # 4. Construir evento en formato universal de Soft Evidence
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "userId": student_id,
-        "sessionId": session_id,
+        "user_id": user_id,
+        "sesion_id": sesion_id,
         "source": "gaze_tracker",
         "evidence_type": "soft",
         "soft_evidence": distribucion,

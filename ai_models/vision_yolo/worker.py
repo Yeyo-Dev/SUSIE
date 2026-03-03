@@ -35,21 +35,21 @@ def descargar_imagen(url: str):
         return None
 
 
-def procesar_frame(student_id: str, session_id: str, image_url: str) -> dict | None:
+def procesar_frame(user_id: str, sesion_id: str, url_storage: str) -> dict | None:
     """
     Pipeline completo de visión: descarga → YOLO → soft evidence.
 
     Args:
-        student_id: ID del estudiante.
-        session_id: ID de la sesión de examen.
-        image_url:  URL de la imagen en Azure Blob.
+        user_id:     ID del usuario (estudiante).
+        sesion_id:   ID de la sesión de examen.
+        url_storage: URL de la imagen en Azure Blob Storage.
 
     Returns:
         dict con el evento universal de soft evidence listo para encolar,
         o None si la imagen no se pudo procesar.
     """
     # 1. Descargar la imagen
-    image_np = descargar_imagen(image_url)
+    image_np = descargar_imagen(url_storage)
     if image_np is None:
         return None
 
@@ -73,8 +73,8 @@ def procesar_frame(student_id: str, session_id: str, image_url: str) -> dict | N
     # 5. Construir evento en formato universal de Soft Evidence
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "userId": student_id,
-        "sessionId": session_id,
+        "user_id": user_id,
+        "sesion_id": sesion_id,
         "source": "yolo_vision",
         "evidence_type": "soft",
         "soft_evidence": distribucion,

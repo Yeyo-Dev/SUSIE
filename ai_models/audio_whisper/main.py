@@ -55,14 +55,14 @@ def publicar_evidencia(channel, evento):
 def on_message(ch, method, properties, body):
     try:
         payload = json.loads(body)
-        student_id = payload.get("student_id")
-        session_id = payload.get("session_id")
-        audio_url = payload.get("audio_url")
+        user_id = payload.get("user_id")
+        sesion_id = payload.get("sesion_id")
+        url_storage = payload.get("url_storage")
 
-        logger.info(f"Procesando audio de {student_id}...")
+        logger.info(f"Procesando audio de {user_id}...")
 
         # Delegar TODA la lógica al worker
-        evento = procesar_audio(student_id, session_id, audio_url)
+        evento = procesar_audio(user_id, sesion_id, url_storage)
 
         if evento:
             publicar_evidencia(ch, evento)

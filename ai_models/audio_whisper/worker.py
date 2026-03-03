@@ -29,21 +29,21 @@ def descargar_audio_bytes(url: str) -> bytes | None:
         return None
 
 
-def procesar_audio(student_id: str, session_id: str, audio_url: str) -> dict | None:
+def procesar_audio(user_id: str, sesion_id: str, url_storage: str) -> dict | None:
     """
     Pipeline completo de audio: descarga → silencio/voz → STT → NLP → soft evidence.
 
     Args:
-        student_id: ID del estudiante.
-        session_id: ID de la sesión de examen.
-        audio_url:  URL del chunk de audio en Azure Blob.
+        user_id:     ID del usuario (estudiante).
+        sesion_id:   ID de la sesión de examen.
+        url_storage: URL del chunk de audio en Azure Blob Storage.
 
     Returns:
         dict con el evento universal de soft evidence listo para encolar,
         o None si el audio no se pudo procesar.
     """
     # 1. Descargar el audio
-    audio_bytes = descargar_audio_bytes(audio_url)
+    audio_bytes = descargar_audio_bytes(url_storage)
     if audio_bytes is None:
         return None
 
@@ -63,8 +63,8 @@ def procesar_audio(student_id: str, session_id: str, audio_url: str) -> dict | N
         distribucion = normalizar_audio(es_silencio=True)
         return {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "userId": student_id,
-            "sessionId": session_id,
+            "user_id": user_id,
+            "sesion_id": sesion_id,
             "source": "audio_nlp",
             "evidence_type": "soft",
             "soft_evidence": distribucion,
@@ -102,8 +102,8 @@ def procesar_audio(student_id: str, session_id: str, audio_url: str) -> dict | N
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "userId": student_id,
-        "sessionId": session_id,
+        "user_id": user_id,
+        "sesion_id": sesion_id,
         "source": "audio_nlp",
         "evidence_type": "soft",
         "soft_evidence": distribucion,

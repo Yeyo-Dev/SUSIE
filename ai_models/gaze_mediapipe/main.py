@@ -4,7 +4,7 @@ main.py — Capa de Transporte RabbitMQ (Worker de Gaze Tracking)
 Responsabilidad EXCLUSIVA: gestión de conexiones, colas y mensajes.
 Toda la lógica de negocio vive en worker.py.
 
-Flujo:  gaze_tasks_queue (entrada) → worker.procesar_gaze() → q_evidencias (salida)
+Flujo:  q_gaze (entrada) → worker.procesar_gaze() → q_evidencias (salida)
 """
 
 import json
@@ -55,14 +55,14 @@ def publicar_evidencia(channel, evento):
 def on_message(ch, method, properties, body):
     try:
         payload = json.loads(body)
-        student_id = payload.get("student_id")
-        session_id = payload.get("session_id")
+        user_id = payload.get("user_id")
+        sesion_id = payload.get("sesion_id")
         buffer_coordenadas = payload.get("gaze_buffer", [])
 
-        logger.info(f"Procesando buffer de mirada de {student_id}...")
+        logger.info(f"Procesando buffer de mirada de {user_id}...")
 
         # Delegar TODA la lógica al worker
-        evento = procesar_gaze(student_id, session_id, buffer_coordenadas)
+        evento = procesar_gaze(user_id, sesion_id, buffer_coordenadas)
 
         if evento:
             publicar_evidencia(ch, evento)
@@ -77,7 +77,7 @@ def on_message(ch, method, properties, body):
 # --- ARRANQUE CON RETRY ---
 def iniciar_worker():
     RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST', 'localhost')
-    QUEUE_INPUT = 'gaze_tasks_queue'
+    QUEUE_INPUT = 'q_gaze'
     MAX_BACKOFF = 60
     retry_delay = 5
 

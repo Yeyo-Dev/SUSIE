@@ -55,14 +55,14 @@ def publicar_evidencia(channel, evento):
 def on_message(ch, method, properties, body):
     try:
         payload = json.loads(body)
-        student_id = payload.get("student_id")
-        session_id = payload.get("session_id")
-        image_url = payload.get("image_url")
+        user_id = payload.get("user_id")
+        sesion_id = payload.get("sesion_id")
+        url_storage = payload.get("url_storage")
 
-        logger.info(f"Procesando frame de {student_id}...")
+        logger.info(f"Procesando frame de {user_id}...")
 
         # Delegar TODA la lógica al worker
-        evento = procesar_frame(student_id, session_id, image_url)
+        evento = procesar_frame(user_id, sesion_id, url_storage)
 
         if evento:
             publicar_evidencia(ch, evento)
