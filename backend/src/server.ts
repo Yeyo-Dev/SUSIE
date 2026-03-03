@@ -8,6 +8,7 @@ import { biometricoRoutes } from './modules/user/biometricos/biometrico.routes';
 import { sesionEvaluacionRoutes } from './modules/sesiones_evaluacion/sesion.routes';
 import {snapshotRoutes} from './modules/monitoreo/snapshots/snapshot.routes';
 import {audioRoutes} from './modules/monitoreo/audios/audio.routes';
+import { infraccionRoutes } from './modules/monitoreo/infracciones/infraccion.routes';
 import websocket from '@fastify/websocket';
 
 export let broker: ProducerService; //Variable global para acceder al broker
@@ -39,6 +40,8 @@ export const buildServer = (): FastifyInstance => {
     //RUTAS PARA MONITOREO
     server.register(snapshotRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
     server.register(audioRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
+    //RUTAS PARA INFRACCIONES
+    server.register(infraccionRoutes, { prefix: prefixApi + '/monitoreo/infracciones' });
 
     server.ready().then(() => {
         broker = new ProducerService(server); //Inicializamos el broker
