@@ -56,6 +56,14 @@
       "sessions": 1,
       "memories": 9,
       "prompts": 0
+    },
+    {
+      "id": "046a8d72",
+      "created_by": "moarimikashi",
+      "created_at": "2026-03-04T04:39:30Z",
+      "sessions": 0,
+      "memories": 6,
+      "prompts": 0
     }
   ]
 }
