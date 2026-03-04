@@ -33,8 +33,8 @@ export const buildServer = (): FastifyInstance => {
     //server.register(redisPlugin); //conexion a redis
     server.register(websocket);
     //RUTAS PARA USUARIOS
-    server.register(userRoutes, { prefix: prefixApi + '/user' });
-    server.register(biometricoRoutes, { prefix: prefixApi + '/user/biometricos' });
+    server.register(userRoutes, { prefix: prefixApi + '/usuarios' });
+    server.register(biometricoRoutes, { prefix: prefixApi + '/usuarios/biometricos' });
     //RUTAS PARA SESIONES DE EVALUACION
     server.register(sesionEvaluacionRoutes, { prefix: prefixApi + '/sesiones' });
     //RUTAS PARA MONITOREO

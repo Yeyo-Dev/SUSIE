@@ -1,5 +1,5 @@
 
 //Interfaces para recibir los datos biometricos del usuario
 export interface BiometricsCreateDto {
-    usuario_id: number | BigInt;
+    usuario_id: bigint | number;
 }

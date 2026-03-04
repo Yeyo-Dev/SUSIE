@@ -11,6 +11,8 @@ export async function biometricoRoutes(fastify: FastifyInstance) {
         }
     });
 
-    //ruta para registrar datos biométricos
-    fastify.post('/', controller.registroBiometricoHandler);
+    fastify.post('/', controller.registroBiometricoHandler);//Registrar biometricos
+    fastify.put('/', controller.actualizarBiometricoHandler);//Actualizar biometricos
+    fastify.post('/validar', controller.validarBiometricoHandler);//Validar biometricos
+    fastify.delete('/:usuario_id', controller.eliminarBiometricoHandler);//Eliminar biometricos
 }
