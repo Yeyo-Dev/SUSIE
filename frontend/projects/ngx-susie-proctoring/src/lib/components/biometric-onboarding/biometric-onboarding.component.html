@@ -19,6 +19,19 @@
             <p>Necesitamos validar que eres quien dices ser. Toma una foto clara de tu rostro.</p>
         </div>
 
+        <!-- Alerta de error de validación biométrica -->
+        @if (validationError()) {
+        <div class="bio-error-banner" role="alert">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>{{ validationError() }}</span>
+        </div>
+        }
+
         <!-- Camera / Photo Preview Area -->
         <div class="preview-container">
             @if (!capturedImage()) {
@@ -37,17 +50,22 @@
         <!-- Actions -->
         <div class="actions">
             @if (!capturedImage()) {
-            <button class="btn-capture" (click)="capturePhoto()">
+            <button class="btn-capture" (click)="capturePhoto()" [disabled]="isValidating()">
                 <span class="btn-icon">📸</span>
                 Tomar Foto
             </button>
             } @else {
-            <button class="btn-secondary" (click)="retakePhoto()">
+            <button class="btn-secondary" (click)="retakePhoto()" [disabled]="isValidating()">
                 Repetir
             </button>
-            <button class="btn-primary" (click)="confirmPhoto()">
+            <button class="btn-primary" (click)="confirmPhoto()" [disabled]="isValidating()">
+                @if (isValidating()) {
+                <span class="btn-spinner"></span>
+                Validando...
+                } @else {
                 <span class="btn-icon">✅</span>
                 Confirmar y Continuar
+                }
             </button>
             }
         </div>

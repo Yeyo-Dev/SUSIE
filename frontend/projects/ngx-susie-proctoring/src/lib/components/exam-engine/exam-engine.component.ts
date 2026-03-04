@@ -96,7 +96,7 @@ export class ExamEngineComponent {
         this.timerInterval = setInterval(() => {
             const current = this.timerSeconds();
             if (current <= 0) {
-                this.finish();
+                this.autoSubmit();
                 return;
             }
             this.timerSeconds.set(current - 1);
@@ -161,6 +161,16 @@ export class ExamEngineComponent {
 
     confirmSubmit() {
         this.showConfirmModal.set(false);
+        this.finish();
+    }
+
+    /**
+     * Auto-envío mandatorio al expirar el temporizador.
+     * Cierra cualquier modal abierto y finaliza el examen directamente.
+     */
+    private autoSubmit() {
+        this.showConfirmModal.set(false);
+        this.toast.set({ message: '⏰ Tiempo agotado. El examen se ha enviado automáticamente.', type: 'critical' });
         this.finish();
     }
 

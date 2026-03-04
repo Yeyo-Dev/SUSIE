@@ -98,5 +98,5 @@ SUSIE/
 │
 ├── backend/                            ← API Gateway, Rabbit, Postgres [Ramírez]
 │
-└── inference_engine/                   ← Workers Python (YOLO, Whisper) [Vargas]
+└── ai_models/                          ← Workers Python (YOLO, Whisper) [Vargas]
 ```

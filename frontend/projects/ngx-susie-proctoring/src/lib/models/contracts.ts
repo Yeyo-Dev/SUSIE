@@ -37,7 +37,8 @@ export interface SusieQuestion {
   id: number;
   content: string; // HTML o Texto
   options: string[];
-  correctAnswer?: string; // Opcional, para validación en cliente (no recomendado en prod)
+  /** Opcional — la corrección real ocurre en el servidor. No enviar en producción. */
+  correctAnswer?: string;
 }
 
 /**
@@ -48,6 +49,17 @@ export interface ExamResult {
   completedAt: string;
   score?: number; // Si se calcula en el cliente
   metadata?: any;
+  /** Resumen de métricas de supervisión recopiladas durante la sesión. */
+  proctoringSummary?: {
+    totalViolations: number;
+    tabSwitches: number;
+    snapshots: {
+      /** Fotos de verificación de identidad (durante setup). */
+      biometric: number;
+      /** Fotos periódicas enviadas al modelo YOLO durante el examen. */
+      monitoring: number;
+    };
+  };
 }
 
 /**
@@ -62,6 +74,8 @@ export interface SusieConfig {
     userId?: string; // Optional for now
     userName?: string;
     durationMinutes: number;
+    /** ID de la asignación en la plataforma host (ej. Chaindrenciales). */
+    assignmentId?: number;
   };
   securityPolicies: {
     requireCamera: boolean;
@@ -174,6 +188,7 @@ export function mapToSusieConfig(
       examId: source.sessionContext.examId,
       examTitle: source.sessionContext.examTitle,
       durationMinutes: source.sessionContext.durationMinutes,
+      assignmentId: source.sessionContext.assignmentId,
     },
     securityPolicies: {
       // Configurables (vienen de BD)

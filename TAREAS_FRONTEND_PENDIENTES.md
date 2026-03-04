@@ -24,16 +24,16 @@
 
 ## 🟡 Prioridad Media
 
-- [ ] **4. Alinear contrato con spec `SusieExamConfig`** (~2h)
+- [x] **4. Alinear contrato con spec `SusieExamConfig`** (~2h) ✅ _Completada_
   - Agregar `session.assignmentId`
   - Agregar `timer.autoSubmitOnExpiry`
   - Agregar `consent.termsText` y `consent.privacyNotice`
   - Hacer `correctAnswer` opcional/quitar de prod
 
-- [ ] **5. Métricas de proctoring en `ExamResult`** (~2h)
+- [x] **5. Métricas de proctoring en `ExamResult`** (~2h) ✅ _Completada_
   - Al finalizar, incluir en el resultado: `violations[]`, `capturedSnapshots`, `capturedAudioChunks`, `consentGiven`, `biometricVerified`
 
-- [ ] **6. Biometría → API enrollment** (~3h)
+- [x] **6. Biometría → API enrollment y verificación UI** (~3h) ✅ _Completada_
   - Enviar foto capturada al Gateway (`POST /biometrics/enroll`)
   - Hoy la foto se captura pero no se usa
 
@@ -41,7 +41,7 @@
 
 ## 🟠 Prioridad Baja (diferenciadores)
 
-- [ ] **7. Canal WebSocket de feedback** (~4h)
+- [x] **7. Canal WebSocket de feedback** (~4h) ✅ _Completada_
   - El frontend debe recibir alertas en tiempo real del Motor de Inferencia
   - Crear `AlertService` que escuche: `RISK_ALERT`, `IDENTITY_MISMATCH`, `SESSION_TERMINATED`
   - Mostrar overlay al candidato cuando riesgo es alto

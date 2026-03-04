@@ -18,6 +18,7 @@ import { SecurityService } from '../../services/security.service';
 import { NetworkMonitorService } from '../../services/network-monitor.service';
 import { InactivityService } from '../../services/inactivity.service';
 import { GazeTrackingService } from '../../services/gaze-tracking.service';
+import { WebSocketFeedbackService } from '../../services/websocket-feedback.service';
 
 // Child components
 import { CameraPipComponent } from '../camera-pip/camera-pip.component';
@@ -61,7 +62,8 @@ type ProctoringState = 'PERMISSION_PREP' | 'CHECKING_PERMISSIONS' | 'CONSENT' | 
     SecurityService,
     NetworkMonitorService,
     InactivityService,
-    GazeTrackingService
+    GazeTrackingService,
+    WebSocketFeedbackService
   ]
 })
 export class SusieWrapperComponent implements OnInit, OnDestroy {
@@ -77,6 +79,10 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   private networkService = inject(NetworkMonitorService);
   private inactivityService = inject(InactivityService);
   private gazeService = inject(GazeTrackingService);
+  private feedbackService = inject(WebSocketFeedbackService);
+
+  /** Alerta de IA en tiempo real (desde WebSocket de feedback) */
+  aiAlert = this.feedbackService.currentAlert;
 
   // --- State Signals ---
   state = signal<ProctoringState>('CHECKING_PERMISSIONS');
@@ -89,6 +95,16 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   private snapshotInterval: any = null;
   tabSwitchCount = signal(0);
   needsFullscreenReturn = signal(false);
+
+  /** Contadores de métricas de proctoring */
+  private totalViolations = signal(0);
+  private biometricSnapshotsCount = signal(0);
+  private monitoringSnapshotsCount = signal(0);
+
+  /** Estado de validación biométrica para el componente hijo */
+  biometricValidating = signal(false);
+  biometricError = signal<string | null>(null);
+
   private visibilityReturnHandler = this.onVisibilityReturn.bind(this);
 
   /** Lista dinámica de pasos calculada desde securityPolicies */
@@ -181,6 +197,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       this.evidenceService.endSession('cancelled');
     }
 
+    this.feedbackService.disconnect();
     this.mediaService.stop();
     this.evidenceService.stopAudioRecording();
     this.stopSnapshotLoop();
@@ -266,30 +283,34 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
   /**
    * Maneja el completado del onboarding biométrico.
+   * Realiza la validación contra el endpoint dedicado del backend.
+   * Bloquea el avance si la validación falla.
    */
-  handleBiometricCompleted(event: { photo: Blob }) {
+  async handleBiometricCompleted(event: { photo: Blob }) {
     this.log('success', '📸 Foto biométrica capturada');
 
-    // Enviar evidencia de referencia (Biometría)
-    try {
-      this.evidenceService.sendEvent({
-        type: 'SNAPSHOT',
-        browser_focus: document.hasFocus(),
-        file: event.photo // Enviar la foto biométrica
-      });
-      this.log('info', '📤 Evidencia biométrica enviada');
+    // Activar estado de carga y limpiar error previo
+    this.biometricValidating.set(true);
+    this.biometricError.set(null);
 
-    } catch (e) {
-      this.log('error', '⚠️ Falló envío de evidencia biométrica', e);
+    // Validar identidad contra el endpoint dedicado de biometría
+    const userId = this.config().sessionContext?.userId || 'anonymous';
+    const isValid = await this.evidenceService.validateBiometric(event.photo, userId);
+    this.biometricValidating.set(false);
+    this.biometricSnapshotsCount.update(c => c + 1);
+
+    if (!isValid) {
+      this.log('error', '⚠️ Validación biométrica fallida – usuario bloqueado');
+      this.biometricError.set('La validación biométrica ha fallado. Revisa tu iluminación o encuadre e intenta de nuevo.');
+      return; // Bloquear avance
     }
 
-    // Avanzar flujo
+    // Avanzar flujo solo si la validación fue exitosa
     if (this.config().securityPolicies.requireEnvironmentCheck) {
       this.log('info', '🔜 Avanzando a Environment Check');
       this.state.set('ENVIRONMENT_CHECK');
     } else if (this.config().securityPolicies.requireGazeTracking) {
       this.log('info', '🔜 Avanzando a Calibración de Gaze');
-      // Configurar el gazeService SIN logger para no ensuciar la consola durante calibración
       this.gazeService.configure(
         {},
         () => { }, // Empty logger
@@ -300,6 +321,13 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       this.log('info', '🔜 Avanzando a Briefing del Examen');
       this.goToExamBriefing();
     }
+  }
+
+  /**
+   * Limpia el estado de error biométrico cuando el usuario solicita reintentar.
+   */
+  handleBiometricRetake() {
+    this.biometricError.set(null);
   }
 
   /**
@@ -404,6 +432,14 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     // Notificar al backend que inició la sesión
     this.evidenceService.startSession();
 
+    // Conectar canal de feedback en tiempo real de la IA
+    const apiUrl = this.config().apiUrl || '';
+    const wsUrl = apiUrl.replace(/^http/, 'ws');
+    const sessionId = this.config().sessionContext?.examSessionId || '';
+    if (wsUrl && sessionId) {
+      this.feedbackService.connect(wsUrl, sessionId);
+    }
+
     this.log('info', '🛡️ Monitoreo activo iniciado');
   }
 
@@ -421,6 +457,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
 
   private handleViolation(violation: SecurityViolation) {
+    this.totalViolations.update(c => c + 1);
     this.log('error', `🚨 Violación detectada: ${violation.type} - ${violation.message}`);
 
     // Mapear el tipo de violación al trigger esperado por el backend
@@ -497,8 +534,23 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   /** Callback del motor de examen */
   handleExamFinished(result: ExamResult) {
     this.log('success', '🏁 Examen finalizado');
+    this.feedbackService.disconnect();
     this.evidenceService.endSession('submitted');
-    this.config().onExamFinished?.(result);
+
+    // Enriquecer resultado con métricas de proctoring
+    const enrichedResult: ExamResult = {
+      ...result,
+      proctoringSummary: {
+        totalViolations: this.totalViolations(),
+        tabSwitches: this.tabSwitchCount(),
+        snapshots: {
+          biometric: this.biometricSnapshotsCount(),
+          monitoring: this.monitoringSnapshotsCount(),
+        },
+      },
+    };
+
+    this.config().onExamFinished?.(enrichedResult);
   }
 
   // --- Debug Helper ---
@@ -571,6 +623,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
             file: blob,
             ...(gazeHistory?.length ? { gaze_history: gazeHistory } : {})
           } as any);
+          this.monitoringSnapshotsCount.update(c => c + 1);
         }
       }, 'image/jpeg', 0.6); // Calidad media
     }

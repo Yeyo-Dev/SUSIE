@@ -78,6 +78,15 @@ export class ConsentDialogComponent {
       });
     }
 
+    if (policies.requireGazeTracking) {
+      items.push({
+        permission: 'gazeTracking' as any,
+        icon: '👁️',
+        title: 'Seguimiento de mirada',
+        description: 'Se monitoreará la dirección de tu mirada durante el examen mediante tu cámara web para detectar comportamientos inusuales.',
+      });
+    }
+
     if (policies.preventTabSwitch) {
       const max = this.config().maxTabSwitches;
       items.push({
@@ -91,6 +100,30 @@ export class ConsentDialogComponent {
     }
 
     return items;
+  });
+
+  /**
+   * Texto dinámico de aviso de privacidad construido localmente
+   * en base a los componentes de hardware habilitados.
+   */
+  privacyNotice = computed(() => {
+    const policies = this.config().securityPolicies;
+    const dataTypes: string[] = [];
+
+    if (policies.requireCamera) dataTypes.push('imágenes periódicas de tu cámara');
+    if (policies.requireMicrophone) dataTypes.push('grabaciones de audio del entorno');
+    if (policies.requireBiometrics) dataTypes.push('datos de verificación facial');
+    if (policies.requireGazeTracking) dataTypes.push('coordenadas de seguimiento de mirada');
+
+    if (dataTypes.length === 0) {
+      return 'Se monitorizará tu actividad en el navegador durante la evaluación.';
+    }
+
+    const formatted = dataTypes.length === 1
+      ? dataTypes[0]
+      : dataTypes.slice(0, -1).join(', ') + ' y ' + dataTypes[dataTypes.length - 1];
+
+    return `Durante esta evaluación se recopilarán ${formatted}. Estos datos se utilizarán exclusivamente para la supervisión y verificación del examen.`;
   });
 
   /** Permisos activos extraídos de la configuración. */

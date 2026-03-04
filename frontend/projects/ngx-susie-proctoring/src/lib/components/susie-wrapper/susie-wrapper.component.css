@@ -494,3 +494,45 @@ video {
     outline: 2px solid #10B981;
     outline-offset: 2px;
 }
+
+/* ══ AI Alert Banner (WebSocket Feedback) ══ */
+.ai-alert-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9200;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    background: linear-gradient(135deg, #92400e, #d97706);
+    color: #fef3c7;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 4px 20px -2px rgba(217, 119, 6, 0.4);
+    animation: ai-alert-slide-down 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-alert-banner.critical {
+    background: linear-gradient(135deg, #991b1b, #dc2626);
+    color: #fee2e2;
+    box-shadow: 0 4px 20px -2px rgba(220, 38, 38, 0.4);
+}
+
+.ai-alert-banner svg {
+    flex-shrink: 0;
+}
+
+@keyframes ai-alert-slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

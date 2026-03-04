@@ -108,6 +108,18 @@
         }
     </div>
 
+    <!-- ALERTA DE IA EN TIEMPO REAL (WebSocket Feedback) -->
+    @if (aiAlert() && state() === 'MONITORING') {
+    <div class="ai-alert-banner" role="alert" [class.critical]="aiAlert()!.type === 'CRITICAL'">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <span>Alerta de Supervisión: {{ aiAlert()!.msg }}</span>
+    </div>
+    }
 
     <!-- CONTENIDO PRINCIPAL (Máquina de Estados) -->
     <div class="susie-content" [class.is-exam]="state() === 'MONITORING'">
@@ -115,9 +127,7 @@
         @switch (state()) {
 
         @case ('PERMISSION_PREP') {
-        <susie-permission-prep
-            [policies]="config().securityPolicies"
-            [steps]="stepsWithStatus()"
+        <susie-permission-prep [policies]="config().securityPolicies" [steps]="stepsWithStatus()"
             (permissionPrepared)="handlePermissionPrepared()"
             (permissionRequested)="log('info', 'Solicitando permisos...')">
         </susie-permission-prep>
@@ -137,7 +147,9 @@
 
         @case ('BIOMETRIC_CHECK') {
         <!-- Paso 3: Onboarding Biométrico -->
-        <susie-biometric-onboarding [steps]="stepsWithStatus()" (completed)="handleBiometricCompleted($event)" />
+        <susie-biometric-onboarding [steps]="stepsWithStatus()" [isValidating]="biometricValidating()"
+            [validationError]="biometricError()" (completed)="handleBiometricCompleted($event)"
+            (retakeRequested)="handleBiometricRetake()" />
         }
 
         @case ('ENVIRONMENT_CHECK') {
