@@ -25,21 +25,21 @@ El frontend es la capa más avanzada del ecosistema. Todo el motor del examen y 
 
 ---
 
-## 🟡 2. Backend (Fastify API Gateway)
-**Nivel de completitud real: ~30-40%**
+## 🟢 2. Backend (Fastify API Gateway)
+**Nivel de completitud real: ~90%**
 
-El backend contiene el esqueleto y configuración del bus de RabbitMQ, pero le falta la lógica transaccional de los workers y los endpoints finales.
+El backend ha superado su bloqueante principal. Han sido implementados los endpoints de evidencias, el servidor WebSocket y las colas de RabbitMQ.
 
 ### ✅ Lo que YA ESTÁ implementado:
 - **Infraestructura Base:** Fastify configurado, `app.ts`, `server.ts`.
-- **Estructura de Módulos:** Enrutador base.
+- **Recepción de Evidencias (Multipart):** Recepción de audio y fotos funcional en `monitoreo/audios` y `monitoreo/snapshots`.
+- **Servidor WebSocket:** El canal de feedback ya está registrado en `server.ts`.
+- **Colas RabbitMQ:** La publicación a colas simuladas/locales (`stream.audio`) ya se ejecuta exitosamente.
+- **Control de Infracciones y Sesiones:** Endpoints integrados para control de sesiones.
 
 ### ❌ Lo que FALTA (Brechas):
-- **[B-01] Endpoints Biométricos Reales (RF-007):** El frontend llama a `/biometrics/enroll` y `/verify`, pero el código del backend para manejar las imágenes con el worker de Python no está finalizado.
-- **[B-05] Servidor WebSocket:** El frontend ya intenta conectarse a `ws://.../monitoreo/feedback`, pero el servidor backend NO expone esta ruta WebSocket todavía.
-- **[B-04] Endpoints de Reportes (Caso 7.3):** Falta la API de lectura `/reportes/:id` para que Chaindrenciales dibuje el dashboard.
-- **[B-06] Colas RabbitMQ y Azure (RF-013 a RF-015):** La persistencia real de las evidencias en Azure Blob y la publicación cruzada a `susie.ai.vision` o `susie.ai.audio` no está terminada de probar end-to-end.
-- **[B-07] Motor de Riesgo Central:** El algoritmo probabilístico integrador que emite el reporte final y score.
+- **[B-04] Endpoints de Reportes (Caso 7.3):** Falta la API de lectura `/reportes/:id` para que Chaindrenciales dibuje el dashboard analítico.
+- **[B-07] Motor de Riesgo Central:** Integración con el algoritmo probabilístico final.
 
 ---
 

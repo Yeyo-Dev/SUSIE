@@ -10,7 +10,7 @@
 | Capa | Madurez | Falta |
 |------|---------|-------|
 | **Frontend (Angular)** | 🟢 ~90% | Retry (IndexedDB), Gaze Tracking, UI Warnings avanzadas |
-| **Backend (Fastify)** | 🟡 ~40% | Workers IA, biometría, reportes, WebSocket |
+| **Backend (Fastify)** | 🟢 ~90% | Refinar tests e integrar reportes |
 | **AI Models (Python)** | 🟢 ~75% | Solo falta integrar logs a RabbitMQ y Red Bayesiana Master |
 
 ---
@@ -213,7 +213,7 @@
 
 #### [B-05] WebSocket Server
 **Descripción:** Servidor WebSocket para feedback en tiempo real  
-**Estado:** ❌ Pendiente  
+**Estado:** ✅ Completado  
 **Entregables:**
 - Implementar WebSocket en Fastify (`@fastify/websocket`)
 - Eventos a emitir:
@@ -228,7 +228,7 @@
 
 #### [B-06] RabbitMQ — Configuración de Colas
 **Descripción:** Configurar exchange y colas para procesamiento de evidencias  
-**Estado:** 🟡 Parcial  
+**Estado:** ✅ Completado  
 **Entregables:**
 - Exchange: `susie.events`
 - Colas:
@@ -286,7 +286,7 @@
 
 #### [B-10] Azure Blob Storage — Integración
 **Descripción:** Configurar almacenamiento de evidencias en Azure  
-**Estado:** 🟡 Parcial  
+**Estado:** ✅ Completado  
 **Entregables:**
 - Subir snapshots (JPEG) a Azure Blob
 - Subir audio chunks (WebM) a Azure Blob

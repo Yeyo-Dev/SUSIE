@@ -569,6 +569,12 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.logs.set([]);
   }
 
+  /** Descarta la alerta crítica manualmente (botón "Entendido") */
+  dismissCriticalAlert() {
+    this.feedbackService.currentAlert.set(null);
+    this.log('info', '✅ Alerta crítica descartada por el usuario');
+  }
+
   private startSnapshotLoop(intervalSeconds: number) {
     this.log('info', `📸 Iniciando snapshots automáticos cada ${intervalSeconds}s`);
     this.stopSnapshotLoop();
