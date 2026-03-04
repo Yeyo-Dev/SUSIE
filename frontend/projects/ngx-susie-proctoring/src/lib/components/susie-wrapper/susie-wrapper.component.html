@@ -99,6 +99,29 @@
     </div>
     }
 
+    <!-- RECUPERACIÓN DE FOCO (Escritorios virtuales / Alt-Tab) -->
+    @if (needsFocusReturn()) {
+    <div class="inactivity-backdrop">
+        <div class="inactivity-card">
+            <div class="inactivity-pulse">⚠️</div>
+            <h2>¡No abandones la pantalla del examen!</h2>
+            <p>Hemos detectado que la ventana del examen ha perdido el foco. Debes permanecer activo en esta ventana y
+                no cambiar a otras aplicaciones.</p>
+            @if (remainingTabSwitches() !== undefined) {
+            <p style="font-weight: 600; color: #ef4444; margin-top: 0.5rem;">
+                @if (remainingTabSwitches()! > 0) {
+                Te quedan <strong>{{ remainingTabSwitches() }}</strong> intento(s). Si se agotan, tu examen será
+                cancelado.
+                } @else {
+                <strong>Este es tu último aviso.</strong> El próximo abandono de pantalla cancelará tu examen.
+                }
+            </p>
+            }
+            <button class="inactivity-btn" (click)="returnToFocus()">Entendido, volver al Examen</button>
+        </div>
+    </div>
+    }
+
     <!-- BANNERS DE RED -->
     <div class="network-status">
         @if (!isOnline()) {
@@ -111,56 +134,58 @@
     <!-- ALERTAS DE IA EN TIEMPO REAL (WebSocket Feedback) -->
     @if (aiAlert() && state() === 'MONITORING') {
 
-        <!-- INFO: Banner no intrusivo superior -->
-        @if (aiAlert()!.type === 'INFO') {
-        <div class="ai-alert-banner ai-alert--info" role="status" aria-live="polite">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+    <!-- INFO: Banner no intrusivo superior -->
+    @if (aiAlert()!.type === 'INFO') {
+    <div class="ai-alert-banner ai-alert--info" role="status" aria-live="polite">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <span>{{ aiAlert()!.msg }}</span>
+    </div>
+    }
+
+    <!-- WARNING: Toast / Snackbar temporal -->
+    @if (aiAlert()!.type === 'WARNING') {
+    <div class="ai-alert-toast" role="alert" aria-live="assertive">
+        <div class="ai-alert-toast__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
+        </div>
+        <div class="ai-alert-toast__content">
+            <strong>Advertencia de Supervisión</strong>
             <span>{{ aiAlert()!.msg }}</span>
         </div>
-        }
+    </div>
+    }
 
-        <!-- WARNING: Toast / Snackbar temporal -->
-        @if (aiAlert()!.type === 'WARNING') {
-        <div class="ai-alert-toast" role="alert" aria-live="assertive">
-            <div class="ai-alert-toast__icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <!-- CRITICAL: Modal bloqueante -->
+    @if (aiAlert()!.type === 'CRITICAL') {
+    <div class="ai-alert-critical-backdrop">
+        <div class="ai-alert-critical-card">
+            <div class="ai-alert-critical-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     <line x1="12" y1="9" x2="12" y2="13" />
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
             </div>
-            <div class="ai-alert-toast__content">
-                <strong>Advertencia de Supervisión</strong>
-                <span>{{ aiAlert()!.msg }}</span>
-            </div>
+            <h2>Alerta Crítica de Supervisión</h2>
+            <p>{{ aiAlert()!.msg }}</p>
+            <p class="ai-alert-critical-sub">Corrige la situación antes de continuar. Este incidente ha sido registrado.
+            </p>
+            <button class="ai-alert-critical-btn" (click)="dismissCriticalAlert()">Entendido</button>
         </div>
-        }
-
-        <!-- CRITICAL: Modal bloqueante -->
-        @if (aiAlert()!.type === 'CRITICAL') {
-        <div class="ai-alert-critical-backdrop">
-            <div class="ai-alert-critical-card">
-                <div class="ai-alert-critical-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
-                </div>
-                <h2>Alerta Crítica de Supervisión</h2>
-                <p>{{ aiAlert()!.msg }}</p>
-                <p class="ai-alert-critical-sub">Corrige la situación antes de continuar. Este incidente ha sido registrado.</p>
-                <button class="ai-alert-critical-btn" (click)="dismissCriticalAlert()">Entendido</button>
-            </div>
-        </div>
-        }
+    </div>
+    }
 
     }
 

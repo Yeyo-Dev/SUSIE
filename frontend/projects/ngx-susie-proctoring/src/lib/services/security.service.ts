@@ -5,6 +5,7 @@ import { SecurityViolation } from '../models/contracts';
 export class SecurityService {
     private policies: any = {};
     private violationCallback?: (v: SecurityViolation) => void;
+    private devToolsInterval?: any;
 
     constructor(private ngZone: NgZone) { }
 
@@ -22,8 +23,8 @@ export class SecurityService {
         }
 
         if (policies.preventInspection) {
-            document.addEventListener('contextmenu', this.preventContextMenu);
-            document.addEventListener('keydown', this.preventDevTools);
+            // Polling approach to catch devtools opened via browser UI (menu)
+            this.devToolsInterval = setInterval(() => this.checkDevtoolsSize(), 2000);
         }
 
         if (policies.preventBackNavigation) {
@@ -38,16 +39,18 @@ export class SecurityService {
         if (policies.preventCopyPaste) {
             ['copy', 'cut', 'paste'].forEach(evt => document.addEventListener(evt, this.preventClipboard));
             document.addEventListener('selectstart', this.preventSelection);
-            document.addEventListener('contextmenu', this.preventContextMenu); // Re-enforce if not already
         }
     }
 
     disableProtection() {
+        if (this.devToolsInterval) {
+            clearInterval(this.devToolsInterval);
+            this.devToolsInterval = undefined;
+        }
+
         document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
         document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         window.removeEventListener('blur', this.handleBlur);
-        document.removeEventListener('contextmenu', this.preventContextMenu);
-        document.removeEventListener('keydown', this.preventDevTools);
         window.removeEventListener('popstate', this.preventBack);
         window.removeEventListener('beforeunload', this.preventReload);
 
@@ -80,8 +83,8 @@ export class SecurityService {
     };
 
     private handleBlur = () => {
-        // Blur can trigger on simple interactions sometimes, be careful
-        // this.reportViolation('FOCUS_LOST', 'La ventana perdió el foco');
+        // Enforce blur detection to catch virtual desktop switching
+        this.reportViolation('FOCUS_LOST', 'La ventana del navegador perdió el foco o el usuario cambió de escritorio');
     };
 
     private preventContextMenu = (e: Event) => {
@@ -89,15 +92,14 @@ export class SecurityService {
         return false;
     };
 
-    private preventDevTools = (e: KeyboardEvent) => {
-        // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-        if (
-            e.key === 'F12' ||
-            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
-            (e.ctrlKey && e.key === 'u')
-        ) {
-            e.preventDefault();
-            this.reportViolation('INSPECTION_ATTEMPT', 'Intento de abrir herramientas de desarrollador');
+    private checkDevtoolsSize = () => {
+        const threshold = 160;
+        // The difference gets huge if devtools opens (docked horizontally or vertically)
+        const widthDiff = window.outerWidth - window.innerWidth;
+        const heightDiff = window.outerHeight - window.innerHeight;
+
+        if (widthDiff > threshold || heightDiff > threshold) {
+            this.reportViolation('INSPECTION_ATTEMPT', 'Herramientas de desarrollador detectadas abiertas en el navegador');
         }
     };
 

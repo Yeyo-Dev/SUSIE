@@ -95,6 +95,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   private snapshotInterval: any = null;
   tabSwitchCount = signal(0);
   needsFullscreenReturn = signal(false);
+  needsFocusReturn = signal(false);
 
   /** Contadores de métricas de proctoring */
   private totalViolations = signal(0);
@@ -187,11 +188,45 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.log('info', '🚀 Inicializando SusieWrapper...');
+    // Siempre bloquear el click derecho desde el segundo 1 del wrapper
+    document.addEventListener('contextmenu', this.preventGlobalContextMenu);
+    // Siempre bloquear atajos de teclado de DevTools (F12, etc.)
+    document.addEventListener('keydown', this.preventGlobalDevTools);
     await this.initializeFlow();
   }
 
+  private preventGlobalContextMenu = (e: Event) => {
+    e.preventDefault();
+    this.log('info', 'Click derecho deshabilitado globalmente.');
+    return false;
+  };
+
+  private preventGlobalDevTools = (e: KeyboardEvent) => {
+    // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+    if (
+      e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
+      (e.ctrlKey && e.key === 'u')
+    ) {
+      e.preventDefault();
+      this.log('error', '⚠️ Intento de abrir herramientas de desarrollador bloqueado globalmente.');
+
+      // Si ya estamos en monitoreo, notificamos como violación formal
+      if (this.state() === 'MONITORING') {
+        this.handleViolation({
+          type: 'INSPECTION_ATTEMPT',
+          message: 'Intento de abrir herramientas de desarrollador por atajo de teclado',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  };
+
   ngOnDestroy() {
     this.log('info', '🛑 Deteniendo SusieWrapper...');
+    document.removeEventListener('contextmenu', this.preventGlobalContextMenu);
+    document.removeEventListener('keydown', this.preventGlobalDevTools);
+
     // Si se destruye el componente y la sesión estaba activa, notificar al servidor
     if (this.state() === 'MONITORING') {
       this.evidenceService.endSession('cancelled');
@@ -480,16 +515,19 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     } as any);
 
     // Lógica de maxTabSwitches: solo cancelar cuando se alcance el límite
-    if (violation.type === 'TAB_SWITCH') {
+    if (violation.type === 'TAB_SWITCH' || violation.type === 'FOCUS_LOST') {
       const count = this.tabSwitchCount() + 1;
       this.tabSwitchCount.set(count);
       const max = this.config().maxTabSwitches;
 
       if (max !== undefined && count >= max) {
-        this.log('error', `❌ Límite de cambios de pestaña alcanzado (${count}/${max}). Cancelando examen.`);
+        this.log('error', `❌ Límite de abandonos de pantalla alcanzado (${count}/${max}). Cancelando examen.`);
         this.config().onSecurityViolation?.(violation);
       } else {
-        this.log('error', `⚠️ Cambio de pestaña ${count}/${max ?? '∞'} — siguiente cancelará el examen`);
+        this.log('error', `⚠️ Abandono de pantalla ${count}/${max ?? '∞'} — siguiente cancelará el examen`);
+        if (violation.type === 'FOCUS_LOST') {
+          this.needsFocusReturn.set(true);
+        }
       }
     } else if (violation.type === 'FULLSCREEN_EXIT') {
       // No cancelar — mostrar overlay de recuperación para que el usuario restaure fullscreen
@@ -518,6 +556,12 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     } catch (err) {
       this.log('error', '❌ No se pudo restaurar la pantalla completa.');
     }
+  }
+
+  /** Restaurar foco si se perdió por cambiar de aplicación/escritorio */
+  returnToFocus() {
+    this.needsFocusReturn.set(false);
+    this.log('success', '✅ Foco en la ventana restaurado.');
   }
 
   /** Reintenta solicitar permisos tras un error */

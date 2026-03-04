@@ -12,7 +12,7 @@ El core de supervisión, grabación, reglas e UI está construido. Faltan detall
 
 - [ ] **Resiliencia Offline (IndexedDB):** Implementar la cola de reintentos para cuando falla el envío asíncrono de un chunk de audio o un snapshot debido a micro-cortes de red.
 - [ ] **Integración Gaze Tracking:** Ajustar el envío de eventos de pérdida de mirada hacia la API, una vez que el backend esté listo para recibirlos.
-- [ ] **UI de Alertas (WebSocket):** Escuchar el canal de WebSocket del backend y mostrar en pantalla alertas en vivo amigables (ej. "Por favor, vuelve a mirar a la cámara"). *(En progreso con SDD)*.
+- [x] **UI de Alertas (WebSocket):** Escuchar el canal de WebSocket del backend y mostrar en pantalla alertas en vivo amigables (ej. "Por favor, vuelve a mirar a la cámara").
 - [ ] **Validación Biométrica Inicial:** Integrar la pantalla de captura de foto inicial (Onboarding) de acuerdo al flujo de inscripción antes de iniciar el examen. *(En progreso con SDD)*.
 - [ ] **Pruebas E2E y Unitarias:** Completar la cobertura de tests para el componente principal (`susie-wrapper`).
 

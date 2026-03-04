@@ -124,7 +124,7 @@
 
 #### [F-07] UI de Advertencias en Tiempo Real
 **Descripción:** Mostrar warnings visuales cuando el backend envía alertas  
-**Estado:** ❌ Pendiente  
+**Estado:** ✅ Completado  
 **Dependencias:** [F-04] WebSocket  
 **Entregables:**
 - Toast/notification para warnings menores
