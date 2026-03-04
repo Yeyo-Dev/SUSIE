@@ -1,0 +1,164 @@
+<!-- Permission Prep Component -->
+<div class="permission-prep" role="dialog" aria-labelledby="permission-prep-title" aria-modal="true">
+  
+  <!-- Header with Step Indicator -->
+  @if (steps().length > 0) {
+    <div class="step-indicator-wrapper">
+      <susie-step-indicator [steps]="steps()" />
+    </div>
+  }
+
+  <!-- Main Content Card -->
+  <div class="prep-card">
+    
+    <!-- PREPARING STATE: Iconos animados + Texto explicativo -->
+    @if (state() === 'preparing') {
+      <div class="prep-content preparing" role="status" aria-live="polite">
+        
+        <h2 id="permission-prep-title" class="prep-title">
+          Preparación de Permisos
+        </h2>
+        
+        <p class="prep-subtitle">
+          Para supervisar tu examen necesitamos acceso a los siguientes dispositivos:
+        </p>
+
+        <!-- Animated Icons -->
+        <div class="icons-container" aria-hidden="true">
+          @if (showCamera()) {
+            <div class="icon-wrapper camera-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 7l-7 5 7 5V7z"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+              <span class="icon-label">Cámara</span>
+            </div>
+          }
+          
+          @if (showMic()) {
+            <div class="icon-wrapper mic-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              <span class="icon-label">Micrófono</span>
+            </div>
+          }
+        </div>
+
+        <!-- Permission List -->
+        <ul class="permission-list">
+          @if (showCamera()) {
+            <li>
+              <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span><strong>Cámara:</strong> Para verificar tu presencia durante el examen</span>
+            </li>
+          }
+          @if (showMic()) {
+            <li>
+              <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span><strong>Micrófono:</strong> Para supervisar el audio del entorno</span>
+            </li>
+          }
+        </ul>
+
+        <!-- Continue Button -->
+        <button 
+          type="button" 
+          class="prep-button primary"
+          (click)="onContinue()"
+          [disabled]="isButtonDisabled()">
+          {{ buttonText() }}
+        </button>
+      </div>
+    }
+
+    <!-- REQUESTING STATE: Spinner -->
+    @if (state() === 'requesting') {
+      <div class="prep-content requesting" role="status" aria-live="polite">
+        <div class="spinner-container">
+          <div class="spinner"></div>
+        </div>
+        <p class="requesting-text">Esperando tu confirmación...</p>
+        <p class="requesting-hint">Por favor permite el acceso a tu cámara y micrófono cuando el navegador lo solicite</p>
+      </div>
+    }
+
+    <!-- GRANTED STATE: Camera Preview -->
+    @if (state() === 'granted') {
+      <div class="prep-content granted" role="status" aria-live="polite">
+        
+        <div class="success-indicator">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <span>¡Cámara funcionando!</span>
+        </div>
+
+        <!-- Camera Preview -->
+        <div class="preview-container">
+          <video 
+            #previewVideo 
+            autoplay 
+            muted 
+            playsinline 
+            class="preview-video"
+            aria-label="Vista previa de tu cámara">
+          </video>
+        </div>
+
+        <p class="preview-text">
+          Tu cámara está lista. Puedes continuar al examen.
+        </p>
+
+        <!-- Confirm Button -->
+        <button 
+          type="button" 
+          class="prep-button primary"
+          (click)="onContinue()">
+          {{ buttonText() }}
+        </button>
+      </div>
+    }
+
+    <!-- DENIED STATE: Error -->
+    @if (state() === 'denied') {
+      <div class="prep-content denied" role="alert" aria-live="assertive">
+        
+        <div class="error-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M16.5 2.25V6a.75.75 0 0 0 1.28.53l2.72-2.72"/>
+            <path d="M22.5 7.5V18a3 3 0 0 1-3 3H4.5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3H15"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        </div>
+
+        <h2 class="error-title">Permisos requeridos</h2>
+        
+        <p class="error-message">
+          {{ errorMessage() || 'Para continuar necesitamos los permisos de cámara y micrófono.' }}
+        </p>
+
+        <p class="error-hint">
+          Por favor permite el acceso cuando tu navegador lo solicite.
+        </p>
+
+        <!-- Retry Button -->
+        <button 
+          type="button" 
+          class="prep-button retry"
+          (click)="onContinue()">
+          {{ buttonText() }}
+        </button>
+      </div>
+    }
+
+  </div>
+</div>

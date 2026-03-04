@@ -1,0 +1,104 @@
+# Revisión: Arquitectura General de los Workers de IA
+
+## Veredicto General
+
+> [!TIP]
+> **La documentación está muy bien estructurada, técnicamente sólida y alineada con la implementación real del código.** La red bayesiana propuesta es coherente y los valores de la CPT están bien justificados con literatura académica. Hay observaciones menores que vale la pena considerar.
+
+---
+
+## ✅ Lo Que Está Correcto (Validado vs. Código)
+
+| Aspecto | Doc | Código | ¿Match? |
+|---|---|---|---|
+| Cola YOLO: `q_snapshots` | ✅ | [vision_yolo/main.py](file:///c:/Users/Yeyo_/OneDrive/Documentos/GitHub/SUSIE/ai_models/vision_yolo/main.py) L127 | ✅ |
+| Cola Audio: `q_audios` | ✅ | [audio_whisper/main.py](file:///c:/Users/Yeyo_/OneDrive/Documentos/GitHub/SUSIE/ai_models/audio_whisper/main.py) L141 | ✅ |
+| Cola Gaze: `gaze_tasks_queue` | ✅ | [gaze_mediapipe/main.py](file:///c:/Users/Yeyo_/OneDrive/Documentos/GitHub/SUSIE/ai_models/gaze_mediapipe/main.py) L106 | ✅ |
+| Prefetch = 1 en todos los workers | ✅ | Todos los [main.py](file:///c:/Users/Yeyo_/OneDrive/Documentos/GitHub/SUSIE/ai_models/vision_yolo/main.py) | ✅ |
+| Redis key: `proctoring:session_{id}:user_{id}` | ✅ | Los 3 workers usan `RPUSH` con este patrón | ✅ |
+| Evento universal con `severity`, `source`, `event_type` | ✅ | Los 3 workers implementan el mismo esquema JSON | ✅ |
+| Filtro de silencio -45dB en Audio | ✅ | `audio_cleaner.es_silencio(audio_np, umbral_db=-45)` | ✅ |
+| Buffer mínimo 15 frames en Gaze | ✅ | `if len(buffer_coordenadas) < 15` | ✅ |
+| `basic_ack` / `basic_nack` correctamente implementados | ✅ | Los 3 workers | ✅ |
+| Exponential backoff en reconexión RabbitMQ | ✅ | `retry_delay * 2, MAX_BACKOFF=60` | ✅ |
+
+---
+
+## ⚠️ Observaciones y Sugerencias
+
+### 1. `biometric_deepface` — Ausente en el documento
+
+> [!IMPORTANT]
+> Existe un cuarto modelo en `ai_models/biometric_deepface/` pero **no aparece en la documentación**. Este módulo es una **API REST con FastAPI** (patrón síncrono), no un worker event-driven de RabbitMQ, así que tiene sentido que no esté en la sección de "workers". Sin embargo, conviene mencionarlo brevemente para completar el panorama del sistema.
+
+**Recomendación:** Agregar una nota aclaratoria al inicio del documento:
+> *"Este documento cubre exclusivamente los 3 microservicios orientados a eventos. El módulo de autenticación biométrica (DeepFace) opera como API REST síncrona y se documenta por separado."*
+
+---
+
+### 2. Typo menor en las Notas Técnicas (Línea 231)
+
+La línea dice:
+```
+...las colas gaze_tasks_queue, q_snapshotsy q_audios DEBEN incluir...
+```
+Falta un espacio: debería ser `q_snapshots y q_audios`.
+
+---
+
+### 3. Audio Worker — Mapeo de severidad simplificado
+
+En el doc se describen 4 categorías de audio: **Silencio, Neutral, Doméstico, Sospechoso**. Sin embargo, en `audio_whisper/main.py` línea 107, el mapeo real es binario:
+
+```python
+severidad = "CRITICAL" if analisis["category"] == "SOSPECHOSO" else "INFO"
+```
+
+Esto significa que tanto "NEUTRAL" como "DOMÉSTICO" se registran como `INFO`. **Esto no es un problema funcional** (la Red Bayesiana puede distinguirlos por `intent_category` en los details), pero si se quisiera que la línea de tiempo visual muestre granularidad entre Doméstico y Neutral, se podría considerar mapear "DOMÉSTICO" a `WARNING` leve.
+
+---
+
+## 🔬 Análisis de la Red Bayesiana Propuesta
+
+### Estructura Topológica
+
+La topología **V → C ← A ← → G** es un patrón clásico de **fusión de sensores con collider node**, correcto para este caso de uso. Los 3 nodos observables (Visión, Audio, Gaze) alimentan un nodo objetivo (Fraude), y la conexión cruzada Audio↔Gaze para sinergias es una decisión inteligente.
+
+### Evaluación de la CPT (Tabla de Probabilidad Condicional)
+
+| Escenario CPT | Valor Asignado | Mi Evaluación |
+|---|---|---|
+| Objeto Prohibido → 99% | ✅ Correcto | La literatura reporta 95%+ de precisión en YOLO para celulares. 99% es agresivo pero justificable por tolerancia cero. |
+| Multitud → 90% | ✅ Correcto | Sólido. Persona extra = asistencia no autorizada. |
+| Sospechoso + Errático → 92% | ✅ Muy bien calibrado | La sinergia de dos señales independientes eleva la certeza. Bien justificado. |
+| **Sospechoso + Concentrado → 25%** | ✅ **Excelente decisión** | Este es el punto más fuerte de la red. Captura el caso de "pensar en voz alta" que sistemas rígidos penalizarían injustamente. |
+| Doméstico + Fuera de pantalla → 15% | ✅ Correcto | El NLP salva de un falso positivo temporal. Coherente. |
+| Ausente + Sospechoso → 85% | ✅ Correcto | Sin visión + audio sospechoso = oculto del frame dictando. |
+| Ausente + Silencio → 50% | ✅ Razonable | Incertidumbre genuina: puede ser baño o trampa. El 50% refleja bien la ambigüedad. |
+| Normal + Silencio + Errático → 45% | ✅ Aceptable | Sería interesante considerar bajarlo a ~35-40%. Nerviosismo sin audio puede ser simplemente ansiedad del examen. |
+| Comportamiento ideal → 1% | ✅ Correcto | Nunca 0% por principio bayesiano. |
+
+> [!NOTE]
+> **Cobertura de la CPT:** La tabla tiene 9 escenarios representativos de un espacio de `4 × 4 × 4 = 64` combinaciones posibles. Para la documentación esto es perfecto (mostrar los casos más relevantes). Para la **implementación**, necesitarás una CPT completa de 64 entradas o definir una fórmula paramétrica que interpole los valores restantes.
+
+### El Sistema Híbrido de Dictamen — Evaluación
+
+El diseño de 3 ejes (Línea de Tiempo + Muerte Súbita + Fricción Acumulada) es **excelente**:
+
+- **Muerte Súbita (≥90%)**: Resuelve el problema del promedio que diluye eventos críticos. ✅
+- **Fricción Acumulada (40%-85%)**: Captura comportamiento sospechoso sostenido que individualmente no es concluyente. ✅
+- **Visualización temporal**: Auditoría por parte de profesores con clic en picos. ✅
+
+**Una pregunta abierta:** ¿Cuál es el umbral exacto del "Índice de Fricción" para `REVISIÓN_SUGERIDA`? El documento menciona "un umbral predefinido" pero no lo especifica. Esto será necesario para la implementación.
+
+---
+
+## 📋 Resumen de Puntos de Acción
+
+| # | Prioridad | Acción |
+|---|---|---|
+| 1 | Baja | Agregar nota sobre `biometric_deepface` |
+| 2 | Baja | Corregir typo `q_snapshotsy` → `q_snapshots y` |
+| 3 | Media | Definir umbral numérico para Índice de Fricción |
+| 4 | Baja | Considerar si Audio severity debería tener 3 niveles (`INFO`/`WARNING`/`CRITICAL`) en vez de 2 |
+| 5 | Media | Completar la CPT (64 valores) o definir fórmula de interpolación para la implementación |

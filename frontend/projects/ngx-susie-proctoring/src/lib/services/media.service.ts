@@ -1,89 +1,54 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, OnDestroy } from '@angular/core';
 
-@Injectable({
-    providedIn: 'root'
-})
-export class MediaService {
-    // Estado reactivo con Signals
-    private streamSignal = signal<MediaStream | null>(null);
-    private errorSignal = signal<string | null>(null);
+@Injectable({ providedIn: 'root' })
+export class MediaService implements OnDestroy {
+    stream = signal<MediaStream | null>(null);
+    error = signal<string | null>(null);
 
-    // Selectores de solo lectura
-    readonly stream = this.streamSignal.asReadonly();
-    readonly error = this.errorSignal.asReadonly();
-    readonly isActive = computed(() => !!this.streamSignal());
+    // Almacena el stream de audio, podría ser el mismo que el de video si se piden ambos
+    private audioStream: MediaStream | null = null;
 
-    async startStream(video: boolean = true, audio: boolean = true): Promise<void> {
+    async requestPermissions(video: boolean, audio: boolean): Promise<void> {
+        this.error.set(null);
         try {
-            this.errorSignal.set(null);
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video,
+                audio
+            });
+            this.stream.set(stream);
 
-            const constraints: MediaStreamConstraints = {
-                video: video ? {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    facingMode: 'user'
-                } : false,
-                audio: audio
-            };
-
-            const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-            this.streamSignal.set(mediaStream);
-
-        } catch (err) {
-            this.handleError(err);
-            throw err; // Re-lanzar para que el componente lo maneje si es necesario
-        }
-    }
-
-    stopStream(): void {
-        const currentStream = this.streamSignal();
-        if (currentStream) {
-            currentStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
-            this.streamSignal.set(null);
-        }
-    }
-
-    /**
-     * Captura un frame del video actual y lo retorna como Blob.
-     * Utiliza un canvas off-screen para optimización.
-     */
-    async takeSnapshot(videoElement: HTMLVideoElement): Promise<Blob | null> {
-        if (!this.streamSignal() || !videoElement) return null;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = videoElement.videoWidth;
-        canvas.height = videoElement.videoHeight;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return null;
-
-        ctx.drawImage(videoElement, 0, 0);
-
-        return new Promise((resolve) => {
-            canvas.toBlob((blob) => {
-                resolve(blob);
-            }, 'image/jpeg', 0.85); // Calidad JPEG al 85% para balancear tamaño/calidad
-        });
-    }
-
-    private handleError(error: unknown): void {
-        let errorMessage = 'Error desconocido al acceder a la cámara/micrófono.';
-
-        if (error instanceof DOMException) {
-            switch (error.name) {
-                case 'NotAllowedError':
-                    errorMessage = 'Permiso denegado. Por favor permite el acceso a la cámara.';
-                    break;
-                case 'NotFoundError':
-                    errorMessage = 'No se encontró ningún dispositivo de cámara o micrófono.';
-                    break;
-                case 'NotReadableError':
-                    errorMessage = 'La cámara está siendo usada por otra aplicación.';
-                    break;
+            // Si hay audio track, lo guardamos o extraemos
+            if (audio) {
+                this.audioStream = stream;
             }
+        } catch (err: any) {
+            let msg = 'Error desconocido al acceder a dispositivos.';
+            if (err.name === 'NotAllowedError') {
+                msg = 'Permiso denegado. Por favor permite el acceso a la cámara y micrófono.';
+            } else if (err.name === 'NotFoundError') {
+                msg = 'No se encontraron dispositivos de cámara o micrófono.';
+            } else if (err.name === 'NotReadableError') {
+                msg = 'El dispositivo está siendo usado por otra aplicación.';
+            }
+            this.error.set(msg);
+            throw err;
         }
+    }
 
-        console.error('MediaService Error:', error);
-        this.errorSignal.set(errorMessage);
+    getAudioStream(): MediaStream | null {
+        return this.audioStream;
+    }
+
+    stop() {
+        const s = this.stream();
+        if (s) {
+            s.getTracks().forEach(track => track.stop());
+            this.stream.set(null);
+        }
+        this.audioStream = null;
+    }
+
+    ngOnDestroy() {
+        this.stop();
     }
 }

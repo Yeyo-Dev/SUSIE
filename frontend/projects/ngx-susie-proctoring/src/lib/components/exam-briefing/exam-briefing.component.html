@@ -1,0 +1,51 @@
+<div class="briefing-backdrop">
+    <div class="briefing-card">
+        <!-- Indicador de pasos dinámico -->
+        @if (steps().length > 0) {
+            <susie-step-indicator [steps]="steps()" />
+        }
+
+        <header class="briefing-header">
+            <div class="header-icon-container">
+                <span class="header-icon">📋</span>
+            </div>
+            <h1>Preparación del Examen</h1>
+            <p class="exam-title">{{ config().sessionContext.examTitle }}</p>
+            <p class="subtitle">Antes de comenzar, revisa las siguientes reglas y condiciones del examen.</p>
+        </header>
+
+        <div class="rules-container">
+            @for (rule of rules(); track rule.label) {
+                <div class="rule-row">
+                    <div class="rule-icon-wrapper">
+                        <span class="rule-icon" aria-hidden="true">{{ rule.icon }}</span>
+                    </div>
+                    <div class="rule-info">
+                        <h3>{{ rule.label }}</h3>
+                        <p>{{ rule.description }}</p>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <footer class="briefing-footer">
+            <div class="warning-banner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>Al continuar, el temporizador del examen iniciará inmediatamente.</span>
+            </div>
+            <button class="btn btn-primary" (click)="onAcknowledge()">
+                He entendido, comenzar examen
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                </svg>
+            </button>
+        </footer>
+    </div>
+</div>

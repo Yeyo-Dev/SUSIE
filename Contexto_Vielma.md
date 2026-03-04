@@ -1,87 +1,64 @@
 # CONTEXTO DEL PROYECTO: SUSIE (Sistema de Supervisión Inteligente de Evaluaciones)
 
 ## 1. VISIÓN GENERAL
-Este proyecto es una Residencia Profesional. El objetivo es desarrollar un módulo de **Proctoring (Supervisión Remota)** llamado SUSIE.
-**IMPORTANTE:** SUSIE no es una plataforma independiente. Es un módulo satélite que se integrará en la plataforma educativa "Chaindrenciales".
+Este proyecto es una Residencia Profesional. El objetivo es desarrollar el módulo **SUSIE**. 
+SUSIE no es solo un "overlay", es un **Motor de Exámenes Completo** con Proctoring integrado que reemplaza el evaluador estándar de "Chaindrenciales" cuando se requiere supervisión.
 
 ## 2. MI ROL (USUARIO ACTUAL)
 * **Nombre:** Vielma.
 * **Rol:** Líder de Frontend y Sensores.
-* **Responsabilidad:** Crear la Librería de Angular (`ngx-susie-proctoring`) que captura video, audio y eventos del navegador.
-* **Límites:** Yo NO toco la base de datos ni los modelos de IA directamente. Yo solo capturo la evidencia y la envío al **API Gateway**.
+* **Responsabilidad:** Construir la Librería de Angular (`ngx-susie-proctoring`), empaquetarla e implementar su orquestación lógica (T&C, Biometría, Motor de Preguntas y Captura).
+* **Límites:** Yo NO evalúo las opciones correctas del examen, NO toco base de datos ni analizo fraude con IA. Solo proporciono las respuestas a Chaindrenciales y la evidencia al API Gateway de SUSIE.
 
 ## 3. ARQUITECTURA TÉCNICA (MONOREPO)
 Estamos trabajando en un Monorepo con la siguiente estructura:
 * `/frontend` (MI ÁREA): Angular 17+ Workspace.
-    * `projects/ngx-susie-proctoring`: La librería principal.
-    * `projects/susie-demo`: App dummy para probar la librería.
-* `/backend` (Ramírez): API Gateway en Fastify + RabbitMQ.
-* `/ai-engine` (Vargas): Scripts de Python (YOLO, DeepFace).
+    * `projects/ngx-susie-proctoring`: La librería principal (El Producto Real).
+    * `projects/susie-demo`: App sandbox para simular cómo Chaindrenciales usará la librería.
+* `/backend` (Ramírez): API Gateway en Fastify + colas en RabbitMQ.
+* `/ai-engine` (Vargas): Scripts de Python (YOLO, DeepFace, Whisper).
 
-## 4. INTEGRACIÓN Y FLUJO DE DATOS
-La comunicación es asíncrona basada en eventos (Event-Driven).
+## 4. INTEGRACIÓN Y CONTRATO DE ENTRADA (Librería)
+La plataforma Chaindrenciales carga nuestro componente principal (`<susie-wrapper>`) enviándonos toda la lógica del examen:
 
-### A. Inicialización (Input)
-Cuando la plataforma Chaindrenciales carga mi librería, me entrega esta configuración (Contrato estricto):
 ```typescript
-interface SusieConfig {
+interface SusieExamConfig {
   sessionContext: {
-    examSessionId: string; // ID único para trazabilidad (Correlation ID)
+    examSessionId: string; // Correlation ID
     examId: string;
+    durationMinutes: number;
   };
   securityPolicies: {
     requireCamera: boolean;
-    requireFullscreen: boolean;
+    requireMicrophone: boolean;
+    requireBiometrics: boolean;
+    preventTabSwitch: boolean;
+    // ...
   };
-  apiUrl: string; // URL del API Gateway al que debo enviar las fotos
-  authToken: string; // JWT del usuario
+  questions: SusieQuestion[]; // Las preguntas del examen (SIN la respuesta correcta)
+  apiUrl: string; // URL del API Gateway de SUSIE
+  authToken: string; // JWT
 }
-### B. Envío de Evidencia (Output)
-Yo capturo snapshots (fotos) o audio y los envío al apiUrl usando FormData. Estructura del JSON que acompaña al archivo:
+```
 
-TypeScript
+## 5. FLUJOS FUNCIONALES Y CAPTURA DE EVIDENCIA
+El envío de evidencia se hace de manera **Asíncrona (Fire and Forget)** por medio de **HTTP POST (`multipart/form-data`)**. **El campo `file` en los formData debe ir al final obligatoriamente.**
 
-interface EvidenceMetadata {
-  meta: {
-    correlation_id: string; // Debe coincidir con examSessionId
-    timestamp: string;      // ISO 8601
-    source: 'frontend_client_v1';
-  };
-  payload: {
-    type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'FOCUS_LOST';
-    browser_focus: boolean;
-  };
-}
-### 5. FLUJOS FUNCIONALES (DIAGRAMAS TRADUCIDOS A LÓGICA)
-Flujo 1: Onboarding Biométrico (Síncrono - Bloqueante)
-El usuario entra a la sala de espera.
+### A. Audio Chunks
+- Se graba el micrófono constantemente.
+- **Cada 15 segundos** se comprime un chunk de audio (`.webm`) y se envía al API Gateway. (15s es requerido para que la IA Whisper sea precisa al detectar habla continua).
 
-YO (Front): Solicito permisos de cámara.
+### B. Envío de Evidencia (Output / Fire & Forget)
+El envío de evidencia se hace de manera **Asíncrona (Fire and Forget)** por medio de **HTTP POST (`multipart/form-data` o `application/json`)**. **El campo `file` en los formData debe ir al final obligatoriamente.**
 
-YO (Front): Tomo una "Foto de Referencia".
+1. **Audio Chunks:** Cada 15 segundos se comprime un chunk de audio (`.webm`) y se envía vía FormData. (15s es requerido para que la IA Whisper sea precisa).
+2. **Snapshots Periódicos:** Cada X segundos (o en anomalías), tomo una foto del video oculto en un `<canvas>` y la envío (`.jpeg`) vía FormData.
+3. **Eventos Lógicos (Navegador):** Al detectar cambios de pestaña (Tab Switch), pérdida de foco o click derecho, se envía un JSON puro reportando el trigger y duración al motor de inferencia.
 
-YO (Front): Envío la foto al Backend y muestro un "Spinner" de carga.
+*Nota: La IA del backend (Motor Probabilístico) utiliza la correlación de estos 3 tipos de datos para determinar si el usuario comete fraude, por lo que su envío constante es crítico.*
 
-Backend: Valida calidad de rostro.
-
-YO (Front): Si recibo "OK", habilito el botón "Comenzar Examen". Si recibo "Error", pido otra foto.
-
-Flujo 2: Monitoreo durante el Examen (Asíncrono - No Bloqueante)
-El usuario está contestando el examen.
-
-YO (Front): Cada X segundos (o por evento de sonido/movimiento), capturo un frame oculto en un <canvas>.
-
-YO (Front): Envío el frame al Gateway.
-
-CRÍTICO: NO ESPERO RESPUESTA. El usuario sigue contestando sin interrupciones ("Fire and Forget").
-
-YO (Front): Solo si recibo un evento de WebSocket crítico (ej. "Fraude Confirmado"), muestro una alerta o bloqueo la pantalla.
-
-### 6. REQUERIMIENTOS TÉCNICOS (FRONTEND)
-Arquitectura: Usar SusieWrapperComponent como un contenedor padre que usa <ng-content> para envolver el examen.
-
-UI: Usar PrimeNG para modales y alertas.
-
-Cámara: Usar navigator.mediaDevices. Manejar errores si el usuario no tiene cámara.
-
-Estilos: SCSS modular.
+## 6. REQUERIMIENTOS TÉCNICOS (FRONTEND)
+1.  **Arquitectura por Capas Condicionales:** Las interfaces de Consentimiento (T&C) y Onboarding Biométrico solo se muestran si el `SusieExamConfig` lo requiere, si no, salta al `ExamEngine`.
+2.  **Seguridad Base:** Forzar Full-screen, bloqueo de click derecho/DevTools y detección de foco de pestaña (Tab Switch).
+3.  **App Serverless:** `ngx-susie-proctoring` vive y muere en el navegador del alumno, embebida en Chaindrenciales. No hay "servidor SUSIE de Frontend".
+4.  **Entrega Final:** Al vencer el `durationMinutes` o darle en Enviar, yo colecciono las `answers` escogidas y el `proctoring_summary` y emito el evento `(examFinished)` hacia Chaindrenciales para que ellos guarden y evalúen.

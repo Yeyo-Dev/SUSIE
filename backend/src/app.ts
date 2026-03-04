@@ -12,7 +12,13 @@ const startApp = async () => {
 
         await app.listen({ port, host });
 
-        console.log(`Servidor corriendo en http://localhost:${port}`);
+        console.log(`
+  🚀 Servidor corriendo en:
+  👉 REST API:    http://localhost:${port}/api
+  👉 Video Stream: http://localhost:${port}/api/monitoreo/video
+  👉 Audio Stream: http://localhost:${port}/api/monitoreo/audio
+  👉 Health Check: http://localhost:${port}/
+        `);
     } catch (err) {
         app.log.error(err);
         process.exit(1);

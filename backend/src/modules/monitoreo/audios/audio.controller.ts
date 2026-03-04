@@ -33,13 +33,14 @@ export class AudioController {
                             message: 'El orden del FormData es incorrecto. Envíe "meta" y "payload_info" antes que el "file".'
                         });
                     }
+                    console.log(`\n[Audio Controller] 📥 Recibiendo nuevo fragmento de audio (15s) de usuario...`);
 
                     resultadoProceso = await this.audioService.procesarEvidencia(
                         part,
                         metaData,
                         payloadInfo
                     );
-                    break; 
+                    break;
                 }
             }
 
