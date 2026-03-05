@@ -4,7 +4,7 @@ main.py — Capa de Transporte RabbitMQ (Worker de Audio Whisper + NLP)
 Responsabilidad EXCLUSIVA: gestión de conexiones, colas y mensajes.
 Toda la lógica de negocio vive en worker.py.
 
-Flujo:  q_audios (entrada) → worker.procesar_audio() → q_evidencias (salida)
+Flujo:  q_audios (entrada) → worker.procesar_audio() → q_infracciones (salida)
 """
 
 import json
@@ -37,10 +37,10 @@ console_handler.setFormatter(JSONFormatter())
 logger.addHandler(console_handler)
 
 # --- COLA DE SALIDA ---
-QUEUE_OUTPUT = 'q_evidencias'
+QUEUE_OUTPUT = 'q_infracciones'
 
 def publicar_evidencia(channel, evento):
-    """Publica el evento de soft evidence en la cola q_evidencias."""
+    """Publica el evento de soft evidence en la cola q_infracciones."""
     channel.basic_publish(
         exchange='',
         routing_key=QUEUE_OUTPUT,
