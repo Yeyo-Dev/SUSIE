@@ -183,3 +183,37 @@ fastify.post('/audio', async (req, reply) => {
 });
 ```
 
+---
+
+## 6. Canal de Feedback Asíncrono (WebSocket)
+
+El frontend abre una conexión WebSocket **exclusiva para recibir alertas** de la IA (YOLO, Whisper, etc.) en tiempo real. El canal **NO** se usa para enviar evidencia — solo para escuchar.
+
+- **Endpoint:** `ws://<backend-domain>/susie/api/v1/monitoreo/feedback`
+- **Query Params:** `?session_id=<examSessionId>`
+- **Dirección:** Unidireccional (Server → Client)
+
+### 📤 Mensajes del Servidor al Cliente (JSON)
+
+```json
+{
+  "type": "WARNING",        // "WARNING" | "CRITICAL" | "INFO"
+  "msg": "Múltiples rostros detectados en cámara",
+  "timestamp": "2026-02-23T19:05:12.000Z"
+}
+```
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `type` | `string` | Severidad de la alerta: `WARNING` (advertencia), `CRITICAL` (bloqueante), `INFO` (informativa). |
+| `msg` | `string` | Mensaje legible para el candidato. |
+| `timestamp` | `string` (ISO 8601) | Momento en que se detectó la anomalía (opcional). |
+
+### Ciclo de Vida
+
+1. El frontend abre el socket al entrar en la fase `MONITORING` (examen activo).
+2. El backend puede enviar N mensajes JSON durante la sesión.
+3. El frontend cierra el socket con código `1000` al finalizar el examen.
+
+> [!NOTE]
+> Si la conexión se cae (código 1006), el frontend reintentará la reconexión con backoff exponencial (1s, 2s, 4s... hasta 30s, máximo 8 intentos).

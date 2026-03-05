@@ -246,4 +246,45 @@ export class EvidenceService {
             console.error(`[EVIDENCE] Failed to upload ${label}:`, err);
         }
     }
+
+    /**
+     * Valida la identidad del candidato enviando su foto al endpoint
+     * dedicado de biometría del backend.
+     * @returns true si la validación fue exitosa (HTTP 200), false en caso contrario.
+     */
+    async validateBiometric(photo: Blob, userId: string | number): Promise<boolean> {
+        if (!this.apiUrl) {
+            this.logger('error', '⚠️ No hay API URL configurada para validación biométrica');
+            return false;
+        }
+
+        const url = `${this.apiUrl}/usuarios/biometricos/validar`;
+
+        try {
+            const formData = new FormData();
+            formData.append('meta', JSON.stringify({ usuario_id: userId }));
+            formData.append('file', photo);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                this.logger('success', '✅ Validación biométrica exitosa');
+                return true;
+            } else {
+                const body = await response.json().catch(() => ({}));
+                this.logger('error', `❌ Validación biométrica fallida (${response.status})`, body);
+                return false;
+            }
+        } catch (err) {
+            this.logger('error', '❌ Error de red al validar biometría', err);
+            console.error('[EVIDENCE] Biometric validation failed:', err);
+            return false;
+        }
+    }
 }

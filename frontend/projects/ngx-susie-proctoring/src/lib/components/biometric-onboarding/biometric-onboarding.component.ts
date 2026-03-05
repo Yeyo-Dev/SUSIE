@@ -14,9 +14,14 @@ import { StepIndicatorComponent } from '../step-indicator/step-indicator.compone
 export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     // Outputs
     completed = output<{ photo: Blob }>();
+    retakeRequested = output<void>();
 
     /** Pasos dinámicos del indicador (recibidos del wrapper) */
     steps = input<StepInfo[]>([]);
+
+    /** Estado de validación inyectado desde el wrapper */
+    isValidating = input<boolean>(false);
+    validationError = input<string | null>(null);
 
     // Access to video element
     @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
@@ -82,6 +87,7 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     retakePhoto() {
         this.capturedImage.set(null);
         this.capturedBlob = null;
+        this.retakeRequested.emit();
         // Re-attach stream to video element on next tick
         setTimeout(() => this.startCamera(), 0);
     }

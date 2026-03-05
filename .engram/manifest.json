@@ -40,6 +40,38 @@
       "sessions": 0,
       "memories": 15,
       "prompts": 0
+    },
+    {
+      "id": "3baedbbc",
+      "created_by": "moarimikashi",
+      "created_at": "2026-03-04T01:35:18Z",
+      "sessions": 4,
+      "memories": 14,
+      "prompts": 0
+    },
+    {
+      "id": "7b5c8279",
+      "created_by": "moarimikashi",
+      "created_at": "2026-03-04T04:01:17Z",
+      "sessions": 1,
+      "memories": 9,
+      "prompts": 0
+    },
+    {
+      "id": "046a8d72",
+      "created_by": "moarimikashi",
+      "created_at": "2026-03-04T04:39:30Z",
+      "sessions": 0,
+      "memories": 6,
+      "prompts": 0
+    },
+    {
+      "id": "fcdd109b",
+      "created_by": "moarimikashi",
+      "created_at": "2026-03-04T05:14:27Z",
+      "sessions": 1,
+      "memories": 9,
+      "prompts": 0
     }
   ]
 }

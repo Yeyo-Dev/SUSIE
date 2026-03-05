@@ -1,24 +1,163 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") 
+  url      = env("DATABASE_CHAINDRENCIALES_URL")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model usuarios {
+  id                                                                                        BigInt                             @id @default(autoincrement())
+  apellidos                                                                                 String?                            @db.VarChar(255)
+  email                                                                                     String?                            @db.VarChar(255)
+  enabled                                                                                   Boolean
+  estado_verificacion                                                                       Boolean
+  fecha_nacimiento                                                                          DateTime?                          @db.Date
+  hash_blockchain                                                                           String?                            @db.VarChar(500)
+  lugar_nacimiento                                                                          String?                            @db.VarChar(255)
+  nombre                                                                                    String?                            @db.VarChar(255)
+  password                                                                                  String?                            @db.VarChar(255)
+  perfil                                                                                    String?                            @db.VarChar(255)
+  puesto                                                                                    String?                            @db.VarChar(255)
+  rfc                                                                                       String?                            @db.VarChar(255)
+  telefono                                                                                  String?                            @db.VarChar(255)
+  username                                                                                  String?                            @db.VarChar(255)
+  creado_por_id                                                                             BigInt?
+  fecha_registro                                                                            DateTime                           @db.Date
+  perfil_completo                                                                           Boolean                            @default(false)
+  empresa_id                                                                                BigInt?
+  avatar_blob_name                                                                          String?                            @db.VarChar(255)
+  asignaciones_evaluador                                                                    asignacion_examen[]                @relation("asignacion_evaluador")
+  asignaciones_estudiante                                                                   asignacion_examen[]                @relation("asignacion_usuario")
+  asignacion_examen_asignacion_examen_reclutador_idTousuarios                               asignacion_examen[]                @relation("asignacion_examen_reclutador_idTousuarios")
+  examenes_examenes_reclutador_idTousuarios                                                 examenes[]                         @relation("examenes_reclutador_idTousuarios")
+  examenes_examenes_evaluador_idTousuarios                                                  examenes[]                         @relation("examenes_evaluador_idTousuarios")
+  respuestas                                                                                respuesta_usuario[]
+  usuarios                                                                                  usuarios?                          @relation("usuariosTousuarios", fields: [creado_por_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkhy8fli5s85u3iut9tvcjggx77")
+  other_usuarios                                                                            usuarios[]                         @relation("usuariosTousuarios")
+  biometricos_user                                             biometricos_user?
+  @@map("usuarios")
 }
 
+model biometricos_user {
+  biometrico_id     BigInt   @id @default(autoincrement())
+  usuario_id        BigInt   @unique // @unique garantiza la relación 1 a 1
+  vector_biometrico String 
+  type              String?  @default("ROSTRO") @db.VarChar(50)
+
+  fecha_creacion      DateTime @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relación con usuarios (Delete Cascade para borrar biométricos si se borra el usuario)
+  usuario           usuarios @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_biometricos_usuario")
+
+  @@map("biometricos_user")
+}
+
+model examenes {
+  examen_id                                 BigInt                   @id @default(autoincrement())
+  activo                                    Boolean
+  descripcion                               String?                  @db.VarChar(255)
+  numero_de_preguntas                       String?                  @db.VarChar(255)
+  puntos_maximos                            String?                  @db.VarChar(255)
+  tipo_examen                               String?                  @db.VarChar(255)
+  titulo                                    String?                  @db.VarChar(255)
+  categoria_categoria_id                    BigInt?
+  evaluador_id                              BigInt?
+  reclutador_id                             BigInt?
+  asignaciones                              asignacion_examen[]
+  usuarios_examenes_reclutador_idTousuarios usuarios?                @relation("examenes_reclutador_idTousuarios", fields: [reclutador_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkawdsfp8tdp58orqy68bay9pir")
+  usuarios_examenes_evaluador_idTousuarios  usuarios?                @relation("examenes_evaluador_idTousuarios", fields: [evaluador_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkhidkg3wyfnj7f7rocdni5ibd1")
+  preguntas                                 preguntas[]
+  respuestas                                respuesta_usuario[]
+
+  @@map("examenes")
+}
+
+model preguntas {
+  pregunta_id      BigInt              @id @default(autoincrement())
+  contenido        String?             @db.VarChar(5000)
+  imagen           String?             @db.VarChar(255)
+  opcion1          String?             @db.VarChar(255)
+  opcion2          String?             @db.VarChar(255)
+  opcion3          String?             @db.VarChar(255)
+  opcion4          String?             @db.VarChar(255)
+  respuesta        String?             @db.VarChar(255)
+  examen_examen_id BigInt?
+  examen           examenes?           @relation(fields: [examen_examen_id], references: [examen_id], onDelete: NoAction, onUpdate: NoAction, map: "fk9g0sx7pv0vsvc4uksis4egp4j")
+  respuestas_dadas respuesta_usuario[]
+
+  @@map("preguntas")
+}
+
+model asignacion_examen {
+  id                                                 BigInt              @id @default(autoincrement())
+  comentarios                                        String?             @db.VarChar(255)
+  estado                                             String?             @db.VarChar(255)
+  fecha_asignacion                                   DateTime?           @db.Timestamp(6)
+  fecha_evaluacion                                   DateTime?           @db.Timestamp(6)
+  uuid                                               String?             @db.VarChar(255)
+  evaluador_id                                       BigInt?
+  examen_id                                          BigInt?
+  reclutador_id                                      BigInt?
+  usuario_id                                         BigInt?
+  fecha_limite                                       DateTime?           @db.Timestamp(6)
+  motivo_cancelacion                                 String?             @db.VarChar(500)
+  evaluador                                          usuarios?           @relation("asignacion_evaluador", fields: [evaluador_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk1eo8mr8aorbuebq33yd5y50u1")
+  usuario                                            usuarios?           @relation("asignacion_usuario", fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkkxc6t7vje92jf2h2re67x1mp")
+  examen                                             examenes?           @relation(fields: [examen_id], references: [examen_id], onDelete: NoAction, onUpdate: NoAction, map: "fkm7xd4v2avldj6lnm1l153ow31")
+  usuarios_asignacion_examen_reclutador_idTousuarios usuarios?           @relation("asignacion_examen_reclutador_idTousuarios", fields: [reclutador_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkquqmh4byxm3gc97955xechyda")
+  respuestas                                         respuesta_usuario[]
+  sesion_evaluacion                                  sesion_evaluacion[]
+
+  @@map("asignacion_examen")
+}
+
+model respuesta_usuario {
+  id                   BigInt             @id @default(autoincrement())
+  fecha_respuesta      DateTime?          @db.Timestamp(6)
+  respuesta_dada       String?            @db.VarChar(255)
+  asignacion_id        BigInt?
+  examen_examen_id     BigInt?
+  pregunta_pregunta_id BigInt?
+  usuario_id           BigInt?
+  examen               examenes?          @relation(fields: [examen_examen_id], references: [examen_id], onDelete: NoAction, onUpdate: NoAction, map: "fk2amqm80bwukxjcd5pgmp681uj")
+  pregunta             preguntas?         @relation(fields: [pregunta_pregunta_id], references: [pregunta_id], onDelete: NoAction, onUpdate: NoAction, map: "fk53cdg7mril1xnejjfl4a793qm")
+  asignacion           asignacion_examen? @relation(fields: [asignacion_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk6hcxtii2e2qxuqjp7wmlnsefn")
+  usuario              usuarios?          @relation(fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk76oe427nsofrxna8bupi6wesy")
+
+  @@map("respuesta_usuario")
+}
+
+model configuracion_examen {
+  configuracion_id       BigInt   @id @default(autoincrement())
+  analisis_mirada        Boolean? @default(false)
+  camara                 Boolean? @default(false)
+  max_cambio_pesta       Int?
+  microfono              Boolean? @default(false)
+  tiempo_sin_inactividad Int?
+  toleran_desconexion    Int?
+  validacion_biometrica  Boolean? @default(false)
+}
+
+
+model infracciones_evaluacion {
+  id_infraccion       BigInt             @id @default(autoincrement())
+  id_sesion           BigInt
+  minuto_infraccion   String            @db.VarChar
+  tipo_infraccion     String            @db.VarChar
+  detalles_infraccion String            @db.VarChar
+  url_azure_evidencia String?            @db.VarChar
+  sesion_evaluacion   sesion_evaluacion? @relation(fields: [id_sesion], references: [id_sesion], onDelete: NoAction, onUpdate: NoAction, map: "id_sesion")
+}
+
+model sesion_evaluacion {
+  id_sesion               BigInt                    @id @default(autoincrement())
+  id_asignacion           BigInt                    @db.BigInt
+  fecha_inicio            DateTime                 @db.Timestamptz(6)
+  fecha_fin               DateTime?                 @db.Timestamptz(6)
+  estado_sesion           String                   @db.VarChar
+  infracciones_evaluacion infracciones_evaluacion[]
+  asignacion_examen       asignacion_examen?        @relation(fields: [id_asignacion], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "id_asignacion")
+}
