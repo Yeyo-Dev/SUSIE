@@ -95,6 +95,8 @@ export class ExamConfigService {
                     examTitle: eval_.examen_titulo,
                     durationMinutes: eval_.duracion_minutos,
                     assignmentId: Number(eval_.asignacion_id),
+                    userId: String(eval_.usuario_id),
+                    userName: eval_.usuario_nombre,
                 },
                 supervision: mapBackendConfigToSupervision(cfg),
                 questions,
