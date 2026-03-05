@@ -12,8 +12,10 @@ export const MOCK_CHAINDRENCIALES_CONFIG: ChaindrencialesExamConfig = {
         examSessionId: 'sess_' + Math.floor(Math.random() * 10000),
         examId: 'cert_angular_v20',
         examTitle: 'Certificación Profesional Angular v20',
-        durationMinutes: 30,
+        durationMinutes: 100,
         assignmentId: 1,
+        userId: '1',
+        userName: 'Usuario de Prueba',
     },
     supervision: {
         requireCamera: true,

@@ -1,5 +1,12 @@
 import { Injectable } from '@angular/core';
-import { EvidencePayload, EvidenceMetadata } from '../models/contracts';
+import {
+    EvidencePayload,
+    EvidenceMetadata,
+    BackendSesionResponse,
+    BackendInfraccionPayload,
+    BackendInfraccionTipo,
+    calcularMinutoInfraccion,
+} from '../models/contracts';
 
 @Injectable({ providedIn: 'root' })
 export class EvidenceService {
@@ -9,6 +16,13 @@ export class EvidenceService {
     private mediaRecorder: MediaRecorder | null = null;
     private recordingInterval: any = null;
     private audioChunks: Blob[] = [];
+
+    /** ID de sesión remota devuelto por POST /sesiones/ */
+    private remoteSessionId: string | null = null;
+    /** Marca de tiempo de inicio de la sesión (para calcular minuto_infraccion). */
+    private sessionStartTime: Date | null = null;
+    /** Índice secuencial para fragmentos de audio. */
+    private audioFragmentIndex = 0;
 
     private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
 
@@ -23,21 +37,47 @@ export class EvidenceService {
         this.logger = fn;
     }
 
-    sendEvent(payload: Partial<EvidenceMetadata['payload']> & { file?: Blob }) {
+    /** Obtiene el ID de sesión remota (solo disponible después de startSession). */
+    getRemoteSessionId(): string | null {
+        return this.remoteSessionId;
+    }
+
+    sendEvent(payload: Partial<EvidenceMetadata['_internal']> & { file?: Blob }) {
         const { file, ...restPayload } = payload;
 
+        // Build the meta object aligned with the backend contract
         const metadata: EvidenceMetadata = {
             meta: {
-                correlation_id: this.sessionContext.examSessionId,
-                exam_id: this.sessionContext.examId,
-                student_id: this.sessionContext.userId || 'anonymous',
-                timestamp: new Date().toISOString(),
-                source: 'frontend_client_v1'
+                sesion_id: Number(this.remoteSessionId) || 0,
+                usuario_id: Number(this.sessionContext.userId) || 0,
+                nombre_usuario: this.sessionContext.userName || this.sessionContext.userId || 'anonymous',
+                examen_id: Number(this.sessionContext.examId) || 0,
+                nombre_examen: this.sessionContext.examTitle || '',
+                timestamp: Date.now(),
             },
-            payload: restPayload as any
+            payload_info: this.resolvePayloadInfo(restPayload.type as any),
+            _internal: restPayload as any,
         };
 
         this.uploadEvidence({ metadata, file });
+    }
+
+    /**
+     * Resuelve el payload_info correcto según el tipo de evidencia interna.
+     */
+    private resolvePayloadInfo(
+        internalType?: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'BROWSER_EVENT' | 'FOCUS_LOST'
+    ): EvidenceMetadata['payload_info'] {
+        switch (internalType) {
+            case 'AUDIO_CHUNK':
+                return { type: 'audio_segment', source: 'microphone' };
+            case 'SNAPSHOT':
+                return { type: 'snapshot_webcam', source: 'web' };
+            default:
+                // Browser events and focus lost don't match the multipart pattern.
+                // Return a default; uploadEvidence handles the routing.
+                return { type: 'snapshot_webcam', source: 'web' };
+        }
     }
 
 
@@ -46,6 +86,7 @@ export class EvidenceService {
             this.logger('error', '❌ No hay stream de audio disponible para grabar');
             return;
         }
+        this.audioFragmentIndex = 0;
         this.initMediaRecorder(stream, config);
     }
 
@@ -54,8 +95,6 @@ export class EvidenceService {
 
     private handleUnload = () => {
         if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-            // Detener el grabador fuerza a que dispare el evento ondataavailable
-            // con el fragmento de audio restante.
             this.mediaRecorder.stop();
         }
     };
@@ -86,10 +125,8 @@ export class EvidenceService {
 
             const interval = ((config.chunkIntervalSeconds || 15) * 1000) + 500;
 
-            // Iniciar el primer segmento
             this.mediaRecorder.start();
 
-            // Detener y reiniciar periódicamente para asegurar que cada chunk sea un archivo WebM completamente válido e independiente
             this.recordingInterval = setInterval(() => {
                 if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
                     this.mediaRecorder.stop();
@@ -112,60 +149,72 @@ export class EvidenceService {
         }
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
-            this.logger('info', '🛑 Grabación de audio detenida'); // Updated log message
+            this.logger('info', '🛑 Grabación de audio detenida');
         }
     }
 
     private sendAudioChunk(blob: Blob) {
+        this.audioFragmentIndex++;
         this.sendEvent({
             type: 'AUDIO_CHUNK',
             browser_focus: document.hasFocus(),
             file: blob
-        });
-        // Logging moved to uploadEvidence for consistency
+        } as any);
     }
 
+    /**
+     * Inicia una sesión de evaluación en el backend.
+     * Usa POST /sesiones/ con id_asignacion.
+     */
     async startSession(): Promise<void> {
         if (!this.apiUrl) return;
-        const url = `${this.apiUrl}/monitoreo/sesiones/start`;
+        const url = `${this.apiUrl}/sesiones`;
+        const assignmentId = this.sessionContext.assignmentId;
+
+        if (!assignmentId) {
+            this.logger('error', '⚠️ No hay assignmentId (id_asignacion) configurado. No se puede crear sesión.');
+            return;
+        }
+
         try {
-            await fetch(url, {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    examSessionId: this.sessionContext.examSessionId,
-                    examId: this.sessionContext.examId,
-                    userId: this.sessionContext.userId || 'anonymous',
-                    timestamp: new Date().toISOString()
-                })
+                body: JSON.stringify({ id_asignacion: Number(assignmentId) })
             });
-            this.logger('success', '🟢 Sesión de examen iniciada en el servidor');
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+
+            const sesion: BackendSesionResponse = await res.json();
+            this.remoteSessionId = sesion.id_sesion;
+            this.sessionStartTime = new Date(sesion.fecha_inicio);
+            this.logger('success', `🟢 Sesión de examen creada en el backend (id_sesion: ${sesion.id_sesion})`);
         } catch (error) {
-            this.logger('error', '⚠️ Falló el registro de inicio de sesión en el servidor');
+            this.logger('error', '⚠️ Falló la creación de sesión en el servidor', error);
         }
     }
 
+    /**
+     * Finaliza la sesión activa en el backend.
+     * Usa POST /sesiones/finalizar/:id_sesion.
+     */
     async endSession(status: 'submitted' | 'cancelled'): Promise<void> {
-        if (!this.apiUrl) return;
-        const url = `${this.apiUrl}/monitoreo/sesiones/end`;
+        if (!this.apiUrl || !this.remoteSessionId) return;
+        const url = `${this.apiUrl}/sesiones/finalizar/${this.remoteSessionId}`;
         try {
             await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`,
-                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    examSessionId: this.sessionContext.examSessionId,
-                    status,
-                    timestamp: new Date().toISOString()
-                }),
-                keepalive: true // Permite completar el request al cerrar la pestaña
+                keepalive: true
             });
-            this.logger('success', `🔴 Sesión de examen finalizada (${status})`);
+            this.logger('success', `🔴 Sesión de examen finalizada (${status}, id_sesion: ${this.remoteSessionId})`);
         } catch (error) {
             this.logger('error', '⚠️ Falló el registro de fin de sesión en el servidor');
         }
@@ -175,75 +224,125 @@ export class EvidenceService {
     private async uploadEvidence(data: EvidencePayload) {
         if (!this.apiUrl) return;
 
+        const internalType = data.metadata?._internal?.type;
+
         // Determinar endpoint según el tipo de evidencia
         let endpointUrl = '';
-        let useJson = false;
 
-        if (data.metadata?.payload?.type === 'AUDIO_CHUNK') {
+        if (internalType === 'AUDIO_CHUNK') {
             endpointUrl = `${this.apiUrl}/monitoreo/evidencias/audios`;
-        } else if (data.metadata?.payload?.type === 'SNAPSHOT') {
+            // Inyectar fragmento_indice en meta
+            data.metadata.meta.fragmento_indice = this.audioFragmentIndex;
+        } else if (internalType === 'SNAPSHOT') {
             endpointUrl = `${this.apiUrl}/monitoreo/evidencias/snapshots`;
-        } else if (data.metadata?.payload?.type === 'BROWSER_EVENT') {
-            endpointUrl = `${this.apiUrl}/monitoreo/evidencias/eventos`;
-            useJson = true;
+        } else if (internalType === 'BROWSER_EVENT') {
+            // Browser events ahora se envían como infracciones dedicadas.
+            await this.sendInfraccion(data);
+            return;
         } else {
-            this.logger('info', `ℹ️ Evento local detectado: ${data.metadata?.payload?.type} (No se envía a backend)`);
+            this.logger('info', `ℹ️ Evento local detectado: ${internalType} (No se envía a backend)`);
             return;
         }
 
         try {
-            if (useJson) {
-                // Eventos lógicos (BROWSER_EVENT) → JSON POST
-                await fetch(endpointUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.authToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        meta: data.metadata.meta || {},
-                        payload_info: data.metadata.payload || {}
-                    }),
-                    keepalive: true
-                });
-                this.logger('success', `📤 Evento de navegador enviado al servidor (${data.metadata?.payload?.trigger || data.metadata?.payload?.type})`);
-            } else {
-                // Audio/Snapshots → FormData (multipart)
-                const formData = new FormData();
-                // El orden es vital para que Fastify no falle
-                formData.append('meta', JSON.stringify(data.metadata.meta || {}));
-                formData.append('payload_info', JSON.stringify(data.metadata.payload || {}));
+            // Audio/Snapshots → FormData (multipart)
+            // Orden obligatorio: meta → payload_info → file
+            const formData = new FormData();
+            formData.append('meta', JSON.stringify(data.metadata.meta));
+            formData.append('payload_info', JSON.stringify(data.metadata.payload_info));
 
-                if (data.file) {
-                    formData.append('file', data.file);
-                }
+            if (data.file) {
+                formData.append('file', data.file);
+            }
 
-                await fetch(endpointUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.authToken}`
-                    },
-                    body: formData,
-                    keepalive: true
-                });
+            await fetch(endpointUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: formData,
+                keepalive: true
+            });
 
-                // Log de éxito para audio/evidencia
-                if (data.file) {
-                    const isAudio = data.metadata?.payload?.type === 'AUDIO_CHUNK';
-                    const label = isAudio ? 'Audio (15s)' : 'Snapshot';
-                    this.logger('success', `📤 ${label} enviado al servidor (${data.file.size} bytes)`);
-                }
+            if (data.file) {
+                const isAudio = internalType === 'AUDIO_CHUNK';
+                const label = isAudio ? 'Audio (15s)' : 'Snapshot';
+                this.logger('success', `📤 ${label} enviado al servidor (${data.file.size} bytes)`);
             }
 
         } catch (err) {
-            const evidenceType = data.metadata?.payload?.type;
             let label = 'evidencia';
-            if (evidenceType === 'AUDIO_CHUNK') label = 'audio';
-            else if (evidenceType === 'SNAPSHOT') label = 'snapshot';
-            else if (evidenceType === 'BROWSER_EVENT') label = 'evento de navegador';
+            if (internalType === 'AUDIO_CHUNK') label = 'audio';
+            else if (internalType === 'SNAPSHOT') label = 'snapshot';
 
             this.logger('error', `❌ Error al subir ${label}`, err);
             console.error(`[EVIDENCE] Failed to upload ${label}:`, err);
+        }
+    }
+
+    /**
+     * Envía una infracción al endpoint dedicado POST /monitoreo/infracciones/.
+     * Mapea los triggers internos del frontend a los tipos de infracción del backend.
+     */
+    private async sendInfraccion(data: EvidencePayload): Promise<void> {
+        if (!this.remoteSessionId) {
+            this.logger('error', '⚠️ No hay sesión remota activa. No se puede registrar infracción.');
+            return;
+        }
+
+        const trigger = data.metadata?._internal?.trigger || '';
+
+        // Mapear trigger del frontend → tipo de infracción del backend
+        const tipoMap: Record<string, BackendInfraccionTipo> = {
+            'TAB_SWITCH': 'CAMBIO_DE_PESTAÑA',
+            'FULLSCREEN_EXIT': 'OTRO',
+            'DEVTOOLS_OPENED': 'OTRO',
+            'LOSS_FOCUS': 'CAMBIO_DE_PESTAÑA',
+            'NAVIGATION_ATTEMPT': 'OTRO',
+            'RELOAD_ATTEMPT': 'OTRO',
+            'CLIPBOARD_ATTEMPT': 'OTRO',
+            'GAZE_DEVIATION': 'OTRO',
+        };
+
+        const tipoInfraccion: BackendInfraccionTipo = tipoMap[trigger] || 'OTRO';
+
+        const minuteStr = this.sessionStartTime
+            ? calcularMinutoInfraccion(this.sessionStartTime)
+            : '00:00:00';
+
+        const detallesMap: Record<string, string> = {
+            'TAB_SWITCH': 'El alumno cambió de pestaña',
+            'FULLSCREEN_EXIT': 'El alumno salió de pantalla completa',
+            'DEVTOOLS_OPENED': 'El alumno intentó abrir herramientas de desarrollador',
+            'LOSS_FOCUS': 'El alumno perdió el foco de la ventana',
+            'NAVIGATION_ATTEMPT': 'El alumno intentó navegar fuera de la página',
+            'RELOAD_ATTEMPT': 'El alumno intentó recargar la página',
+            'CLIPBOARD_ATTEMPT': 'El alumno intentó copiar/pegar',
+            'GAZE_DEVIATION': 'Se detectó desviación de la mirada del alumno',
+        };
+
+        const payload: BackendInfraccionPayload = {
+            id_sesion: Number(this.remoteSessionId),
+            minuto_infraccion: minuteStr,
+            tipo_infraccion: tipoInfraccion,
+            detalles_infraccion: detallesMap[trigger] || `Infracción detectada: ${trigger}`,
+            url_azure_evidencia: null,
+        };
+
+        try {
+            await fetch(`${this.apiUrl}/monitoreo/infracciones`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                keepalive: true
+            });
+            this.logger('success', `📤 Infracción registrada: ${tipoInfraccion} (${minuteStr})`);
+        } catch (err) {
+            this.logger('error', '❌ Error al registrar infracción', err);
+            console.error('[EVIDENCE] Failed to send infraccion:', err);
         }
     }
 
@@ -261,9 +360,20 @@ export class EvidenceService {
         const url = `${this.apiUrl}/usuarios/biometricos/validar`;
 
         try {
+            const metaPayload = { usuario_id: userId };
             const formData = new FormData();
-            formData.append('meta', JSON.stringify({ usuario_id: userId }));
+            formData.append('meta', JSON.stringify(metaPayload));
             formData.append('file', photo);
+
+            // Debug: log exactly what we're sending
+            this.logger('info', `🔍 [Biométrico] Enviando validación`, {
+                url,
+                metaPayload,
+                photoSize: `${photo.size} bytes`,
+                photoType: photo.type,
+                formDataKeys: ['meta', 'file'],
+                authToken: this.authToken ? `${this.authToken.substring(0, 20)}...` : '(vacío)',
+            });
 
             const response = await fetch(url, {
                 method: 'POST',

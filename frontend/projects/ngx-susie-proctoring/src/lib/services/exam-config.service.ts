@@ -1,15 +1,28 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { ChaindrencialesExamConfig } from '../models/contracts';
+import {
+    BackendEvaluacionResponse,
+    BackendExamenResponse,
+    ChaindrencialesExamConfig,
+    SusieQuestion,
+    mapBackendPreguntas,
+    mapBackendConfigToSupervision,
+} from '../models/contracts';
 import { firstValueFrom } from 'rxjs';
 
 /**
- * Servicio que carga la configuración de examen desde el API de Chaindrenciales.
+ * Servicio que carga la configuración de examen desde el backend de SUSIE.
+ *
+ * Realiza dos llamadas:
+ * 1. GET /evaluaciones/configuracion/:evaluacion_id → config + contexto usuario
+ * 2. GET /examenes/:examen_id                       → preguntas del examen
+ *
+ * Luego mapea ambas respuestas a un ChaindrencialesExamConfig que la app host consume.
  *
  * Uso:
  * ```typescript
  * const configService = inject(ExamConfigService);
- * configService.setBaseUrl('https://api.chaindrenciales.com');
+ * configService.setBaseUrl('http://localhost:3000/susie/api/v1');
  * await configService.loadConfig('42');
  * const cfg = configService.config(); // ChaindrencialesExamConfig | null
  * ```
@@ -18,7 +31,7 @@ import { firstValueFrom } from 'rxjs';
 export class ExamConfigService {
     private readonly http = inject(HttpClient);
 
-    /** URL base del API de Chaindrenciales. */
+    /** URL base del API de SUSIE (ej: http://localhost:3000/susie/api/v1). */
     private baseUrl = '';
 
     /** Configuración cargada del API. */
@@ -35,16 +48,21 @@ export class ExamConfigService {
 
     /**
      * Configura la URL base del API.
-     * @param url URL base sin trailing slash (ej: 'https://api.chaindrenciales.com')
+     * @param url URL base sin trailing slash (ej: 'http://localhost:3000/susie/api/v1')
      */
     setBaseUrl(url: string): void {
         this.baseUrl = url.replace(/\/$/, '');
     }
 
     /**
-     * Carga la configuración de examen desde Chaindrenciales.
+     * Carga la configuración de examen desde el backend de SUSIE.
+     *
+     * Hace dos llamadas en paralelo:
+     * - GET /evaluaciones/configuracion/:evaluacionId
+     * - GET /examenes/:examenId (obtenido de la primera respuesta)
+     *
      * @param evaluacionId ID de la evaluación
-     * @returns La config cargada
+     * @returns La config mapeada a ChaindrencialesExamConfig
      * @throws Error si la carga falla
      */
     async loadConfig(evaluacionId: string): Promise<ChaindrencialesExamConfig> {
@@ -52,12 +70,40 @@ export class ExamConfigService {
         this.error.set(null);
 
         try {
-            const url = `${this.baseUrl}/api/evaluaciones/${evaluacionId}/susie-config`;
-            const config = await firstValueFrom(
-                this.http.get<ChaindrencialesExamConfig>(url)
+            // 1. Cargar configuración de la evaluación
+            const evalUrl = `${this.baseUrl}/evaluaciones/configuracion/${evaluacionId}`;
+            const evalResponse = await firstValueFrom(
+                this.http.get<BackendEvaluacionResponse>(evalUrl)
             );
-            this.config.set(config);
-            return config;
+
+            const eval_ = evalResponse.evaluacion.evaluacion;
+            const cfg = evalResponse.evaluacion.configuracion;
+
+            // 2. Cargar preguntas del examen
+            const examenUrl = `${this.baseUrl}/examenes/${eval_.examen_id}`;
+            const examenResponse = await firstValueFrom(
+                this.http.get<BackendExamenResponse>(examenUrl)
+            );
+
+            const questions: SusieQuestion[] = mapBackendPreguntas(examenResponse.data.preguntas);
+
+            // 3. Mapear a ChaindrencialesExamConfig
+            const mappedConfig: ChaindrencialesExamConfig = {
+                sessionContext: {
+                    examSessionId: 'sess_' + Date.now(), // Temporal hasta que POST /sesiones/ devuelva el real
+                    examId: eval_.examen_id,
+                    examTitle: eval_.examen_titulo,
+                    durationMinutes: eval_.duracion_minutos,
+                    assignmentId: Number(eval_.asignacion_id),
+                },
+                supervision: mapBackendConfigToSupervision(cfg),
+                questions,
+                susieApiUrl: this.baseUrl,
+                authToken: '', // Se configura desde la app host
+            };
+
+            this.config.set(mappedConfig);
+            return mappedConfig;
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Error al cargar configuración del examen';
             this.error.set(message);

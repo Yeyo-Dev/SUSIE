@@ -37,8 +37,85 @@ export interface SusieQuestion {
   id: number;
   content: string; // HTML o Texto
   options: string[];
+  /** URL de imagen asociada a la pregunta (puede ser null). */
+  image?: string | null;
   /** Opcional — la corrección real ocurre en el servidor. No enviar en producción. */
   correctAnswer?: string;
+}
+
+// --- Backend API Response Contracts (api_docs.md) ---
+
+/** Respuesta de GET /evaluaciones/configuracion/:evaluacion_id */
+export interface BackendEvaluacionResponse {
+  success: boolean;
+  evaluacion: {
+    evaluacion: {
+      examen_id: string;
+      examen_titulo: string;
+      duracion_minutos: number;
+      asignacion_id: string;
+      usuario_id: string;
+      usuario_nombre: string;
+      usuario_email: string;
+    };
+    configuracion: {
+      analisis_mirada: boolean;
+      camara: boolean;
+      max_cambio_pestana: number;
+      microfono: boolean;
+      tiempo_sin_inactividad: number;
+      tolerancia_desconexion: number;
+      validacion_biometrica: boolean;
+    };
+  };
+}
+
+/** Respuesta de GET /examenes/:examen_id */
+export interface BackendExamenResponse {
+  success: boolean;
+  data: {
+    detalles: {
+      examen_id: string;
+      titulo: string;
+      descripcion: string;
+      numero_de_preguntas: string;
+      puntos_maximos: string;
+    };
+    preguntas: {
+      pregunta_id: string;
+      contenido: string;
+      imagen: string | null;
+      opciones: string[];
+    }[];
+  };
+}
+
+/** Respuesta de POST /sesiones/ */
+export interface BackendSesionResponse {
+  id_sesion: string;
+  id_asignacion: string;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  estado_sesion: 'EN_CURSO' | 'FINALIZADA';
+}
+
+/** Respuesta de POST /sesiones/finalizar/:id_sesion */
+export interface BackendSesionFinalizadaResponse {
+  id_sesion: string;
+  estado_sesion: 'FINALIZADA';
+  fecha_fin: string;
+}
+
+/** Enum de tipos de infracción conocidos por el backend */
+export type BackendInfraccionTipo = 'CAMBIO_DE_PESTAÑA' | 'USO_DE_TELEFONO' | 'OTRO';
+
+/** Payload de POST /monitoreo/infracciones/ */
+export interface BackendInfraccionPayload {
+  id_sesion: number;
+  minuto_infraccion: string; // Formato "HH:MM:SS"
+  tipo_infraccion: BackendInfraccionTipo;
+  detalles_infraccion: string;
+  url_azure_evidencia?: string | null;
 }
 
 /**
@@ -71,11 +148,13 @@ export interface SusieConfig {
     examSessionId: string; // ID de correlación — vincula todas las evidencias de una sesión
     examId: string;
     examTitle: string; // Título para mostrar en el header
-    userId?: string; // Optional for now
+    userId?: string;
     userName?: string;
     durationMinutes: number;
     /** ID de la asignación en la plataforma host (ej. Chaindrenciales). */
     assignmentId?: number;
+    /** ID de la sesión remota asignada por el backend al iniciar (POST /sesiones/). */
+    remoteSessionId?: string;
   };
   securityPolicies: {
     requireCamera: boolean;
@@ -157,6 +236,8 @@ export interface ChaindrencialesExamConfig {
     examTitle: string;
     durationMinutes: number;
     assignmentId: number;
+    userId?: string;
+    userName?: string;
   };
   supervision: SupervisionConfig;
   questions: SusieQuestion[];
@@ -189,6 +270,8 @@ export function mapToSusieConfig(
       examTitle: source.sessionContext.examTitle,
       durationMinutes: source.sessionContext.durationMinutes,
       assignmentId: source.sessionContext.assignmentId,
+      userId: source.sessionContext.userId,
+      userName: source.sessionContext.userName,
     },
     securityPolicies: {
       // Configurables (vienen de BD)
@@ -229,22 +312,34 @@ export function mapToSusieConfig(
 
 /**
  * Metadatos que acompañan cada evidencia (snapshot, audio, evento).
+ * Estructura alineada al contrato del backend (api_docs.md).
  */
 export interface EvidenceMetadata {
+  /** Metadatos de contexto de la sesión (campo `meta` en FormData). */
   meta: {
-    correlation_id: string; // examSessionId
-    exam_id: string;        // ID del examen
-    student_id: string;     // ID del estudiante
-    timestamp: string;      // ISO 8601
-    source: 'frontend_client_v1';
+    sesion_id: number;        // ID de sesión remota (obtenido de POST /sesiones/)
+    usuario_id: number;       // ID numérico del usuario
+    nombre_usuario: string;   // Nombre completo del usuario
+    examen_id: number;        // ID numérico del examen
+    nombre_examen: string;    // Título del examen
+    timestamp: number;        // Unix timestamp en ms (Date.now())
+    /** Solo para audios: índice secuencial del fragmento. */
+    fragmento_indice?: number;
   };
-  payload: {
+  /** Info del tipo de payload (campo `payload_info` en FormData). */
+  payload_info: {
+    type: 'snapshot_webcam' | 'snapshot_pantalla' | 'audio_segment';
+    source: 'web' | 'desktop' | 'microphone' | 'webcam';
+  };
+  /** Campos internos del frontend (NO se envían al backend, uso local). */
+  _internal?: {
+    /** Tipo interno de evidencia (alias: originalType o type). */
     type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'BROWSER_EVENT' | 'FOCUS_LOST';
-    browser_focus: boolean;    // ¿Está la pestaña activa al momento de capturar?
-    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION';  // Trigger del evento (para BROWSER_EVENT)
-    keyboard_events?: number;  // Contador acumulado de teclas presionadas
-    tab_switches?: number;     // Cantidad de cambios de pestaña detectados
-    gaze_history?: { x: number; y: number; ts: number }[];  // Buffer de coordenadas oculares
+    browser_focus: boolean;
+    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION';
+    keyboard_events?: number;
+    tab_switches?: number;
+    gaze_history?: { x: number; y: number; ts: number }[];
   };
 }
 
@@ -254,4 +349,49 @@ export interface EvidenceMetadata {
 export interface EvidencePayload {
   metadata: EvidenceMetadata;
   file?: Blob;
+}
+
+// --- Utilidades de mapeo backend ---
+
+/**
+ * Mapea preguntas del formato backend a SusieQuestion.
+ */
+export function mapBackendPreguntas(
+  preguntas: BackendExamenResponse['data']['preguntas']
+): SusieQuestion[] {
+  return preguntas.map(p => ({
+    id: Number(p.pregunta_id),
+    content: p.contenido,
+    options: p.opciones,
+    image: p.imagen,
+  }));
+}
+
+/**
+ * Mapea la configuración del backend a SupervisionConfig.
+ */
+export function mapBackendConfigToSupervision(
+  cfg: BackendEvaluacionResponse['evaluacion']['configuracion']
+): SupervisionConfig {
+  return {
+    requireCamera: cfg.camara,
+    requireMicrophone: cfg.microfono,
+    requireBiometrics: cfg.validacion_biometrica,
+    requireGazeTracking: cfg.analisis_mirada,
+    maxTabSwitches: cfg.max_cambio_pestana,
+    inactivityTimeoutMinutes: cfg.tiempo_sin_inactividad / 60, // backend envía en segundos
+  };
+}
+
+/**
+ * Calcula el minuto de infracción en formato "HH:MM:SS" relativo al inicio de la sesión.
+ */
+export function calcularMinutoInfraccion(sessionStartTime: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - sessionStartTime.getTime();
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
 }
