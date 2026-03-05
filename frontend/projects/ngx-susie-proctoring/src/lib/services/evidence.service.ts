@@ -165,15 +165,16 @@ export class EvidenceService {
     /**
      * Inicia una sesión de evaluación en el backend.
      * Usa POST /sesiones/ con id_asignacion.
+     * @returns El id_sesion real del backend, o null si falló.
      */
-    async startSession(): Promise<void> {
-        if (!this.apiUrl) return;
+    async startSession(): Promise<string | null> {
+        if (!this.apiUrl) return null;
         const url = `${this.apiUrl}/sesiones`;
         const assignmentId = this.sessionContext.assignmentId;
 
         if (!assignmentId) {
             this.logger('error', '⚠️ No hay assignmentId (id_asignacion) configurado. No se puede crear sesión.');
-            return;
+            return null;
         }
 
         try {
@@ -194,8 +195,10 @@ export class EvidenceService {
             this.remoteSessionId = sesion.id_sesion;
             this.sessionStartTime = new Date(sesion.fecha_inicio);
             this.logger('success', `🟢 Sesión de examen creada en el backend (id_sesion: ${sesion.id_sesion})`);
+            return sesion.id_sesion;
         } catch (error) {
             this.logger('error', '⚠️ Falló la creación de sesión en el servidor', error);
+            return null;
         }
     }
 

@@ -31,10 +31,98 @@
 
     <!-- SCREEN: LOADING -->
     @if (examState() === 'loading') {
+    <div class="loading-screen">
+        <div class="loading-card">
+            <!-- Logo animado -->
+            <div class="loading-logo">
+                <div class="loading-spinner-ring"></div>
+                <div class="loading-logo-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                </div>
+            </div>
+
+            <h2 class="loading-title">SUSIE</h2>
+            <p class="loading-subtitle">Sistema de Supervisión Inteligente</p>
+
+            <!-- Progress stepper -->
+            <div class="loading-steps">
+                @for (step of [{n:1, label:'Conectando con servidor'}, {n:2, label:'Cargando configuración'}, {n:3,
+                label:'Preparando preguntas'}, {n:4, label:'Configurando supervisión'}, {n:5, label:'¡Listo!'}]; track
+                step.n) {
+                <div class="loading-step" [class.active]="loadingStep() === step.n"
+                    [class.done]="loadingStep() > step.n">
+                    <div class="step-indicator">
+                        @if (loadingStep() > step.n) {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        } @else {
+                        <span>{{ step.n }}</span>
+                        }
+                    </div>
+                    <span class="step-label">{{ step.label }}</span>
+                </div>
+                }
+            </div>
+
+            <p class="loading-message">{{ loadingMessage() }}</p>
+        </div>
+    </div>
+    }
+
+    <!-- SCREEN: ERROR -->
+    @if (examState() === 'error') {
     <div class="result-screen">
-        <div class="result-card">
-            <h2>Cargando configuración del examen...</h2>
-            <p>Conectando con el servidor SUSIE</p>
+        <div class="result-card error">
+            <div class="result-icon-ring error-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+            </div>
+            <span class="result-badge error-badge">Sin conexión</span>
+            <h2>No se pudo conectar con el servidor</h2>
+
+            <div class="error-detail">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{{ errorDetail() }}</span>
+            </div>
+
+            <div class="troubleshoot-box">
+                <h4>Posibles causas:</h4>
+                <ul>
+                    <li>🔌 El servidor backend no está encendido</li>
+                    <li>🌐 Revisa tu conexión a internet</li>
+                    <li>🔧 El servidor podría estar en mantenimiento</li>
+                    <li>🔒 Verifica que la URL del servidor sea correcta</li>
+                </ul>
+            </div>
+
+            <div class="error-actions">
+                <button class="btn btn-primary" (click)="retryConnection()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                    Reintentar conexión
+                </button>
+                <button class="btn btn-ghost" (click)="loadWithMock()">
+                    Continuar sin servidor (modo demo)
+                </button>
+            </div>
         </div>
     </div>
     }

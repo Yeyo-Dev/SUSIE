@@ -139,7 +139,302 @@ susie-wrapper {
     flex-direction: column;
 }
 
-/* ── Result Screens ── */
+/* ══════════════════════════════════════════
+   Loading Screen
+   ══════════════════════════════════════════ */
+.loading-screen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    padding: var(--space-4);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Animated background orbs */
+.loading-screen::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: float-orb 6s ease-in-out infinite;
+}
+
+.loading-screen::after {
+    content: '';
+    position: absolute;
+    bottom: -60px;
+    left: -60px;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: float-orb 6s ease-in-out 3s infinite;
+}
+
+@keyframes float-orb {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(20px, -20px) scale(1.05);
+    }
+}
+
+.loading-card {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    animation: loading-enter 0.8s var(--ease-out);
+    max-width: 420px;
+    width: 100%;
+}
+
+@keyframes loading-enter {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Animated Logo ── */
+.loading-logo {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    margin: 0 auto var(--space-6);
+}
+
+.loading-spinner-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--color-primary);
+    border-right-color: var(--color-primary-hover);
+    animation: spin-ring 1.2s linear infinite;
+}
+
+@keyframes spin-ring {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-logo-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+    animation: pulse-logo 2s ease-in-out infinite;
+}
+
+@keyframes pulse-logo {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.08);
+        opacity: 0.85;
+    }
+}
+
+.loading-title {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.12em;
+    margin: 0 0 var(--space-1);
+}
+
+.loading-subtitle {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0 0 var(--space-8);
+}
+
+/* ── Progress Stepper ── */
+.loading-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+    padding: var(--space-5);
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.loading-step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    transition: all 0.3s ease;
+    opacity: 0.35;
+}
+
+.loading-step.active {
+    opacity: 1;
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.loading-step.done {
+    opacity: 0.65;
+}
+
+.step-indicator {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.loading-step.active .step-indicator {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.loading-step.done .step-indicator {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--color-primary);
+    border-color: var(--color-primary-subtle);
+}
+
+.step-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 0.3s ease;
+}
+
+.loading-step.active .step-label {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+}
+
+.loading-step.done .step-label {
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: line-through;
+    text-decoration-color: rgba(16, 185, 129, 0.3);
+}
+
+.loading-message {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 500;
+    margin: 0;
+    animation: fade-pulse 2s ease-in-out infinite;
+}
+
+@keyframes fade-pulse {
+
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* ── Troubleshoot Box ── */
+.troubleshoot-box {
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-6);
+    text-align: left;
+}
+
+.troubleshoot-box h4 {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--space-3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.troubleshoot-box ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.troubleshoot-box li {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+/* ── Error Actions ── */
+.error-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    padding: 0.75rem var(--space-4);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--duration-normal) ease;
+    font-family: var(--font-family);
+}
+
+.btn-ghost:hover {
+    background: var(--color-surface-alt);
+    border-color: var(--color-text-muted);
+    color: var(--color-text-primary);
+}
+
+
 .result-screen {
     flex: 1;
     display: flex;

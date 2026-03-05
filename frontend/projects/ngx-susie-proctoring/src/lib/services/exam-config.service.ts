@@ -90,7 +90,7 @@ export class ExamConfigService {
             // 3. Mapear a ChaindrencialesExamConfig
             const mappedConfig: ChaindrencialesExamConfig = {
                 sessionContext: {
-                    examSessionId: 'sess_' + Date.now(), // Temporal hasta que POST /sesiones/ devuelva el real
+                    examSessionId: 'pending', // Se reemplaza con el id_sesion real cuando POST /sesiones/ responde
                     examId: eval_.examen_id,
                     examTitle: eval_.examen_titulo,
                     durationMinutes: eval_.duracion_minutos,

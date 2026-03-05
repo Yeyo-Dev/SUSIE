@@ -417,7 +417,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   /**
    * Inicia el monitoreo activo (Examen en curso).
    */
-  private startMonitoring() {
+  private async startMonitoring() {
     this.state.set('MONITORING');
     const policies = this.config().securityPolicies;
 
@@ -464,13 +464,14 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       document.addEventListener('visibilitychange', this.visibilityReturnHandler);
     }
 
-    // Notificar al backend que inició la sesión
-    this.evidenceService.startSession();
+    // Notificar al backend que inició la sesión y obtener el ID real
+    const realSessionId = await this.evidenceService.startSession();
 
     // Conectar canal de feedback en tiempo real de la IA
     const apiUrl = this.config().apiUrl || '';
     const wsUrl = apiUrl.replace(/^http/, 'ws');
-    const sessionId = this.config().sessionContext?.examSessionId || '';
+    // Usar el ID real del backend si está disponible, sino el temporal del config
+    const sessionId = realSessionId || this.config().sessionContext?.examSessionId || '';
     if (wsUrl && sessionId) {
       this.feedbackService.connect(wsUrl, sessionId);
     }
