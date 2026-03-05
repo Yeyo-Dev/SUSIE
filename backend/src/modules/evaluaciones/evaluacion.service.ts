@@ -38,7 +38,7 @@ export class EvaluacionService {
             const evaluacionContext: EvaluacionContext = {
                 examen_id: evaluacion.examen.examen_id,
                 examen_titulo: evaluacion.examen.titulo || "Examen sin título",
-                duracion_minutos: 60, 
+                duracion_minutos: configRaw?.tiempo_duracion || 0, 
                 asignacion_id: evaluacion.id,
                 usuario_id: evaluacion.usuario.id,
                 usuario_nombre: `${evaluacion.usuario.nombre || ''} ${evaluacion.usuario.apellidos || ''}`.trim(),
