@@ -5,5 +5,5 @@ export const evaluacionRoutes = async (fastify: FastifyInstance) => {
     const evaluacionController = new EvaluacionController();//Instancia del controlador
 
     //Ruta para obtener la configuración de una evaluación
-    fastify.get('/configuracion/:id_configuracion', evaluacionController.obtenerConfiguracion);
+    fastify.get('/configuracion/:evaluacion_id', evaluacionController.obtenerConfiguracion);
 }

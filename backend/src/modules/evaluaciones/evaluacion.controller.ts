@@ -9,40 +9,37 @@ export class EvaluacionController {
         this.evaluacionService = new EvaluacionService();//Instancia del servicio
     }
 
-    obtenerConfiguracion = async (req: FastifyRequest, reply: FastifyReply) => {
+obtenerConfiguracion = async (req: FastifyRequest, reply: FastifyReply) => {
         try {
-            const idParam = (req.params as any).id_configuracion;
-            // Verificamos que el ID exista y sea un número válido
+            // Recibimos evaluacion_id de los parámetros de la URL
+            const idParam = (req.params as any).evaluacion_id;
+            
             if (!idParam || isNaN(Number(idParam))) {
                 return reply.code(400).send({
                     success: false,
-                    message: "El ID de configuración proporcionado no es válido."
+                    message: "El ID de evaluación proporcionado no es válido."
                 });
             }
 
-            // Convertimos a BigInt para enviarlo al servicio
-            const configuracionIdBigInt = BigInt(idParam);
+            const evaluacionIdBigInt = BigInt(idParam);
 
-            //Llamada al servicio
-            const configuracion = await this.evaluacionService.obtenerConfiguracionExamen(configuracionIdBigInt);
+            // Llamada al servicio
+            const configSusie = await this.evaluacionService.obtenerConfiguracionExamen(evaluacionIdBigInt);
 
-            //Respuesta si no se encuentra la configuracion
-            if (!configuracion) {
+            if (!configSusie) {
                 return reply.code(404).send({
                     success: false,
-                    message: `No se encontró ninguna configuración con el id ${idParam}`
+                    message: `No se encontró información para la evaluación ${idParam}`
                 });
             }
-
-            //Respuesta exitosa
+            //Retorna la configuración de la evaluación
             return reply.code(200).send({
                 success: true,
-                configuracion: configuracion
+                evaluacion: configSusie
             });
 
         } catch (error) {
             req.log.error(error);
-            //Manejo de errores del servidor
             return reply.code(500).send({
                 success: false,
                 message: "Ocurrió un error interno al obtener la configuración."
