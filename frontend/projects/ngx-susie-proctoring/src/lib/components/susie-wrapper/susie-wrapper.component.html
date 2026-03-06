@@ -216,8 +216,8 @@
         @case ('BIOMETRIC_CHECK') {
         <!-- Paso 3: Onboarding Biométrico -->
         <susie-biometric-onboarding [steps]="stepsWithStatus()" [isValidating]="biometricValidating()"
-            [validationError]="biometricError()" (completed)="handleBiometricCompleted($event)"
-            (retakeRequested)="handleBiometricRetake()" />
+            [validationError]="biometricError()" [validationSuccess]="biometricSuccess()"
+            (completed)="handleBiometricCompleted($event)" (retakeRequested)="handleBiometricRetake()" />
         }
 
         @case ('ENVIRONMENT_CHECK') {

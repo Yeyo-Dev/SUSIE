@@ -261,7 +261,9 @@ export function mapToSusieConfig(
   options?: { debugMode?: boolean }
 ): SusieConfig {
   const s = source.supervision;
-  const needsConsent = s.requireCamera || s.requireMicrophone || s.requireBiometrics;
+  // Si hay cámara → biometría implícita (verificar identidad si te estamos grabando)
+  const requireBiometrics = s.requireBiometrics || s.requireCamera;
+  const needsConsent = s.requireCamera || s.requireMicrophone || requireBiometrics;
 
   return {
     sessionContext: {
@@ -277,7 +279,7 @@ export function mapToSusieConfig(
       // Configurables (vienen de BD)
       requireCamera: s.requireCamera,
       requireMicrophone: s.requireMicrophone,
-      requireBiometrics: s.requireBiometrics,
+      requireBiometrics: requireBiometrics,
       requireGazeTracking: s.requireGazeTracking,
       // Derivados
       requireConsent: needsConsent,

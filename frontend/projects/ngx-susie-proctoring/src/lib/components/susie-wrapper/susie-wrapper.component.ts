@@ -8,7 +8,9 @@ import {
   effect,
   ChangeDetectionStrategy,
   OnDestroy,
-  OnInit
+  OnInit,
+  ChangeDetectorRef,
+  NgZone
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SusieConfig, SecurityViolation, EvidenceMetadata, EvidencePayload, SusieQuestion, ExamResult, ConsentResult, StepInfo } from '../../models/contracts';
@@ -80,6 +82,8 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   private inactivityService = inject(InactivityService);
   private gazeService = inject(GazeTrackingService);
   private feedbackService = inject(WebSocketFeedbackService);
+  private cdr = inject(ChangeDetectorRef);
+  private ngZone = inject(NgZone);
 
   /** Alerta de IA en tiempo real (desde WebSocket de feedback) */
   aiAlert = this.feedbackService.currentAlert;
@@ -105,6 +109,10 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   /** Estado de validación biométrica para el componente hijo */
   biometricValidating = signal(false);
   biometricError = signal<string | null>(null);
+  /** Indica al hijo que la validación biométrica fue exitosa → mostrar feedback */
+  biometricSuccess = signal(false);
+  /** ID de sesión real devuelto por el backend (reemplaza 'pending') */
+  resolvedSessionId = signal<string | null>(null);
 
   private visibilityReturnHandler = this.onVisibilityReturn.bind(this);
 
@@ -323,22 +331,39 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
    */
   async handleBiometricCompleted(event: { photo: Blob }) {
     this.log('success', '📸 Foto biométrica capturada');
+    this.ngZone.run(() => {
+      this.biometricValidating.set(true);
+      this.biometricError.set(null);
+      this.biometricSuccess.set(false);
+    });
 
-    // Activar estado de carga y limpiar error previo
-    this.biometricValidating.set(true);
-    this.biometricError.set(null);
-
-    // Validar identidad contra el endpoint dedicado de biometría
     const userId = this.config().sessionContext?.userId || 'anonymous';
     const isValid = await this.evidenceService.validateBiometric(event.photo, userId);
-    this.biometricValidating.set(false);
-    this.biometricSnapshotsCount.update(c => c + 1);
 
-    if (!isValid) {
-      this.log('error', '⚠️ Validación biométrica fallida – usuario bloqueado');
-      this.biometricError.set('La validación biométrica ha fallado. Revisa tu iluminación o encuadre e intenta de nuevo.');
-      return; // Bloquear avance
-    }
+    this.ngZone.run(() => {
+      this.biometricValidating.set(false);
+      this.biometricSnapshotsCount.update(c => c + 1);
+
+      if (!isValid) {
+        this.log('error', '⚠️ Validación biométrica fallida');
+        this.biometricError.set('La validación biométrica ha fallado. Revisa tu iluminación o encuadre e intenta de nuevo.');
+        return;
+      }
+
+      this.log('success', '✅ Validación biométrica exitosa — mostrando feedback al usuario');
+      this.biometricSuccess.set(true);
+      // Avanzar tras 2s de feedback
+      setTimeout(() => this.ngZone.run(() => this.handleBiometricSuccessConfirmed()), 2000);
+    });
+  }
+
+  /**
+   * Llamado después de que el usuario vio el feedback de éxito (2s).
+   * Ahora sí avanzamos al siguiente paso del flujo.
+   */
+  handleBiometricSuccessConfirmed() {
+    this.log('success', '👤 Identidad verificada — avanzando flujo');
+    this.biometricSuccess.set(false);
 
     // Avanzar flujo solo si la validación fue exitosa
     if (this.config().securityPolicies.requireEnvironmentCheck) {
@@ -348,7 +373,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
       this.log('info', '🔜 Avanzando a Calibración de Gaze');
       this.gazeService.configure(
         {},
-        () => { }, // Empty logger
+        () => { },
         () => this.handleGazeDeviation()
       );
       this.state.set('GAZE_CALIBRATION');
@@ -467,10 +492,14 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     // Notificar al backend que inició la sesión y obtener el ID real
     const realSessionId = await this.evidenceService.startSession();
 
+    // Almacenar el ID real para usarlo en metadata del resultado final
+    if (realSessionId) {
+      this.resolvedSessionId.set(realSessionId);
+    }
+
     // Conectar canal de feedback en tiempo real de la IA
     const apiUrl = this.config().apiUrl || '';
     const wsUrl = apiUrl.replace(/^http/, 'ws');
-    // Usar el ID real del backend si está disponible, sino el temporal del config
     const sessionId = realSessionId || this.config().sessionContext?.examSessionId || '';
     if (wsUrl && sessionId) {
       this.feedbackService.connect(wsUrl, sessionId);
@@ -585,6 +614,10 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     // Enriquecer resultado con métricas de proctoring
     const enrichedResult: ExamResult = {
       ...result,
+      metadata: {
+        ...result.metadata,
+        sessionId: this.resolvedSessionId() ?? this.config().sessionContext?.examSessionId,
+      },
       proctoringSummary: {
         totalViolations: this.totalViolations(),
         tabSwitches: this.tabSwitchCount(),

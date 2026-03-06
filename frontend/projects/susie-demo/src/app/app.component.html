@@ -119,9 +119,7 @@
                     </svg>
                     Reintentar conexión
                 </button>
-                <button class="btn btn-ghost" (click)="loadWithMock()">
-                    Continuar sin servidor (modo demo)
-                </button>
+
             </div>
         </div>
     </div>
@@ -129,9 +127,7 @@
 
     <!-- SCREEN: EXAM IN PROGRESS -->
     @if (examState() === 'taking' && examConfig()) {
-    @if (loadError()) {
-    <div style="background:#ff9800;color:#fff;text-align:center;padding:6px;font-size:13px;">⚠️ {{ loadError() }}</div>
-    }
+
     <susie-wrapper [config]="examConfig()!" [questions]="questions()"
         (stateChange)="handleStateChange($event)"></susie-wrapper>
     }
@@ -165,7 +161,8 @@
                     <span class="stat-label">Hora de envío</span>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-value">{{ examConfig()?.sessionContext?.examSessionId }}</span>
+                    <span class="stat-value">{{ res.metadata?.sessionId ?? examConfig()?.sessionContext?.examSessionId
+                        }}</span>
                     <span class="stat-label">ID de sesión</span>
                 </div>
             </div>

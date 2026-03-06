@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, signal, output, input, inject } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, signal, output, input, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MediaService } from '../../services/media.service';
 import { StepInfo } from '../../models/contracts';
@@ -22,6 +22,11 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     /** Estado de validación inyectado desde el wrapper */
     isValidating = input<boolean>(false);
     validationError = input<string | null>(null);
+    /** Cuando el wrapper confirma éxito, el componente muestra el feedback */
+    validationSuccess = input<boolean>(false);
+
+    /** Pantalla de éxito: deriva directo del input (sin effect) */
+    readonly showSuccess = computed(() => this.validationSuccess());
 
     // Access to video element
     @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;

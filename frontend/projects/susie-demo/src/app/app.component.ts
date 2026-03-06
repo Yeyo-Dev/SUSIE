@@ -11,13 +11,11 @@ import {
   SecurityViolation,
   ConsentResult,
 } from 'ngx-susie-proctoring';
-import { MOCK_CHAINDRENCIALES_CONFIG } from './exam-data';
 
 /**
- * Componente principal de la Demo de Examen SUSIE.
+ * Componente principal del Examen SUSIE.
  *
  * Carga la configuración desde el backend real vía ExamConfigService.
- * Si el backend no está disponible, cae al mock como fallback.
  */
 @Component({
   selector: 'app-root',
@@ -42,8 +40,7 @@ export class AppComponent implements OnInit {
   /** Estado interno del wrapper SUSIE (para ocultar el topbar durante el onboarding) */
   wrapperState = signal<string>('CHECKING_PERMISSIONS');
 
-  /** Error al cargar configuración */
-  loadError = signal<string | null>(null);
+
 
   /** Paso actual de carga (1-5) */
   loadingStep = signal(0);
@@ -60,18 +57,22 @@ export class AppComponent implements OnInit {
   /** Lista de preguntas */
   questions = signal<SusieQuestion[]>([]);
 
-  // --- URL y evaluacion ID de prueba ---
+  // --- Configuración de conexión ---
   private readonly API_URL = 'http://localhost:8000/susie/api/v1';
-  private readonly EVALUACION_ID = '1';  // ID de prueba
-  private readonly AUTH_TOKEN = 'demo-token';  // Token de prueba
+  private readonly EVALUACION_ID = '1';
+  private readonly AUTH_TOKEN = 'demo-token';
 
   async ngOnInit() {
     await this.loadConfigFromBackend();
   }
 
+  /** Pausa reactiva para que Angular pueda repintar la UI entre pasos. */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   private async loadConfigFromBackend() {
     this.examState.set('loading');
-    this.loadError.set(null);
     this.loadingStep.set(0);
     this.loadingMessage.set('Inicializando...');
 
@@ -80,28 +81,25 @@ export class AppComponent implements OnInit {
       this.loadingStep.set(1);
       this.loadingMessage.set('Conectando con el servidor SUSIE...');
       this.configService.setBaseUrl(this.API_URL);
-
-      // Pequeña pausa para que se vea el paso
       await this.delay(400);
 
-      // Paso 2: Cargando configuración
+      // Paso 2: Cargando configuración (llamada real al backend)
       this.loadingStep.set(2);
       this.loadingMessage.set('Cargando configuración del examen...');
       const backendConfig = await this.configService.loadConfig(this.EVALUACION_ID);
 
-      // Paso 3: Cargando preguntas
+      // Paso 3: Preparando preguntas
       this.loadingStep.set(3);
       this.loadingMessage.set('Preparando preguntas...');
-      await this.delay(300);
-
-      // Inyectar token y URL del API (el backend no los provee aún)
+      // Inyectar token y URL del API
       backendConfig.susieApiUrl = this.API_URL;
       backendConfig.authToken = this.AUTH_TOKEN;
+      await this.delay(350);
 
-      // Paso 4: Configurando
+      // Paso 4: Configurando supervisión
       this.loadingStep.set(4);
       this.loadingMessage.set('Configurando supervisión...');
-      await this.delay(300);
+      await this.delay(350);
 
       // Paso 5: Listo
       this.loadingStep.set(5);
@@ -109,10 +107,9 @@ export class AppComponent implements OnInit {
       await this.delay(500);
 
       this.buildSusieConfig(backendConfig);
-      console.log('✅ Configuración cargada desde el backend', backendConfig);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error('❌ Error al cargar configuración:', message);
+      console.error('Error al cargar configuración:', message);
       this.errorDetail.set(message);
       this.examState.set('error');
     }
@@ -123,15 +120,7 @@ export class AppComponent implements OnInit {
     this.loadConfigFromBackend();
   }
 
-  /** Carga el examen con datos mock (fallback) */
-  loadWithMock() {
-    this.loadError.set('Usando datos de demostración (sin servidor)');
-    this.buildSusieConfig(MOCK_CHAINDRENCIALES_CONFIG);
-  }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 
   private buildSusieConfig(source: ChaindrencialesExamConfig) {
     const config = mapToSusieConfig(
@@ -143,7 +132,7 @@ export class AppComponent implements OnInit {
         onEnvironmentCheckResult: (result: { passed: boolean }) => console.log('🔍 Resultado de verificación de entorno:', result),
         onInactivityDetected: () => console.log('⏸️ Inactividad detectada — usuario confirmó presencia'),
       },
-      { debugMode: true }
+      { debugMode: false }
     );
 
     this.examConfig.set(config);

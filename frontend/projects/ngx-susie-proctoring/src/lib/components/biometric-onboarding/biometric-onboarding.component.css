@@ -248,3 +248,82 @@ button:disabled {
         transform: rotate(360deg);
     }
 }
+
+/* --- Pantalla de éxito biométrico --- */
+
+.bio-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem 0;
+    animation: slideUp 0.4s ease;
+}
+
+.success-icon-ring {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.15);
+    border: 2px solid #10B981;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #10B981;
+    animation: successPulse 0.6s ease forwards;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+}
+
+@keyframes successPulse {
+    0%   { transform: scale(0.6); opacity: 0; }
+    60%  { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
+.success-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #10B981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+    transform: scaleX(-1);
+}
+
+.success-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    background: linear-gradient(to right, #34D399, #10B981);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
+.success-subtitle {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.success-progress-bar {
+    width: 100%;
+    max-width: 260px;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.success-progress-fill {
+    height: 100%;
+    background: linear-gradient(to right, #10B981, #34D399);
+    border-radius: 99px;
+    width: 0%;
+    animation: progressFill 2s linear forwards;
+}
+
+@keyframes progressFill {
+    from { width: 0%; }
+    to   { width: 100%; }
+}

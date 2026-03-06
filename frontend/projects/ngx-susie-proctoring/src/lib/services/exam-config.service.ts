@@ -85,7 +85,8 @@ export class ExamConfigService {
                 this.http.get<BackendExamenResponse>(examenUrl)
             );
 
-            const questions: SusieQuestion[] = mapBackendPreguntas(examenResponse.data.preguntas);
+            const rawQuestions = mapBackendPreguntas(examenResponse.data.preguntas);
+            const questions: SusieQuestion[] = this.shuffleArray(rawQuestions);
 
             // 3. Mapear a ChaindrencialesExamConfig
             const mappedConfig: ChaindrencialesExamConfig = {
@@ -120,5 +121,18 @@ export class ExamConfigService {
         this.config.set(null);
         this.error.set(null);
         this.isLoading.set(false);
+    }
+
+    /**
+     * Mezcla un array in-place usando el algoritmo Fisher-Yates.
+     * Garantiza distribución uniforme en cada sesión.
+     */
+    private shuffleArray<T>(arr: T[]): T[] {
+        const result = [...arr];
+        for (let i = result.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
     }
 }

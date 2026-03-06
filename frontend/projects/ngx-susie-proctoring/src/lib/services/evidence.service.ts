@@ -362,20 +362,21 @@ export class EvidenceService {
 
         const url = `${this.apiUrl}/usuarios/biometricos/validar`;
 
+        // Timeout de 10s para que el spinner no quede colgado si el servidor no responde
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
         try {
             const metaPayload = { usuario_id: userId };
             const formData = new FormData();
             formData.append('meta', JSON.stringify(metaPayload));
             formData.append('file', photo);
 
-            // Debug: log exactly what we're sending
             this.logger('info', `🔍 [Biométrico] Enviando validación`, {
                 url,
                 metaPayload,
                 photoSize: `${photo.size} bytes`,
                 photoType: photo.type,
-                formDataKeys: ['meta', 'file'],
-                authToken: this.authToken ? `${this.authToken.substring(0, 20)}...` : '(vacío)',
             });
 
             const response = await fetch(url, {
@@ -383,8 +384,11 @@ export class EvidenceService {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
                 },
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             if (response.ok) {
                 this.logger('success', '✅ Validación biométrica exitosa');
@@ -394,8 +398,13 @@ export class EvidenceService {
                 this.logger('error', `❌ Validación biométrica fallida (${response.status})`, body);
                 return false;
             }
-        } catch (err) {
-            this.logger('error', '❌ Error de red al validar biometría', err);
+        } catch (err: any) {
+            clearTimeout(timeoutId);
+            if (err?.name === 'AbortError') {
+                this.logger('error', '⏱️ Timeout: el servidor tardó más de 10s en responder la validación biométrica');
+            } else {
+                this.logger('error', '❌ Error de red al validar biometría', err);
+            }
             console.error('[EVIDENCE] Biometric validation failed:', err);
             return false;
         }

@@ -6,6 +6,27 @@
         <susie-step-indicator [steps]="steps()" />
         }
 
+        <!-- ✅ PANTALLA DE ÉXITO BIOMÉTRICO -->
+        @if (showSuccess()) {
+        <div class="bio-success" role="status" aria-live="polite">
+            <div class="success-icon-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+            </div>
+            @if (capturedImage()) {
+            <img [src]="capturedImage()" class="success-photo" alt="Tu foto capturada" />
+            }
+            <h2 class="success-title">¡Identidad Verificada!</h2>
+            <p class="success-subtitle">Tu identidad ha sido confirmada correctamente. Continuando...</p>
+            <div class="success-progress-bar">
+                <div class="success-progress-fill"></div>
+            </div>
+        </div>
+        } @else {
+
         <!-- Header -->
         <div class="bio-header">
             <div class="icon-wrapper">
@@ -69,6 +90,8 @@
             </button>
             }
         </div>
+
+        } <!-- end @else !showSuccess -->
 
     </div>
 </div>
