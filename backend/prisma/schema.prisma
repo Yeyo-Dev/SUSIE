@@ -139,6 +139,7 @@ model configuracion_examen {
   tiempo_sin_inactividad Int?
   toleran_desconexion    Int?
   validacion_biometrica  Boolean? @default(false)
+  tiempo_duracion        Int?
 }
 
 

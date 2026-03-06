@@ -1,6 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-//import rabbitMQConnector from './config/rabbitmq';
+import rabbitMQConnector from './config/rabbitmq';
 //import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
 import { userRoutes } from './modules/usuarios/user.routes';
@@ -10,6 +10,7 @@ import { biometricoRoutes } from './modules/usuarios/biometricos/biometrico.rout
 import { sesionEvaluacionRoutes } from './modules/sesiones_evaluacion/sesion.routes';
 import {snapshotRoutes} from './modules/monitoreo/snapshots/snapshot.routes';
 import {audioRoutes} from './modules/monitoreo/audios/audio.routes';
+import {gazeRoutes} from './modules/monitoreo/gaze_tracking/gaze.routes';
 import { infraccionRoutes } from './modules/monitoreo/infracciones/infraccion.routes';
 import websocket from '@fastify/websocket';
 
@@ -31,7 +32,7 @@ export const buildServer = (): FastifyInstance => {
 
     const prefixApi = '/susie/api/v1';
 
-    //server.register(rabbitMQConnector); //conexion a rabbitMQ
+    server.register(rabbitMQConnector); //conexion a rabbitMQ
     //server.register(redisPlugin); //conexion a redis
     server.register(websocket);
     //RUTAS PARA EVALUACIONES
@@ -46,6 +47,7 @@ export const buildServer = (): FastifyInstance => {
     //RUTAS PARA MONITOREO
     server.register(snapshotRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
     server.register(audioRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
+    server.register(gazeRoutes, { prefix: prefixApi + '/monitoreo/evidencias/gaze_tracking' });
     //RUTAS PARA INFRACCIONES
     server.register(infraccionRoutes, { prefix: prefixApi + '/monitoreo/infracciones' });
 

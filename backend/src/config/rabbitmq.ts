@@ -28,6 +28,7 @@ async function rabbitMQConnection(fastify: FastifyInstance) {
       //Crear las 2 Colas
       await channel.assertQueue('q_snapshots', { durable: true });
       await channel.assertQueue('q_audios', { durable: true });
+      await channel.assertQueue('q_gaze_tracking', { durable: true });
 
       //Crear las Reglas de Distribución (Bindings)
       // Todo mensaje con etiqueta 'stream.snapshot' irá a la cola de imágenes
@@ -36,7 +37,10 @@ async function rabbitMQConnection(fastify: FastifyInstance) {
       // Todo mensaje con etiqueta 'stream.audio' irá a la cola de sonidos
       await channel.bindQueue('q_audios', EXCHANGE_NAME, 'stream.audio');
 
-      fastify.log.info('RabbitMQ listo: Colas q_snapshots y q_audios configuradas.');
+      // Todo mensaje con etiqueta 'stream.gaze_tracking' irá a la cola de gaze tracking
+      await channel.bindQueue('q_gaze_tracking', EXCHANGE_NAME, 'stream.gaze_tracking');
+
+      fastify.log.info('RabbitMQ listo: Colas q_snapshots, q_audios y q_gaze_tracking configuradas.');
 
     } catch (error) {
       fastify.log.error(error, 'Error configurando RabbitMQ');
