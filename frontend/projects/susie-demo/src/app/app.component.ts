@@ -132,7 +132,7 @@ export class AppComponent implements OnInit {
         onEnvironmentCheckResult: (result: { passed: boolean }) => console.log('🔍 Resultado de verificación de entorno:', result),
         onInactivityDetected: () => console.log('⏸️ Inactividad detectada — usuario confirmó presencia'),
       },
-      { debugMode: false }
+      { debugMode: true }
     );
 
     this.examConfig.set(config);

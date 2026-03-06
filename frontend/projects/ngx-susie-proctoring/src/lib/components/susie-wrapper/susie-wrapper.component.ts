@@ -97,6 +97,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
   isOnline = this.networkService.isOnline;
   inactivityWarning = this.inactivityService.showWarning; // Nuevo: warning signal
   private snapshotInterval: any = null;
+  private gazeInterval: any = null;
   tabSwitchCount = signal(0);
   needsFullscreenReturn = signal(false);
   needsFocusReturn = signal(false);
@@ -244,6 +245,7 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     this.mediaService.stop();
     this.evidenceService.stopAudioRecording();
     this.stopSnapshotLoop();
+    this.stopGazeLoop();
     this.securityService.disableProtection();
     this.gazeService.stop();
     document.removeEventListener('visibilitychange', this.visibilityReturnHandler);
@@ -479,6 +481,9 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
         (type, msg, details) => this.log(type, msg, details)
       );
       this.log('info', '👁️ Gaze Tracking activo durante monitoreo');
+
+      // Iniciar envío periódico de coordenadas
+      this.startGazeLoop();
     }
 
     // Iniciar monitoreo de inactividad
@@ -677,6 +682,28 @@ export class SusieWrapperComponent implements OnInit, OnDestroy {
     if (this.snapshotInterval) {
       clearInterval(this.snapshotInterval);
       this.snapshotInterval = null;
+    }
+  }
+
+  private startGazeLoop() {
+    this.log('info', '👁️ Iniciando envío periódico de gaze tracking (cada 5s)');
+    this.stopGazeLoop();
+
+    // Enviar cada 5 segundos
+    this.gazeInterval = setInterval(() => {
+      const recentPoints = this.gazeService.flushGazeBuffer();
+      if (recentPoints && recentPoints.length > 0) {
+        // Mapear al formato exacto del backend (quitando el ts interno)
+        const mappedPoints = recentPoints.map(p => ({ x: p.x, y: p.y }));
+        this.evidenceService.sendGazeData(mappedPoints);
+      }
+    }, 5000);
+  }
+
+  private stopGazeLoop() {
+    if (this.gazeInterval) {
+      clearInterval(this.gazeInterval);
+      this.gazeInterval = null;
     }
   }
 

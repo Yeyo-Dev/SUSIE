@@ -1,82 +1,70 @@
 # Análisis de Estado Actual vs PRD SUSIE
 
-> **Fecha:** 3 de Marzo de 2026
+> **Fecha:** 6 de Marzo de 2026
 
-Este documento detalla el estado real de implementación de SUSIE contrastado con el **Documento de Requisitos de Producto (PRD) v1.0**, desglosando exactamente qué componentes ya existen y cuáles faltan en cada área (Frontend, Backend, AI Models).
+Este documento detalla el estado real de implementación de SUSIE contrastado con el **Documento de Requisitos de Producto (PRD) v1.0**, desglosando qué componentes ya existen y cuáles faltan en cada área (Frontend, Backend, AI Models), actualizado con los desarrollos más recientes.
 
 ---
 
 ## 🟢 1. Frontend (Angular - ngx-susie-proctoring)
-**Nivel de completitud real: ~90%**
+**Nivel de completitud real: ~95%**
 
-El frontend es la capa más avanzada del ecosistema. Todo el motor del examen y la coreografía de proctoring están listos.
+El frontend es la capa más avanzada del ecosistema. Todo el motor del examen y la coreografía de proctoring están listos y se han integrado exitosamente módulos clave.
 
 ### ✅ Lo que YA ESTÁ implementado:
-- **Motor de Examen (RF-001 a RF-004):** UI de preguntas, paginación, temporizador, auto-submit.
-- **Onboarding y Permisos (RF-005 a RF-007):** Solicitud A/V, Modal de TyC, Onboarding biométrico (UI y validación de cara detectada, con llamadas API de enrollment integradas).
+- **Motor de Examen (RF-001 a RF-004):** UI de preguntas, paginación, temporizador, auto-submit. Se eliminaron los datos mockeados.
+- **Onboarding y Permisos (RF-005 a RF-007):** Solicitud A/V, Modal de TyC, Onboarding biométrico (UI dedicada, validación de cara detectada, llamadas API de enrollment integradas).
 - **Proctoring y Sensores (RF-009 a RF-016):** Fullscreen lock, Tab tracking, Copy/paste block, DevTools block, Snapshots en WebWorker, Grabación y envío de Audio WebM cada 15s.
-- **Canal de Feedback (Nuevo):** Integración de WebSocket nativo para recibir alertas de IA (con overlay UI y backoff reconnection).
-- **Actualización de Contratos:** Payload alineado con la especificación final y backend.
+- **Canal de Feedback:** Integración de WebSocket nativo para recibir alertas de IA.
+- **Gaze Tracking (RF-016):** Calibración de mirada, tracking y envío continuo de coordenadas al backend para el heatmap.
+- **Robustez de Seguridad:** Prevención mejorada contra pérdida de foco, cambio de escritorio virtual, atajos de teclado para herramientas de desarrollo y bloqueo de clic derecho.
 
 ### ❌ Lo que FALTA (Brechas):
-- **[F-03] Tolerancia a Fallas Offline (RNF-008):** Cola de reintentos basada en IndexedDB. Si la red cae hoy, las evidencias que fallan en enviarse se pierden. *(Alta prioridad para estabilidad bajo malas redes)*.
-- **[F-06] Gaze Tracking:** Falta enviar las coordenadas de mirada / calibración a la lógica de evaluación (requiere backend listo).
-- **[F-08] Tests Unitarios:** La suite de pruebas de los nuevos servicios (Evidence, Security, Feedback) está vacía o incompleta.
+- **[F-03] Tolerancia a Fallas Offline (RNF-008):** Cola de reintentos basada en IndexedDB. Si la red cae, las evidencias que fallan en enviarse se pierden. *(Prioridad para estabilidad bajo malas redes)*.
+- **[F-08] Tests Unitarios:** La suite de pruebas de los nuevos servicios está vacía o incompleta (Evidence, Security, Feedback).
 
 ---
 
 ## 🟢 2. Backend (Fastify API Gateway)
-**Nivel de completitud real: ~90%**
+**Nivel de completitud real: ~92%**
 
-El backend ha superado su bloqueante principal. Han sido implementados los endpoints de evidencias, el servidor WebSocket y las colas de RabbitMQ.
+El backend tiene la infraestructura lista para recibir tráfico pesado y comunicarse con la IA.
 
 ### ✅ Lo que YA ESTÁ implementado:
-- **Infraestructura Base:** Fastify configurado, `app.ts`, `server.ts`.
-- **Recepción de Evidencias (Multipart):** Recepción de audio y fotos funcional en `monitoreo/audios` y `monitoreo/snapshots`.
-- **Servidor WebSocket:** El canal de feedback ya está registrado en `server.ts`.
-- **Colas RabbitMQ:** La publicación a colas simuladas/locales (`stream.audio`) ya se ejecuta exitosamente.
-- **Control de Infracciones y Sesiones:** Endpoints integrados para control de sesiones.
+- **Infraestructura Base & Logs:** Fastify configurado. Integración de Logger Pino optimizado, logs de requests de colas. Remoción de datos simulados en favor de extracción real de DB.
+- **Recepción de Evidencias (Multipart):** Recepción de audio y fotos en `monitoreo/audios`, `monitoreo/snapshots`, y recepción de datos de gaze tracking.
+- **Servidor WebSocket:** El canal de feedback está registrado y operando.
+- **Colas RabbitMQ:** Publicación a colas configurada correctamente, integraciones base listas.
+- **Control de Infracciones y Sesiones:** Endpoints integrados para control de evaluación.
 
 ### ❌ Lo que FALTA (Brechas):
 - **[B-04] Endpoints de Reportes (Caso 7.3):** Falta la API de lectura `/reportes/:id` para que Chaindrenciales dibuje el dashboard analítico.
-- **[B-07] Motor de Riesgo Central:** Integración con el algoritmo probabilístico final.
+- **[B-07] Motor de Riesgo Central:** Integración con el algoritmo probabilístico final que recibirá la respuesta de los AI Models.
 
 ---
 
-## � 3. AI Models (Python Workers)
-**Nivel de completitud real: ~75%**
+## 🟡 3. AI Models (Python Workers)
+**Nivel de completitud real: ~85%**
 
-Contrario a la estimación inicial, la carpeta `ai_models` contiene una implementación muy robusta y madura de la lógica de negocio predictiva.
+La lógica de negocio predictiva está implementada y lista para ser consumida.
 
-### ✅ Lo que YA ESTÁ implementado (Lógica Core):
-- **Worker YOLO (`vision_yolo`):** Lógica lista cargando `yolov8n.pt`. Detecta de forma precisa personas y celulares. Implementa Regla de Tolerancia Cero para celulares (Score 1.0) y sospecha (Score 0.6 o 0.9) si el usuario desaparece o hay múltiples personas.
-- **Worker Whisper (`audio_whisper`):** Pipeline end-to-end muy avanzado que descarga el WebM de Azure Blob, aplica un filtro de voz, detecta silencio (generando un vector neutral para la red Bayesiana), transcribe usando Faster-Whisper, y pasa el texto a un analizador semántico NLP que genera probabilidad de trampa o ambiente doméstico aplicando Softmax con temperatura.
-- **Worker DeepFace (`biometric_deepface`):** Lógica funcional usando `face_recognition` (modelo HOG) para extraer los embeddings de 128 dimensiones limpiando la imagen con OpenCV a RGB uint8. Incluye el cálculo de distancia euclidiana para determinar math (`similarity > 0.5`).
-- **Worker MediaPipe (`gaze_mediapipe`):** Algoritmo extremadamente avanzado que filtra el ruido de microsaltos (saccade noise) y usa Machine Learning no supervisado (`DBSCAN` para agrupar focos visuales y detectar segundas pantallas, e `IsolationForest` para anomalías). Todo reportado como ratios para la Red Bayesiana.
+### ✅ Lo que YA ESTÁ implementado (Lógica Core y workers):
+- **Worker YOLO (`vision_yolo`):** Extrae características y soft evidence de personas y celulares.
+- **Worker Whisper (`audio_whisper`):** Pipeline end-to-end con filtro de voz, transcripción Faster-Whisper, y analizador NLP para trampa vs ambiente.
+- **Worker DeepFace (`biometric_deepface`):** Extrae embeddings faciales (128D) verificando similitud (`similarity > 0.5`).
+- **Worker MediaPipe (`gaze_mediapipe`):** Algoritmo DBSCAN e IsolationForest para focus noise y anomalías.
+- **Capa de Transporte:** Todos los workers tienen implementado su script `main.py` consumiendo eventos de RabbitMQ vía reconexiones asíncronas de `pika`.
 
 ### ❌ Lo que FALTA (Brechas):
-- **Consumidores RabbitMQ:** Aunque la lógica (`vision_logic.py`, `worker.py`, `analyzer.py`) está hecha para recibir urls/numpy arrays y retornar JSONs con scores, **falta el loop principal que escuche las colas de RabbitMQ** (ej. `pika` o `aio_pika`) para detonar estas funciones y enviar la respuesta al backend.
-- **Motor de Inferencia Global (Red Bayesiana):** Los workers retornan "soft evidence", pero falta el nodo consolidador o framework (como pgmpy) que recibe todos estos inputs para calcular el Score Final de Riesgo.
+- **Motor de Inferencia Global (Red Bayesiana):** Falta construir el nodo central/framework (ej. usando `pgmpy`) que escuche las distribuciones de soft evidence generadas por todos los workers y calcule el Score Final de Riesgo consolidado.
 
 ---
-
-## ⚖️ Contradicciones Detectadas en Archivos Markdown (Resueltas hoy)
-
-1. **ARCHITECHTURE vs CONTRATO vs PRD en WebSockets:**
-   - *El Problema:* El PRD no mencionaba WebSockets originalmente (en RF decía HTTPS POST). El backend solo hablaba de APIs REST síncronas.
-   - *La Realidad:* Se determinó e implementó (hoy) que el feedback DEBE ser asíncrono y en tiempo real para alertar al alumno si sale de cámara sin esperar un request/response.
-   - *Estado:* Ya fue corregido en `CONTRATO_INTEGRACION_BACKEND.md` (sección 6).
-2. **Roadmap Desalineado:**
-   - *El Problema:* `ROADMAP_TAREAS.md` y `TAREAS_FRONTEND_PENDIENTES.md` listaban tareas de Biometría, WebSockets y Contratos como pendientes.
-   - *La Realidad:* Ya fueron construidas en el frontend.
-   - *Estado:* Actualizados al 90% para reflejar la realidad en esta sesión.
 
 ## Conclusión y Próximos Pasos (Blockers)
 
-El **Frontend está gravemente bloqueado por la falta de implementación en Backend y AI**.
-Para que SUSIE sea un producto testeable "End to End", el paso más urgente es:
-1. Crear el Servidor **WebSocket** en el Backend para cerrar el loop de Feedback.
-2. Implementar los endpoints POST físicos de **Biometría** y **Subida de Evidencias** (con RabbitMQ publicando a los Workers).
-3. Construir los scripts de **Python (DeepFace y YOLO)** mínimos viables para responder validaciones de rostro.
+Con los recientes avances en *Gaze Tracking, Biometría UI Frontend, Seguridad Robusta* y los *Consumidores de RabbitMQ en AI*, el sistema ha dado saltos grandes hacia el estado MVP E2E funcional.
 
-La siguiente tarea inmediata para Frontend (última grande del PRD) es: **[F-03] Cola de reintentos offline (IndexedDB)**.
+**Pasos urgentes para lograr un E2E completo:**
+1. Construir el **Motor de Inferencia Global** (Red Bayesiana) en IA para que las detecciones de YOLO, Whisper, DeepFace y MediaPipe converjan en una sola probabilidad de fraude procesable por el backend.
+2. Implementar los **Endpoints de Reportes** en el Backend para que organizaciones visualicen resúmenes de proctoring.
+3. (Opcional pero crítico en producción): **Cola de reintentos offline (IndexedDB)** en el Frontend.

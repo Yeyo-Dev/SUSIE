@@ -284,6 +284,38 @@ export class EvidenceService {
     }
 
     /**
+     * Envía las coordenadas de la mirada al endpoint del backend para generar mapas de calor.
+     */
+    async sendGazeData(points: { x: number, y: number }[]): Promise<void> {
+        if (!this.remoteSessionId || !this.apiUrl) {
+            return;
+        }
+
+        const url = `${this.apiUrl}/monitoreo/evidencias/gaze_tracking`;
+        const payload = {
+            sesion_id: Number(this.remoteSessionId),
+            timestamp: new Date().toISOString(),
+            gaze_points: points
+        };
+
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                keepalive: true
+            });
+            this.logger('success', `📤 Datos de seguimiento ocular enviados (${points.length} puntos)`);
+        } catch (err) {
+            this.logger('error', '❌ Error al enviar datos de gaze tracking', err);
+            console.error('[EVIDENCE] Failed to send gaze data:', err);
+        }
+    }
+
+    /**
      * Envía una infracción al endpoint dedicado POST /monitoreo/infracciones/.
      * Mapea los triggers internos del frontend a los tipos de infracción del backend.
      */
