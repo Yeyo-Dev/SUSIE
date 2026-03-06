@@ -1,13 +1,6 @@
-//
-export interface MetadataEvento {
-    sesion_id: number;
-    exam_id: string;
-    student_id: string;
+export interface EventoDataContent {
+    id_sesion: bigint;
     timestamp: number;
-}
-
-export interface EventoPayloadInfo {
-    type: "BROWSER_EVENT";
-    trigger: "TAB_SWITCH" | "LOSS_FOCUS" | "DEVTOOLS_OPENED" | "FULLSCREEN_EXIT";
-    duration_seconds?: number;
+    tipo_evento: "CAMBIO_DE_PESTAÑA" | "PERDIDA_DE_FOCO" | "HERRAMIENTAS_DE_DESARROLLADOR" | "SALIDA_DE_PANTALLA_COMPLETA";
+    minuto_inicio: string;
 }
