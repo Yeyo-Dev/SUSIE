@@ -53,7 +53,7 @@ El flujo involucra los siguientes componentes clave:
    - **Backend SUSIE** compara el vector de la foto en tiempo real contra el vector guardado en la `Fase 1`.
    - Retorna HTTP `200` y porcentaje de `confianza` > umbral de seguridad.
    - Si no coincide, SUSIE Frontend impide el paso, protegiendo contra suplantación en el momento cero.
-4. **Calibración de Mirada**: Si se requiere `analisis_mirada`, SUSIE obliga a mirar a 4 puntos de la pantalla para calibrar el modelo WebGazer local.
+4. **Calibración de Mirada**: Si la configuración dicta `requireGazeTracking`, SUSIE obliga a hacer clic en varios puntos de la pantalla para calibrar el mapeo de coordenadas visuales locales.
 
 ### Fase 4: Sesión de Examen y Monitoreo Continuo
 *El estudiante está respondiendo el examen.*
@@ -65,6 +65,7 @@ El flujo involucra los siguientes componentes clave:
    - El frontend entra en ciclo de captura usando `MediaRecorder` y el DOM.
    - Cada *N* segundos envía un snapshot a `POST /susie/api/v1/monitoreo/evidencias/snapshots`.
    - Cada *15* segundos envía un bloque de Opus audio a `POST /susie/api/v1/monitoreo/evidencias/audios`.
+   - Cada *5* segundos envía el historial de coordenadas (x,y) de la mirada al backend.
 4. **Ingesta y Enrutamiento (Backend)**:
    - Los endpoints de evidencias del Backend guardan el archivo binario crudo en Blob Storage/Disco.
    - El Backend publica un mensaje de evento en **RabbitMQ** (ej. Topic `stream.snapshot` o `stream.audio`) conteniendo la URL del blob y la metadata.

@@ -1,6 +1,5 @@
 # 🔄 Flujo Completo SUSIE — De Punta a Punta
 
-> **Fecha:** 20 de Febrero de 2026  
 > **Propósito:** Documentar el ciclo de vida completo de un examen supervisado, desde su creación hasta la entrega de resultados.
 
 ---
@@ -108,22 +107,30 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CHECKING_PERMISSIONS: Inicio
+    [*] --> PERMISSION_PREP: Inicio
 
+    PERMISSION_PREP --> CHECKING_PERMISSIONS: Usuario listo
     CHECKING_PERMISSIONS --> CONSENT: Permisos concedidos
     CHECKING_PERMISSIONS --> ERROR: Permisos denegados
 
     CONSENT --> BIOMETRIC_CHECK: Acepta T&C + requireBiometrics
     CONSENT --> ENVIRONMENT_CHECK: Acepta T&C + requireEnvironmentCheck
-    CONSENT --> MONITORING: Acepta T&C (sin biometría ni env check)
+    CONSENT --> GAZE_CALIBRATION: Acepta T&C + requireGazeTracking
+    CONSENT --> EXAM_BRIEFING: Acepta T&C (sin extra checks)
     CONSENT --> BLOCKED: Rechaza T&C
 
     BIOMETRIC_CHECK --> ENVIRONMENT_CHECK: Foto validada + requireEnvCheck
-    BIOMETRIC_CHECK --> MONITORING: Foto validada (sin env check)
+    BIOMETRIC_CHECK --> GAZE_CALIBRATION: Foto validada + requireGazeTracking
+    BIOMETRIC_CHECK --> EXAM_BRIEFING: Foto validada (sin extra checks)
     BIOMETRIC_CHECK --> BIOMETRIC_CHECK: Reintento foto
 
-    ENVIRONMENT_CHECK --> MONITORING: Entorno OK
+    ENVIRONMENT_CHECK --> GAZE_CALIBRATION: Entorno OK + requireGazeTracking
+    ENVIRONMENT_CHECK --> EXAM_BRIEFING: Entorno OK
     ENVIRONMENT_CHECK --> ERROR: Entorno no válido
+    
+    GAZE_CALIBRATION --> EXAM_BRIEFING: Calibración completada
+
+    EXAM_BRIEFING --> MONITORING: Usuario inicia examen
 
     MONITORING --> EXAM_FINISHED: Submit o timeout
     MONITORING --> CANCELLED: Violación crítica
@@ -132,7 +139,9 @@ stateDiagram-v2
         [*] --> ExamEngine
         ExamEngine --> SecurityService: Monitorea en paralelo
         ExamEngine --> EvidenceService: Captura en paralelo
+        ExamEngine --> GazeTrackingService: Envia coordenadas periodicamente
         ExamEngine --> InactivityService: Detecta inactividad
+        ExamEngine --> WebSocketFeedback: Recibe alertas IA
     }
 ```
 
@@ -140,11 +149,14 @@ stateDiagram-v2
 
 | Estado | Componente | Condición de activación | Qué hace |
 |--------|-----------|------------------------|----------|
-| **CHECKING_PERMISSIONS** | `SusieWrapper` | Siempre (si cámara o micrófono) | Solicita permisos del navegador |
-| **CONSENT** | `ConsentDialog` | `requireConsent` (derivado si cámara/micro/bio) | Muestra T&C, el candidato acepta o rechaza |
-| **BIOMETRIC_CHECK** | `BiometricOnboarding` | `requireBiometrics = true` | Captura foto de referencia del candidato |
-| **ENVIRONMENT_CHECK** | `EnvironmentCheck` | `requireEnvironmentCheck` (derivado si cámara) | Verifica iluminación y entorno |
-| **MONITORING** | `ExamEngine` + servicios | Siempre | Examen activo con supervisión |
+| **PERMISSION_PREP** | `PermissionPrep` | Siempre que haya cámara o micro | Prepara al usuario para el prompt de permisos del navegador |
+| **CHECKING_PERMISSIONS** | `SusieWrapper` | Automático tras preparación | Solicita permisos reales del SO/Navegador |
+| **CONSENT** | `ConsentDialog` | `requireConsent` | Muestra T&C, el candidato acepta o rechaza |
+| **BIOMETRIC_CHECK** | `BiometricOnboarding` | `requireBiometrics = true` | Captura foto de referencia y valida contra el backend en tiempo real |
+| **ENVIRONMENT_CHECK** | `EnvironmentCheck` | `requireEnvironmentCheck` | Verifica iluminación y entorno |
+| **GAZE_CALIBRATION** | `GazeCalibration` | `requireGazeTracking` | Calibra puntos de la pantalla para el mapeo de mirada |
+| **EXAM_BRIEFING** | `ExamBriefing` | Siempre | Resumen final antes de empezar el timer del examen |
+| **MONITORING** | `ExamEngine` + servicios | Siempre | Examen activo con supervisión, websockets y sensores |
 
 ---
 
@@ -159,6 +171,7 @@ sequenceDiagram
     participant SS as 🔒 SecurityService
     participant ES as 📤 EvidenceService
     participant IS as ⏸️ InactivityService
+    participant WS as 🔌 WebSocket
     participant API as ⚙️ SUSIE Backend
 
     Note over EE: Timer arranca (ej: 30 min)
@@ -170,17 +183,18 @@ sequenceDiagram
     and Seguridad (siempre activo)
         SS->>SS: Detecta cambio de pestaña
         SS-->>EE: SecurityViolation (TAB_SWITCH)
-        SS->>SS: Bloquea DevTools
-        SS->>SS: Bloquea copy/paste
-        SS->>SS: Bloquea right-click
-        SS->>SS: Fuerza fullscreen
+        SS->>SS: Bloquea DevTools, copy/paste, right-click, fuerza fullscreen
     and Captura de evidencia (async)
-        ES->>API: Envía snapshot (JPEG) al detectar anomalía o periodo
+        ES->>API: Envía snapshot (JPEG) periódico y por anomalía
         ES->>API: Envía evento lógico del navegador (JSON)
         ES->>API: Envía audio chunk cada 15 seg (WebM)
+        ES->>API: Envía coordenadas Gaze Tracking cada 5 seg
     and Inactividad
         IS->>IS: Monitorea teclas y mouse
         IS-->>C: "¿Sigues ahí?" (si inactivo)
+    and Feedback Tiempo Real (IA)
+        API-->>WS: Push Alerta IA (Ojo desviado, múltiple persona)
+        WS-->>C: Modal/Overlay alertando al candidato
     end
 
     EE->>EE: Timeout o candidato hace submit
@@ -193,10 +207,12 @@ sequenceDiagram
 |----------|---------|----------------|
 | `ExamEngine` | `exam-engine.component.ts` | Preguntas, paginación, timer, submit |
 | `SecurityService` | `security.service.ts` | Detectar tab switches, bloquear DevTools, fullscreen |
-| `EvidenceService` | `evidence.service.ts` | Enviar snapshots + audio al backend SUSIE |
+| `EvidenceService` | `evidence.service.ts` | Enviar snapshots, audio y coordenadas gaze al backend |
 | `InactivityService` | `inactivity.service.ts` | Alertar si el candidato no interactúa |
 | `MediaService` | `media.service.ts` | Stream de cámara/micrófono |
 | `NetworkMonitorService` | `network-monitor.service.ts` | Detectar pérdida de conexión |
+| `GazeTrackingService` | `gaze-tracking.service.ts` | Capturar coordenadas visuales en buffer |
+| `WebSocketFeedback` | `websocket-feedback.service.ts` | Escuchar alertas push de IA y mostrarlas en frontend |
 
 ---
 
