@@ -11,6 +11,7 @@ import { sesionEvaluacionRoutes } from './modules/sesiones_evaluacion/sesion.rou
 import {snapshotRoutes} from './modules/monitoreo/snapshots/snapshot.routes';
 import {audioRoutes} from './modules/monitoreo/audios/audio.routes';
 import {gazeRoutes} from './modules/monitoreo/gaze_tracking/gaze.routes';
+import {eventosRoutes} from './modules/monitoreo/eventos/eventosroutes';
 import { infraccionRoutes } from './modules/monitoreo/infracciones/infraccion.routes';
 import websocket from '@fastify/websocket';
 
@@ -48,6 +49,7 @@ export const buildServer = (): FastifyInstance => {
     server.register(snapshotRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
     server.register(audioRoutes, { prefix: prefixApi + '/monitoreo/evidencias' });
     server.register(gazeRoutes, { prefix: prefixApi + '/monitoreo/evidencias/gaze_tracking' });
+    server.register(eventosRoutes, { prefix: prefixApi + '/monitoreo/eventos' });
     //RUTAS PARA INFRACCIONES
     server.register(infraccionRoutes, { prefix: prefixApi + '/monitoreo/infracciones' });
 
