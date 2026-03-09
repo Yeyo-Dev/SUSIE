@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { EvidenceQueueService } from './evidence-queue.service';
 import {
     EvidencePayload,
     EvidenceMetadata,
@@ -17,6 +18,9 @@ export class EvidenceService {
     private recordingInterval: any = null;
     private audioChunks: Blob[] = [];
 
+    /** Cola de reintentos offline (IndexedDB). */
+    private queue = inject(EvidenceQueueService);
+
     /** ID de sesión remota devuelto por POST /sesiones/ */
     private remoteSessionId: string | null = null;
     /** Marca de tiempo de inicio de la sesión (para calcular minuto_infraccion). */
@@ -31,6 +35,11 @@ export class EvidenceService {
         this.apiUrl = apiUrl;
         this.authToken = authToken;
         this.sessionContext = sessionContext;
+
+        // Initialize offline queue
+        this.queue.setLogger(this.logger);
+        this.queue.setAuthToken(authToken);
+        this.queue.init();
     }
 
     setLogger(fn: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void) {
@@ -278,8 +287,16 @@ export class EvidenceService {
             if (internalType === 'AUDIO_CHUNK') label = 'audio';
             else if (internalType === 'SNAPSHOT') label = 'snapshot';
 
-            this.logger('error', `❌ Error al subir ${label}`, err);
-            console.error(`[EVIDENCE] Failed to upload ${label}:`, err);
+            this.logger('info', `📥 ${label} encolado offline (red no disponible)`);
+            console.warn(`[EVIDENCE] Upload failed, queueing ${label} for retry`);
+
+            // Persist in IndexedDB for retry when the network recovers
+            this.queue.enqueueMultipart(
+                endpointUrl,
+                data.metadata.meta,
+                data.metadata.payload_info,
+                data.file
+            );
         }
     }
 
@@ -310,8 +327,10 @@ export class EvidenceService {
             });
             this.logger('success', `📤 Datos de seguimiento ocular enviados (${points.length} puntos)`);
         } catch (err) {
-            this.logger('error', '❌ Error al enviar datos de gaze tracking', err);
-            console.error('[EVIDENCE] Failed to send gaze data:', err);
+            this.logger('info', '📥 Datos de gaze tracking encolados offline');
+            console.warn('[EVIDENCE] Gaze data send failed, queueing for retry');
+
+            this.queue.enqueueJson(url, payload);
         }
     }
 
@@ -376,8 +395,13 @@ export class EvidenceService {
             });
             this.logger('success', `📤 Infracción registrada: ${tipoInfraccion} (${minuteStr})`);
         } catch (err) {
-            this.logger('error', '❌ Error al registrar infracción', err);
-            console.error('[EVIDENCE] Failed to send infraccion:', err);
+            this.logger('info', '📥 Infracción encolada offline');
+            console.warn('[EVIDENCE] Infraccion send failed, queueing for retry');
+
+            this.queue.enqueueJson(
+                `${this.apiUrl}/monitoreo/infracciones`,
+                payload
+            );
         }
     }
 
