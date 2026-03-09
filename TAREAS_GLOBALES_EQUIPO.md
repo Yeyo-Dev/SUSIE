@@ -1,25 +1,33 @@
 # 📋 Tareas Pendientes Globales (SUSIE)
-> **Fecha de Actualización:** Marzo 2026
-> **Estado General:** Frontend (~90%), AI Models (~75%), Backend (~90%)
+> **Fecha de Actualización:** 9 Marzo 2026
+> **Estado General:** Frontend (~95%), AI Models (~85%), Backend (~92%)
 
 Este documento consolida todas las tareas faltantes para completar el sistema SUSIE, divididas por equipo responsable. Es el documento fuente para la asignación de próximos sprints.
 
 ---
 
 ## 💻 Equipo Frontend (Vielma)
-**Estado:** Fase Final (Cierres y Resiliencia)
-El core de supervisión, grabación, reglas e UI está construido. Faltan detalles de estabilización.
+**Estado:** Fase Final (Servicios core completos, faltan tests de componentes y mejoras de calidad)
+El core de supervisión, grabación, reglas, UI y resiliencia offline está completo.
 
-- [ ] **Resiliencia Offline (IndexedDB):** Implementar la cola de reintentos para cuando falla el envío asíncrono de un chunk de audio o un snapshot debido a micro-cortes de red.
-- [ ] **Integración Gaze Tracking:** Ajustar el envío de eventos de pérdida de mirada hacia la API, una vez que el backend esté listo para recibirlos.
-- [x] **UI de Alertas (WebSocket):** Escuchar el canal de WebSocket del backend y mostrar en pantalla alertas en vivo amigables (ej. "Por favor, vuelve a mirar a la cámara").
-- [ ] **Validación Biométrica Inicial:** Integrar la pantalla de captura de foto inicial (Onboarding) de acuerdo al flujo de inscripción antes de iniciar el examen. *(En progreso con SDD)*.
-- [ ] **Pruebas E2E y Unitarias:** Completar la cobertura de tests para el componente principal (`susie-wrapper`).
+- [x] **Resiliencia Offline (IndexedDB):** ✅ _Completada 9-Mar-2026_ — `EvidenceQueueService` con `idb`, retry automático con backoff exponencial.
+- [x] **Integración Gaze Tracking:** ✅ _Completada 6-Mar-2026_ — Envío continuo de coordenadas al backend, calibración MediaPipe integrada.
+- [x] **UI de Alertas (WebSocket):** ✅ — `WebSocketFeedbackService` escucha alertas y muestra overlays al candidato.
+- [x] **Validación Biométrica Inicial:** ✅ _Completada 6-Mar-2026_ — Flujo de enrollment con UI dedicada, llamadas API integradas.
+- [x] **Tests Unitarios de Servicios:** ✅ _Completada 9-Mar-2026_ — SecurityService, WebSocketFeedbackService, EvidenceService, EvidenceQueueService (68/68 tests).
+- [ ] **Tests Unitarios de Componentes:** `SusieWrapperComponent`, `ExamEngineComponent`, `BiometricOnboardingComponent`, `ConsentDialogComponent`.
+- [ ] **Tests para GazeTrackingService e InactivityService:** Servicios sin `.spec.ts`.
+- [ ] **Indicador Visual Offline:** Badge visible al candidato con evidencias pendientes.
+- [ ] **Environment Check Avanzado:** Iluminación, presencia de cara, audio level check.
+- [ ] **Accesibilidad (a11y):** Roles ARIA, navegación por teclado, contraste.
+- [ ] **Internacionalización (i18n):** Soporte es/en mínimo.
+- [ ] **Recovery de Sesión (RNF-009):** Persistir respuestas en localStorage/IndexedDB.
+- [ ] **Dashboard de Estado:** Mini-panel con estado de cámara, mic, red, WS.
 
 ---
 
 ## ⚙️ Equipo Backend (Fastify/Node.js)
-**Estado:** Fase Final (Endpoints construidos, faltan validaciones conjuntas)
+**Estado:** Fase Final (Endpoints construidos, faltan reportes y motor de riesgo)
 El backend ha completado la refactorización mayor (Multipart, WebSockets, RabbitMQ). Falta conectar con Chaindrenciales.
 
 - [x] **Endpoints de Recepción Multimedia:** `POST /monitoreo/evidencias/audios` y `snapshots`.
@@ -30,14 +38,15 @@ El backend ha completado la refactorización mayor (Multipart, WebSockets, Rabbi
 - [x] **Endpoints de Cierre (`/sesiones/start` y `/end`):** Implementados en `sesiones_evaluacion`.
 - [ ] **Despliegue de Base de Datos y Redis:** Asegurar que PostgreSQL, Redis y Prisma estén conectados y probados contra el entorno de pruebas.
 - [ ] **Endpoints Chaindrenciales (Configuración y Calificación):** Asegurar que las interfaces devuelvan el payload exacto de la API Spec para el frontend (`susie-config`).
+- [ ] **Endpoints de Reportes:** API de lectura `/reportes/:id` para dashboard analítico de Chaindrenciales.
 
 ---
 
 ## 🧠 Equipo AI Models (Python)
-**Estado:** Lógica Aislada Completa, Falta Integración Continua.
-Los scripts nativos de YOLO, Whisper, DeepFace y MediaPipe funcionan, pero faltan conectarlos al flujo en vivo de Fastify.
+**Estado:** Workers Individuales Completos, Falta Motor de Inferencia Global.
+Los scripts nativos de YOLO, Whisper, DeepFace y MediaPipe funcionan con consumidores RabbitMQ integrados.
 
-- [ ] **Consumidores RabbitMQ (Workers):** Envolver cada script de IA en un consumidor `pika` que escuche las colas (`stream.audio`, `stream.vision`) recién alimentadas por el Backend.
+- [x] **Consumidores RabbitMQ (Workers):** ✅ — Todos los workers tienen `main.py` consumiendo de colas vía `pika` con reconexiones asíncronas.
 - [ ] **Red Bayesiana (Inference Engine):** Construir el script maestro que toma las "evidencias blandas" de los 4 workers y usa la tabla de probabilidades (CPTs) para calcular fraude.
 - [ ] **Retorno de Resultados al Backend:** Enviar alertas procesadas de vuelta a Fastify para inyectarlas al canal WebSocket.
 - [ ] **Manejo de Errores IA:** Procesos de recuperación si falla la inferencia en un chunk corrupto.

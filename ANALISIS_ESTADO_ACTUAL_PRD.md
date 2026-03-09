@@ -1,6 +1,6 @@
 # Análisis de Estado Actual vs PRD SUSIE
 
-> **Fecha:** 6 de Marzo de 2026
+> **Fecha:** 9 de Marzo de 2026
 
 Este documento detalla el estado real de implementación de SUSIE contrastado con el **Documento de Requisitos de Producto (PRD) v1.0**, desglosando qué componentes ya existen y cuáles faltan en cada área (Frontend, Backend, AI Models), actualizado con los desarrollos más recientes.
 
@@ -13,15 +13,20 @@ El frontend es la capa más avanzada del ecosistema. Todo el motor del examen y 
 
 ### ✅ Lo que YA ESTÁ implementado:
 - **Motor de Examen (RF-001 a RF-004):** UI de preguntas, paginación, temporizador, auto-submit. Se eliminaron los datos mockeados.
-- **Onboarding y Permisos (RF-005 a RF-007):** Solicitud A/V, Modal de TyC, Onboarding biométrico (UI dedicada, validación de cara detectada, llamadas API de enrollment integradas).
+- **Onboarding y Permisos (RF-005 a RF-007):** Solicitud A/V, Modal de T&C, Onboarding biométrico (UI dedicada, validación de cara detectada, llamadas API de enrollment integradas).
 - **Proctoring y Sensores (RF-009 a RF-016):** Fullscreen lock, Tab tracking, Copy/paste block, DevTools block, Snapshots en WebWorker, Grabación y envío de Audio WebM cada 15s.
-- **Canal de Feedback:** Integración de WebSocket nativo para recibir alertas de IA.
+- **Canal de Feedback:** Integración de WebSocket nativo para recibir alertas de IA con reconexión automática y backoff exponencial.
 - **Gaze Tracking (RF-016):** Calibración de mirada, tracking y envío continuo de coordenadas al backend para el heatmap.
 - **Robustez de Seguridad:** Prevención mejorada contra pérdida de foco, cambio de escritorio virtual, atajos de teclado para herramientas de desarrollo y bloqueo de clic derecho.
+- **Tolerancia a Fallas Offline (RNF-008):** Cola de reintentos basada en IndexedDB (`EvidenceQueueService` con librería `idb`). Evidencias fallidas se almacenan localmente y se reintentan con backoff al reconectar.
+- **Tests Unitarios de Servicios:** SecurityService (14 tests), WebSocketFeedbackService (13 tests), EvidenceService, EvidenceQueueService — 68/68 tests pasando.
 
 ### ❌ Lo que FALTA (Brechas):
-- **[F-03] Tolerancia a Fallas Offline (RNF-008):** Cola de reintentos basada en IndexedDB. Si la red cae, las evidencias que fallan en enviarse se pierden. *(Prioridad para estabilidad bajo malas redes)*.
-- **[F-08] Tests Unitarios:** La suite de pruebas de los nuevos servicios está vacía o incompleta (Evidence, Security, Feedback).
+- **[F-09] Tests Unitarios de Componentes:** La suite de pruebas cubre servicios pero no componentes (SusieWrapper, ExamEngine, BiometricOnboarding, ConsentDialog).
+- **[F-10] Tests para GazeTrackingService e InactivityService:** Servicios complejos sin `.spec.ts`.
+- **[F-15] Recovery de Sesión (RNF-009):** Si la pestaña se cierra accidentalmente, se pierde el progreso de respuestas.
+- **[F-13] Accesibilidad (a11y):** Sin revisión ARIA ni navegación por teclado.
+- **[F-14] Internacionalización (i18n):** Textos hardcoded, sin soporte multi-idioma.
 
 ---
 
@@ -62,9 +67,13 @@ La lógica de negocio predictiva está implementada y lista para ser consumida.
 
 ## Conclusión y Próximos Pasos (Blockers)
 
-Con los recientes avances en *Gaze Tracking, Biometría UI Frontend, Seguridad Robusta* y los *Consumidores de RabbitMQ en AI*, el sistema ha dado saltos grandes hacia el estado MVP E2E funcional.
+Con los recientes avances en *Cola de Reintentos Offline, Tests Unitarios de Servicios, Gaze Tracking, Biometría UI Frontend, Seguridad Robusta* y los *Consumidores de RabbitMQ en AI*, el sistema está muy cerca del estado MVP E2E funcional.
 
 **Pasos urgentes para lograr un E2E completo:**
 1. Construir el **Motor de Inferencia Global** (Red Bayesiana) en IA para que las detecciones de YOLO, Whisper, DeepFace y MediaPipe converjan en una sola probabilidad de fraude procesable por el backend.
 2. Implementar los **Endpoints de Reportes** en el Backend para que organizaciones visualicen resúmenes de proctoring.
-3. (Opcional pero crítico en producción): **Cola de reintentos offline (IndexedDB)** en el Frontend.
+
+**Mejoras de calidad del Frontend:**
+3. **Tests unitarios de componentes** [F-09] y servicios faltantes [F-10].
+4. **Recovery de sesión** [F-15] para prevenir pérdida de progreso.
+5. **Accesibilidad e Internacionalización** [F-13, F-14] para producción.

@@ -9,9 +9,9 @@
 
 | Capa | Madurez | Falta |
 |------|---------|-------|
-| **Frontend (Angular)** | 🟢 ~90% | Retry (IndexedDB), Gaze Tracking, UI Warnings avanzadas |
-| **Backend (Fastify)** | 🟢 ~90% | Refinar tests e integrar reportes |
-| **AI Models (Python)** | 🟢 ~75% | Solo falta integrar logs a RabbitMQ y Red Bayesiana Master |
+| **Frontend (Angular)** | 🟢 ~95% | Tests de componentes, a11y, i18n, recovery de sesión |
+| **Backend (Fastify)** | 🟢 ~92% | Refinar tests e integrar reportes |
+| **AI Models (Python)** | 🟢 ~85% | Solo falta integrar Red Bayesiana Master |
 
 ---
 
@@ -60,19 +60,17 @@
 
 #### [F-03] Cola de Reintentos + IndexedDB (Offline Resilience)
 **Descripción:** Implementar persistencia local cuando falla el envío de evidencias  
-**Estado:** ❌ Pendiente  
+**Estado:** ✅ Completado (9-Mar-2026)  
 **RNF-008, RNF-009 del PRD  
-**Entregables:**
-- Crear servicio `OfflineQueueService` que use IndexedDB
-- Interceptar errores en EvidenceService al subir evidencias
-- Guardar evidencias fallidas localmente
-- Implementar retry con backoff exponencial
-- Sincronizar evidencias pendientes cuando vuelva la conexión
-- Mostrar indicador visual al candidato si hay evidencias pendientes
+**Implementado:**
+- `EvidenceQueueService` creado con IndexedDB (librería `idb`)
+- `EvidenceService` modificado para fallback automático al fallar uploads
+- Retry con backoff exponencial al reconectar (usa `NetworkMonitorService`)
+- Tests unitarios incluidos (EvidenceQueueService + EvidenceService)
 
-**Archivos probables:**
-- `projects/ngx-susie-proctoring/src/lib/services/offline-queue.service.ts` (nuevo)
-- `projects/ngx-susie-proctoring/src/lib/services/evidence.service.ts` (modificar)
+**Archivos:**
+- `projects/ngx-susie-proctoring/src/lib/services/evidence-queue.service.ts`
+- `projects/ngx-susie-proctoring/src/lib/services/evidence.service.ts`
 
 ---
 
@@ -114,11 +112,11 @@
 
 #### [F-06] Integrar Gaze Tracking con Análisis de Backend
 **Descripción:** Enviar datos de gaze al backend para procesamiento  
-**Estado:** 🟡 Parcial  
-**Entregables:**
-- Enviar coordenadas gaze en cada snapshot
-- Crear endpoint receptor en backend
-- Recibir análisis de desviación desde backend (si aplica)
+**Estado:** ✅ Completado (6-Mar-2026)  
+**Implementado:**
+- Envío continuo de coordenadas de gaze al backend a intervalos regulares
+- `GazeTrackingService` con calibración MediaPipe, tracking y envío de datos
+- Endpoint receptor implementado en backend
 
 ---
 
@@ -133,12 +131,121 @@
 
 ---
 
-#### [F-08] Tests Unitarios
-**Descripción:** Aumentar coverage de tests  
+#### [F-08] Tests Unitarios de Servicios
+**Descripción:** Aumentar coverage de tests para servicios  
+**Estado:** ✅ Completado (9-Mar-2026)  
+**Implementado:**
+- `SecurityService` — 14 tests (listeners, infracciones, teardown)
+- `WebSocketFeedbackService` — 13 tests (conexión, mensajes, reconexión)
+- `EvidenceService` — tests de fallback offline
+- `EvidenceQueueService` — tests de cola IndexedDB
+- Total: 68/68 tests pasando
+
+---
+
+## 🆕 NUEVAS TAREAS FRONTEND
+
+### Prioridad ALTA
+
+#### [F-09] Tests Unitarios de Componentes
+**Descripción:** Cubrir componentes Angular principales con tests  
 **Estado:** ❌ Pendiente  
 **Entregables:**
-- Tests para servicios core (EvidenceService, SecurityService)
-- Tests para componentes (SusieWrapper, ExamEngine)
+- Tests para `SusieWrapperComponent` (orquestador principal)
+- Tests para `ExamEngineComponent` (motor de preguntas)
+- Tests para `BiometricOnboardingComponent`
+- Tests para `ConsentDialogComponent`
+
+---
+
+#### [F-10] Tests para GazeTrackingService e InactivityService
+**Descripción:** Servicios sin archivos `.spec.ts`  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- `gaze-tracking.service.spec.ts` — Tests de calibración, tracking, envío de datos
+- `inactivity.service.spec.ts` — Tests de detección de inactividad
+
+---
+
+### Prioridad MEDIA
+
+#### [F-11] Indicador Visual de Evidencias Offline Pendientes
+**Descripción:** Badge/icono visible al candidato mostrando evidencias pendientes de envío  
+**Estado:** ❌ Pendiente  
+**Dependencias:** [F-03] Cola de Reintentos  
+**Entregables:**
+- Componente visual (badge) que muestre count de evidencias en cola
+- Integrar con `EvidenceQueueService.getPendingCount()`
+
+---
+
+#### [F-12] Environment Check Avanzado
+**Descripción:** Mejorar verificación previa al examen  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- Verificación de iluminación (análisis de brillo del canvas)
+- Verificación de presencia de cara antes de empezar
+- Audio level check (micrófono captando correctamente)
+
+---
+
+#### [F-13] Accesibilidad (a11y)
+**Descripción:** Revisión completa de accesibilidad  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- Roles ARIA en todos los componentes
+- Navegación por teclado
+- Contraste de colores
+
+---
+
+#### [F-14] Internacionalización (i18n)
+**Descripción:** Soporte multi-idioma  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- Extraer textos hardcoded a archivos de traducción
+- Soporte es/en como mínimo
+
+---
+
+### Prioridad BAJA
+
+#### [F-15] Recovery de Sesión (RNF-009)
+**Descripción:** Recuperar progreso si se pierde conexión o cierra pestaña  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- Persistir estado de respuestas en `localStorage`/`IndexedDB`
+- Recuperar progreso automáticamente al reconectar
+
+---
+
+#### [F-16] Dashboard de Estado para el Candidato
+**Descripción:** Mini-panel lateral con información de estado en tiempo real  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- Estado de cámara/mic (activos ✅)
+- Violaciones acumuladas
+- Conexión al WebSocket
+- Estado de red
+
+---
+
+#### [F-17] Optimización Adaptativa de Snapshots
+**Descripción:** Reducir calidad/peso adaptivamente según velocidad de red  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- Medir velocidad de upload
+- Ajustar calidad JPEG dinámicamente
+
+---
+
+#### [F-18] Performance Monitoring
+**Descripción:** Métricas de rendimiento del cliente  
+**Estado:** ❌ Pendiente  
+**Entregables:**
+- Uso de memoria del navegador
+- Frames dropped en captura
+- Latencia de uploads
 
 ---
 
@@ -322,24 +429,35 @@ FRONTEND                           BACKEND
 
 ## 🎯 Orden de Implementación Recomendado
 
-### Sprint 1-2 (Quick Wins)
-1. [B-01] Endpoints de biometría (Backend)
-2. [F-01] Biometría E2E (Frontend)
+### ✅ Sprint 1-2 (Quick Wins) — COMPLETADOS
+1. ~~[B-01] Endpoints de biometría (Backend)~~
+2. ~~[F-01] Biometría E2E (Frontend)~~
 
-### Sprint 3-5 (Core IA)
-3. [B-06] RabbitMQ config
-4. [B-02] Worker YOLO
-5. [B-03] Worker DeepFace
+### ✅ Sprint 3-5 (Core IA) — COMPLETADOS
+3. ~~[B-06] RabbitMQ config~~
+4. ~~[B-02] Worker YOLO~~
+5. ~~[B-03] Worker DeepFace~~
 
-### Sprint 6-8 (Diferenciadores)
-6. [F-03] Retry + IndexedDB (Frontend)
-7. [B-05] WebSocket server
-8. [F-04] WebSocket handling (Frontend)
-9. [B-04] Endpoints reportes
-10. [F-02] Métricas en ExamResult
+### ✅ Sprint 6-8 (Diferenciadores) — COMPLETADOS
+6. ~~[F-03] Retry + IndexedDB (Frontend)~~
+7. ~~[B-05] WebSocket server~~
+8. ~~[F-04] WebSocket handling (Frontend)~~
+9. [B-04] Endpoints reportes ❌
+10. ~~[F-02] Métricas en ExamResult~~
 
-### Sprint 9+ (Completar)
-11. [B-07] Motor de riesgo
-12. [B-08] Worker Whisper
-13. [B-09] Worker MediaPipe (backend)
-14. [F-06-F-08] Tareas menores frontend
+### Sprint 9+ (Pendientes)
+11. [B-07] Motor de riesgo ❌
+12. ~~[B-08] Worker Whisper~~
+13. ~~[B-09] Worker MediaPipe (backend)~~
+
+### Sprint 10+ (Nuevas Tareas Frontend)
+14. [F-09] Tests de componentes
+15. [F-10] Tests GazeTracking/Inactivity
+16. [F-11] Indicador offline
+17. [F-12] Environment check avanzado
+18. [F-13] Accesibilidad
+19. [F-14] Internacionalización
+20. [F-15] Recovery de sesión
+21. [F-16] Dashboard de estado
+22. [F-17] Optimización snapshots
+23. [F-18] Performance monitoring

@@ -1,7 +1,7 @@
 # 📋 Tareas Pendientes — Frontend SUSIE
 
-> Generado: 19 Feb 2026
-> Fuente: Análisis de `architecture.md` vs implementación actual
+> Actualizado: 9 Marzo 2026
+> Fuente: Análisis de `architecture.md` vs implementación actual + sesiones SDD
 
 ---
 
@@ -33,29 +33,88 @@
 - [x] **5. Métricas de proctoring en `ExamResult`** (~2h) ✅ _Completada_
   - Al finalizar, incluir en el resultado: `violations[]`, `capturedSnapshots`, `capturedAudioChunks`, `consentGiven`, `biometricVerified`
 
-- [x] **6. Biometría → API enrollment y verificación UI** (~3h) ✅ _Completada_
-  - Enviar foto capturada al Gateway (`POST /biometrics/enroll`)
-  - Hoy la foto se captura pero no se usa
+- [x] **6. Biometría → API enrollment y verificación UI** (~3h) ✅ _Completada 6-Mar-2026_
+  - Flujo completo de enrollment con UI dedicada, validación de cara detectada
+  - Integración con endpoints `POST /biometrics/enroll` y `POST /biometrics/verify`
 
 ---
 
 ## 🟠 Prioridad Baja (diferenciadores)
 
 - [x] **7. Canal WebSocket de feedback** (~4h) ✅ _Completada_
-  - El frontend debe recibir alertas en tiempo real del Motor de Inferencia
-  - Crear `AlertService` que escuche: `RISK_ALERT`, `IDENTITY_MISMATCH`, `SESSION_TERMINATED`
-  - Mostrar overlay al candidato cuando riesgo es alto
+  - `WebSocketFeedbackService` recibe alertas en tiempo real del Motor de Inferencia
+  - Maneja: `RISK_ALERT`, `IDENTITY_MISMATCH`, `SESSION_TERMINATED`
+  - Reconexión automática con backoff exponencial
 
-- [ ] **8. Cola de reintentos para evidencias** (~4h)
-  - Si la red falla, las evidencias se pierden
-  - Implementar respaldo en `IndexedDB`/`localStorage`
-  - Reintentar al reconectar (usar `NetworkMonitorService`)
+- [x] **8. Cola de reintentos para evidencias** (~4h) ✅ _Completada 9-Mar-2026_
+  - `EvidenceQueueService` implementado con IndexedDB (librería `idb`)
+  - Respaldo automático de evidencias fallidas (audio, snapshots, gaze data)
+  - Reintento con backoff exponencial al reconectar (usa `NetworkMonitorService`)
+  - Tests unitarios incluidos
+
+- [x] **9. Tests unitarios de servicios** (~3h) ✅ _Completada 9-Mar-2026_
+  - `SecurityService` — 14 tests cubriendo listeners, infracciones, teardown
+  - `WebSocketFeedbackService` — 13 tests cubriendo conexión, mensajes, reconexión
+  - `EvidenceService` — tests de fallback offline
+  - `EvidenceQueueService` — tests de cola IndexedDB
+  - Total: 68/68 tests pasando
 
 ---
 
-**Tiempo total estimado: ~19h**
+## 🆕 Nuevas Tareas Identificadas
+
+### 🔴 Prioridad Alta
+
+- [ ] **10. Tests unitarios de Componentes** (~6h)
+  - Tests para `SusieWrapperComponent` (orquestador principal)
+  - Tests para `ExamEngineComponent` (motor de preguntas)
+  - Tests para `BiometricOnboardingComponent`
+  - Tests para `ConsentDialogComponent`
+
+- [ ] **11. Tests para GazeTrackingService e InactivityService** (~3h)
+  - Ambos servicios carecen de `.spec.ts`
+  - GazeTrackingService es complejo (MediaPipe, calibración, envío de datos)
+
+### 🟡 Prioridad Media
+
+- [ ] **12. Indicador visual de evidencias offline pendientes** (~2h)
+  - Badge/icono visible al candidato mostrando "X evidencias pendientes de envío"
+  - Integrar con `EvidenceQueueService.getPendingCount()`
+
+- [ ] **13. Environment Check avanzado** (~4h)
+  - Verificación de iluminación (análisis de brillo del canvas)
+  - Verificación de presencia de cara antes de empezar
+  - Audio level check (micrófono captando correctamente)
+
+- [ ] **14. Accesibilidad (a11y)** (~4h)
+  - Revisión de roles ARIA en todos los componentes
+  - Navegación por teclado
+  - Contraste de colores
+
+- [ ] **15. Internacionalización (i18n)** (~6h)
+  - Textos actualmente hardcoded
+  - Soporte multi-idioma (es/en mínimo)
+
+### 🟠 Prioridad Baja
+
+- [ ] **16. Recovery de sesión (RNF-009)** (~4h)
+  - Persistir estado de respuestas en `localStorage`/`IndexedDB`
+  - Recuperar progreso si se pierde conexión o cierra pestaña accidentalmente
+
+- [ ] **17. Dashboard de estado para el candidato** (~3h)
+  - Mini-panel mostrando: estado cámara/mic, violaciones acumuladas, conexión WS, estado de red
+
+- [ ] **18. Optimización adaptativa de Snapshots** (~2h)
+  - Reducir calidad/peso adaptivamente según velocidad de red
+
+- [ ] **19. Performance monitoring** (~3h)
+  - Métricas de uso de memoria, frames dropped, latencia de uploads
+
+---
+
+**Tiempo total nuevas tareas estimado: ~37h**
 
 ## Documentos relacionados
-- [Arquitectura del Sistema](./architecture.md)
-- [Arquitectura Motor de Exámenes](./ARQUITECTURA_SUSIE_MOTOR_EXAMENES.md)
-- [Infraestructura y Deploy](./INFRAESTRUCTURA_DEPLOY_SUSIE.md)
+- [Arquitectura del Sistema](./ARCHITECTURE_SUSIE.md)
+- [PRD SUSIE](./PRD_SUSIE.md)
+- [Roadmap de Tareas](./ROADMAP_TAREAS.md)
