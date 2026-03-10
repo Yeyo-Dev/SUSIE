@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common'; // Importante para KeyValuePipe, DatePipe, etc.
 import { SusieConfig, SusieQuestion, ExamResult } from '../../models/contracts';
 
@@ -78,13 +78,10 @@ export class ExamEngineComponent {
         effect(() => {
             const ctx = this.config().sessionContext;
             const mins = ctx.durationMinutes;
-            console.log('[ExamEngine] Effect triggered. Duration:', mins, 'Current Timer:', this.timerSeconds());
+            const currentTimer = untracked(this.timerSeconds);
 
-            if (mins > 0 && this.timerSeconds() === 0) {
-                console.log('[ExamEngine] Starting timer for minutes:', mins);
+            if (mins > 0 && currentTimer === 0) {
                 this.startTimer(mins * 60);
-            } else {
-                console.log('[ExamEngine] Timer not started. Condition failed.');
             }
         }, { allowSignalWrites: true });
     }

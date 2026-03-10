@@ -186,11 +186,12 @@ describe('SecurityService', () => {
 
     describe('DevTools Detection (Polling)', () => {
         beforeEach(() => {
+            try { jasmine.clock().uninstall(); } catch (_) { /* not installed */ }
             jasmine.clock().install();
         });
 
         afterEach(() => {
-            jasmine.clock().uninstall();
+            try { jasmine.clock().uninstall(); } catch (_) { /* ignore */ }
         });
 
         it('debe reportar INSPECTION_ATTEMPT cuando outerWidth − innerWidth > 160', () => {

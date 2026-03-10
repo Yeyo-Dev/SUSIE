@@ -65,13 +65,13 @@
 
 ### 🔴 Prioridad Alta
 
-- [ ] **10. Tests unitarios de Componentes** (~6h)
+- [x] **10. Tests unitarios de Componentes** (~6h) ✅ _Completada 10-Mar-2026_
   - Tests para `SusieWrapperComponent` (orquestador principal)
   - Tests para `ExamEngineComponent` (motor de preguntas)
   - Tests para `BiometricOnboardingComponent`
   - Tests para `ConsentDialogComponent`
 
-- [ ] **11. Tests para GazeTrackingService e InactivityService** (~3h)
+- [x] **11. Tests para GazeTrackingService e InactivityService** (~3h) ✅ _Completada 10-Mar-2026_
   - Ambos servicios carecen de `.spec.ts`
   - GazeTrackingService es complejo (MediaPipe, calibración, envío de datos)
 
