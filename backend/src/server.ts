@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import rabbitMQConnector from './config/rabbitmq';
 //import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
+import { ConsumerService } from './broker/consumer.service';
 import { userRoutes } from './modules/usuarios/user.routes';
 import { evaluacionRoutes } from './modules/evaluaciones/evaluacion.routes';
 import { examenRoutes } from './modules/examenes/examen.routes';
@@ -56,6 +57,13 @@ export const buildServer = (): FastifyInstance => {
     server.ready().then(() => {
         broker = new ProducerService(server); //Inicializamos el broker
         server.log.info('ProducerService inicializado y listo para usar.');
+
+        const consumer = new ConsumerService(server); //Inicializamos el consumer
+        server.log.info('ConsumerService inicializado y listo para usar.');
+
+        consumer.listen('q_infracciones', async (data) => {//Escuchamos la cola de infracciones
+            console.log('Nuevo mensaje en la cola q_infracciones:', data);
+        });
     });
 
     server.get(prefixApi, async (request, reply) => {
