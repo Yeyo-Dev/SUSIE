@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy, effect, inject } from '@angular/core';
+import { Injectable, OnDestroy, effect, inject, signal } from '@angular/core';
 import { openDB, type IDBPDatabase } from 'idb';
 import { NetworkMonitorService } from './network-monitor.service';
 
@@ -36,6 +36,10 @@ export class EvidenceQueueService implements OnDestroy {
     private db: IDBPDatabase | null = null;
     private flushing = false;
     private authToken = '';
+
+    // Signal reactivo para el conteo de evidencias pendientes
+    private _pendingCount = signal(0);
+    readonly pendingCount = this._pendingCount.asReadonly();
 
     private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
 
@@ -105,6 +109,7 @@ export class EvidenceQueueService implements OnDestroy {
         try {
             await this.db.add(STORE_NAME, item);
             this.logger('info', `📥 Evidencia encolada offline → ${endpoint} (${blob?.size ?? 0} bytes)`);
+            await this.updateCount();
         } catch (err) {
             this.logger('error', '❌ Error al encolar evidencia en IndexedDB', err);
         }
@@ -131,15 +136,22 @@ export class EvidenceQueueService implements OnDestroy {
         try {
             await this.db.add(STORE_NAME, item);
             this.logger('info', `📥 Dato JSON encolado offline → ${endpoint}`);
+            await this.updateCount();
         } catch (err) {
             this.logger('error', '❌ Error al encolar dato JSON en IndexedDB', err);
         }
     }
 
     /** Returns the count of items currently pending in the queue. */
-    async pendingCount(): Promise<number> {
+    async getPendingCount(): Promise<number> {
         if (!this.db) return 0;
         return this.db.count(STORE_NAME);
+    }
+
+    /** Actualiza el signal de pending count con el valor actual de la cola. */
+    private async updateCount(): Promise<void> {
+        const count = await this.getPendingCount();
+        this._pendingCount.set(count);
     }
 
     // ── Flush / Retry Logic ────────────────────────────────────────────────
@@ -170,10 +182,12 @@ export class EvidenceQueueService implements OnDestroy {
                     if (success && item.id != null) {
                         await this.db!.delete(STORE_NAME, item.id);
                         this.logger('success', `✅ Evidencia offline reenviada → ${item.endpoint}`);
+                        await this.updateCount();
                     } else if (!success && item.id != null) {
                         // Non-retryable (4xx) — discard to avoid infinite loops
                         await this.db!.delete(STORE_NAME, item.id);
                         this.logger('error', `🗑️ Evidencia descartada (error no recuperable) → ${item.endpoint}`);
+                        await this.updateCount();
                     }
                 } catch {
                     // Network error during retry — stop and wait for next online event

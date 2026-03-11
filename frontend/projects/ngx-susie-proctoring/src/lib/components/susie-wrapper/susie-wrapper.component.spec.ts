@@ -1,14 +1,8 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { Component, signal, NO_ERRORS_SCHEMA } from '@angular/core';
 import { SusieWrapperComponent } from './susie-wrapper.component';
-import { MediaService } from '../../services/media.service';
-import { EvidenceService } from '../../services/evidence.service';
-import { SecurityService } from '../../services/security.service';
-import { NetworkMonitorService } from '../../services/network-monitor.service';
-import { InactivityService } from '../../services/inactivity.service';
-import { GazeTrackingService } from '../../services/gaze-tracking.service';
-import { WebSocketFeedbackService } from '../../services/websocket-feedback.service';
-import { SusieConfig, SecurityViolation, ExamResult, ConsentResult } from '../../models/contracts';
+import { ProctoringOrchestratorService, ProctoringState } from '../../services/proctoring-orchestrator.service';
+import { EvidenceQueueService } from '../../services/evidence-queue.service';
 
 // ── Stubs de sub-componentes (evitar renderizado profundo) ──
 @Component({ selector: 'susie-consent-dialog', standalone: true, template: '' })
@@ -31,7 +25,7 @@ class StubCameraPip { }
 class StubPermissionPrep { }
 
 // ── Helpers ──
-function buildConfig(overrides: Partial<SusieConfig> = {}): SusieConfig {
+function buildConfig(overrides: any = {}): any {
     return {
         sessionContext: {
             examSessionId: 'sess-1',
@@ -56,71 +50,79 @@ function buildConfig(overrides: Partial<SusieConfig> = {}): SusieConfig {
     };
 }
 
+// ── Mock del Orchestrator ──
+function createMockOrchestrator(): any {
+    const stateSignal = signal<ProctoringState>('CHECKING_PERMISSIONS');
+    
+    return {
+        state: stateSignal,
+        stateChange: {
+            emit: jasmine.createSpy('emit'),
+            subscribe: jasmine.createSpy('subscribe').and.callFake((fn: Function) => {
+                return { unsubscribe: () => {} };
+            }),
+        },
+        stepsWithStatus: signal([]),
+        mediaStream: signal(null),
+        mediaError: signal(null),
+        isOnline: signal(true),
+        aiAlert: signal(null),
+        inactivityWarning: signal(false),
+        tabSwitchCount: signal(0),
+        remainingTabSwitches: signal(undefined),
+        needsFullscreenReturn: signal(false),
+        needsFocusReturn: signal(false),
+        biometricValidating: signal(false),
+        biometricError: signal(null),
+        biometricSuccess: signal(false),
+        logs: signal([]),
+        
+        // Methods
+        initialize: jasmine.createSpy('initialize'),
+        initializeFlow: jasmine.createSpy('initializeFlow').and.resolveTo(),
+        handlePermissionPrepared: jasmine.createSpy('handlePermissionPrepared'),
+        handleConsent: jasmine.createSpy('handleConsent'),
+        handleBiometricCompleted: jasmine.createSpy('handleBiometricCompleted').and.resolveTo(),
+        handleBiometricSuccessConfirmed: jasmine.createSpy('handleBiometricSuccessConfirmed'),
+        handleBiometricRetake: jasmine.createSpy('handleBiometricRetake'),
+        handleEnvironmentCheck: jasmine.createSpy('handleEnvironmentCheck'),
+        handleGazeCalibrationCompleted: jasmine.createSpy('handleGazeCalibrationCompleted'),
+        handleBriefingAcknowledged: jasmine.createSpy('handleBriefingAcknowledged'),
+        handleExamFinished: jasmine.createSpy('handleExamFinished'),
+        returnToFullscreen: jasmine.createSpy('returnToFullscreen').and.resolveTo(),
+        returnToFocus: jasmine.createSpy('returnToFocus'),
+        retryMedia: jasmine.createSpy('retryMedia'),
+        confirmActivity: jasmine.createSpy('confirmActivity'),
+        dismissCriticalAlert: jasmine.createSpy('dismissCriticalAlert'),
+        clearLogs: jasmine.createSpy('clearLogs'),
+        destroy: jasmine.createSpy('destroy'),
+        
+        // Getters for services
+        getMediaService: () => ({ stop: jasmine.createSpy('stop'), getAudioStream: () => null }),
+        getEvidenceService: () => ({ 
+            stopAudioRecording: jasmine.createSpy('stopAudioRecording'),
+            endSession: jasmine.createSpy('endSession'),
+            startSession: jasmine.createSpy('startSession').and.resolveTo('session-123')
+        }),
+        getGazeService: () => ({ stop: jasmine.createSpy('stop'), isCalibrated: () => false }),
+    };
+}
+
+// ── Mock del EvidenceQueueService ──
+const mockPendingCountSignal = signal(0);
+function createMockEvidenceQueueService(): any {
+    return {
+        pendingCount: mockPendingCountSignal.asReadonly(),
+    };
+}
+
 describe('SusieWrapperComponent', () => {
     let component: SusieWrapperComponent;
     let fixture: ComponentFixture<SusieWrapperComponent>;
-
-    // Mocks de servicios
-    let mockMediaService: any;
-    let mockEvidenceService: any;
-    let mockSecurityService: any;
-    let mockNetworkService: any;
-    let mockInactivityService: any;
-    let mockGazeService: any;
-    let mockFeedbackService: any;
+    let mockOrchestrator: any;
 
     beforeEach(async () => {
-        mockMediaService = {
-            stream: signal(null),
-            error: signal(null),
-            stop: jasmine.createSpy('stop'),
-            getAudioStream: jasmine.createSpy('getAudioStream').and.returnValue(null),
-            requestPermissions: jasmine.createSpy('requestPermissions').and.resolveTo(),
-        };
-
-        mockEvidenceService = {
-            configure: jasmine.createSpy('configure'),
-            setLogger: jasmine.createSpy('setLogger'),
-            sendEvent: jasmine.createSpy('sendEvent'),
-            sendGazeData: jasmine.createSpy('sendGazeData'),
-            startAudioRecording: jasmine.createSpy('startAudioRecording'),
-            stopAudioRecording: jasmine.createSpy('stopAudioRecording'),
-            startSession: jasmine.createSpy('startSession').and.resolveTo('session-123'),
-            endSession: jasmine.createSpy('endSession'),
-            validateBiometric: jasmine.createSpy('validateBiometric').and.resolveTo(true),
-            finishExam: jasmine.createSpy('finishExam'),
-        };
-
-        mockSecurityService = {
-            enableProtection: jasmine.createSpy('enableProtection'),
-            disableProtection: jasmine.createSpy('disableProtection'),
-            enterFullscreen: jasmine.createSpy('enterFullscreen').and.resolveTo(),
-        };
-
-        mockNetworkService = {
-            isOnline: signal(true),
-        };
-
-        mockInactivityService = {
-            configure: jasmine.createSpy('configure'),
-            startMonitoring: jasmine.createSpy('startMonitoring'),
-            stopMonitoring: jasmine.createSpy('stopMonitoring'),
-            resetTimer: jasmine.createSpy('resetTimer'),
-            showWarning: signal(false),
-        };
-
-        mockGazeService = {
-            configure: jasmine.createSpy('configure'),
-            stop: jasmine.createSpy('stop'),
-            isCalibrated: jasmine.createSpy('isCalibrated').and.returnValue(false),
-            flushGazeBuffer: jasmine.createSpy('flushGazeBuffer').and.returnValue([]),
-        };
-
-        mockFeedbackService = {
-            connect: jasmine.createSpy('connect'),
-            disconnect: jasmine.createSpy('disconnect'),
-            currentAlert: signal(null),
-        };
+        mockOrchestrator = createMockOrchestrator();
 
         await TestBed.configureTestingModule({
             imports: [SusieWrapperComponent],
@@ -140,13 +142,8 @@ describe('SusieWrapperComponent', () => {
                     ],
                     schemas: [NO_ERRORS_SCHEMA],
                     providers: [
-                        { provide: MediaService, useValue: mockMediaService },
-                        { provide: EvidenceService, useValue: mockEvidenceService },
-                        { provide: SecurityService, useValue: mockSecurityService },
-                        { provide: NetworkMonitorService, useValue: mockNetworkService },
-                        { provide: InactivityService, useValue: mockInactivityService },
-                        { provide: GazeTrackingService, useValue: mockGazeService },
-                        { provide: WebSocketFeedbackService, useValue: mockFeedbackService },
+                        { provide: ProctoringOrchestratorService, useValue: mockOrchestrator },
+                        { provide: EvidenceQueueService, useValue: createMockEvidenceQueueService() },
                     ],
                 },
             })
@@ -157,12 +154,11 @@ describe('SusieWrapperComponent', () => {
     });
 
     afterEach(() => {
-        // Limpiar listeners globales que el componente agrega en ngOnInit
         try { component.ngOnDestroy(); } catch (_) { /* ignore */ }
     });
 
     // ═══════════════════════════════════════════════════
-    // 4.2 — Creación del componente
+    // Creación del componente
     // ═══════════════════════════════════════════════════
 
     it('debe crear el componente', () => {
@@ -172,247 +168,269 @@ describe('SusieWrapperComponent', () => {
     });
 
     // ═══════════════════════════════════════════════════
-    // 4.3 — Configuración de EvidenceService
+    // Inicialización
     // ═══════════════════════════════════════════════════
 
-    describe('Configuración inicial', () => {
-        it('debe configurar evidenceService al recibir config', () => {
+    describe('Inicialización', () => {
+        it('debe inicializar el orchestrator con la config', async () => {
             const cfg = buildConfig();
             fixture.componentRef.setInput('config', cfg);
             fixture.detectChanges();
-
-            expect(mockEvidenceService.configure).toHaveBeenCalledWith(
-                cfg.apiUrl,
-                cfg.authToken,
-                cfg.sessionContext
-            );
-        });
-
-        it('debe configurar inactivityService con el timeout de la config', () => {
-            fixture.componentRef.setInput('config', buildConfig({ inactivityTimeoutMinutes: 5 }));
-            fixture.detectChanges();
-
-            expect(mockInactivityService.configure).toHaveBeenCalledWith(5, undefined);
-        });
-    });
-
-    // ═══════════════════════════════════════════════════
-    // 4.4 — Flujo de estados
-    // ═══════════════════════════════════════════════════
-
-    describe('Transiciones de estado', () => {
-        it('debe ir a PERMISSION_PREP cuando requiere cámara', async () => {
-            fixture.componentRef.setInput('config', buildConfig({
-                securityPolicies: {
-                    requireCamera: true,
-                    requireMicrophone: false,
-                    requireFullscreen: true,
-                    requireConsent: true,
-                } as any,
-            }));
-            fixture.detectChanges();
             await fixture.whenStable();
 
-            expect(component.state()).toBe('PERMISSION_PREP');
+            expect(mockOrchestrator.initialize).toHaveBeenCalledWith(cfg, jasmine.any(Object));
         });
 
-        it('debe ir a CONSENT cuando no requiere permisos especiales pero sí consentimiento', async () => {
-            fixture.componentRef.setInput('config', buildConfig({
-                securityPolicies: {
-                    requireCamera: false,
-                    requireMicrophone: false,
-                    requireFullscreen: true,
-                    requireConsent: true,
-                } as any,
-            }));
-            fixture.detectChanges();
-            await fixture.whenStable();
-
-            expect(component.state()).toBe('CONSENT');
-        });
-
-        it('handleConsent con accepted=true debe avanzar al siguiente paso', () => {
-            fixture.componentRef.setInput('config', buildConfig({
-                securityPolicies: {
-                    requireCamera: false,
-                    requireMicrophone: false,
-                    requireFullscreen: true,
-                    requireConsent: true,
-                    requireBiometrics: false,
-                    requireEnvironmentCheck: false,
-                    requireGazeTracking: false,
-                } as any,
-            }));
-            fixture.detectChanges();
-
-            component.handleConsent({
-                accepted: true,
-                timestamp: new Date().toISOString(),
-                permissionsConsented: ['camera'],
-            });
-
-            // Sin biometría ni env check → debería ir a EXAM_BRIEFING
-            expect(component.state()).toBe('EXAM_BRIEFING');
-        });
-
-        it('handleConsent con accepted=true y requireBiometrics debe ir a BIOMETRIC_CHECK', () => {
-            fixture.componentRef.setInput('config', buildConfig({
-                securityPolicies: {
-                    requireCamera: false,
-                    requireMicrophone: false,
-                    requireFullscreen: true,
-                    requireConsent: true,
-                    requireBiometrics: true,
-                } as any,
-            }));
-            fixture.detectChanges();
-
-            component.handleConsent({
-                accepted: true,
-                timestamp: new Date().toISOString(),
-                permissionsConsented: ['camera', 'biometrics'],
-            });
-
-            expect(component.state()).toBe('BIOMETRIC_CHECK');
-        });
-
-        it('handleBriefingAcknowledged debe ir a MONITORING', async () => {
+        it('debe llamar initializeFlow al iniciar', async () => {
             fixture.componentRef.setInput('config', buildConfig());
             fixture.detectChanges();
             await fixture.whenStable();
 
-            component.handleBriefingAcknowledged();
-            await fixture.whenStable();
-
-            expect(component.state()).toBe('MONITORING');
+            expect(mockOrchestrator.initializeFlow).toHaveBeenCalled();
         });
     });
 
     // ═══════════════════════════════════════════════════
-    // 4.5 — Manejo de violaciones
+    // Delegation a métodos del orchestrator
     // ═══════════════════════════════════════════════════
 
-    describe('Manejo de violaciones', () => {
-        beforeEach(async () => {
-            fixture.componentRef.setInput('config', buildConfig({ maxTabSwitches: 3 }));
-            fixture.detectChanges();
-            await fixture.whenStable();
-            // Llevar al estado de monitoreo
-            component.handleBriefingAcknowledged();
-            await fixture.whenStable();
-        });
-
-        it('debe incrementar el conteo de tab switches en violaciones TAB_SWITCH', () => {
-            const violation: SecurityViolation = {
-                type: 'TAB_SWITCH',
-                message: 'Cambió de pestaña',
-                timestamp: new Date().toISOString(),
-            };
-
-            (component as any).handleViolation(violation);
-            expect(component.tabSwitchCount()).toBe(1);
-        });
-
-        it('debe enviar evento al backend por cada violación', () => {
-            const violation: SecurityViolation = {
-                type: 'INSPECTION_ATTEMPT',
-                message: 'DevTools',
-                timestamp: new Date().toISOString(),
-            };
-
-            (component as any).handleViolation(violation);
-            expect(mockEvidenceService.sendEvent).toHaveBeenCalled();
-        });
-
-        it('FULLSCREEN_EXIT debe activar needsFullscreenReturn', () => {
-            const violation: SecurityViolation = {
-                type: 'FULLSCREEN_EXIT',
-                message: 'Salió de fullscreen',
-                timestamp: new Date().toISOString(),
-            };
-
-            (component as any).handleViolation(violation);
-            expect(component.needsFullscreenReturn()).toBeTrue();
-        });
-    });
-
-    // ═══════════════════════════════════════════════════
-    // 4.6 — Recuperación de fullscreen y foco
-    // ═══════════════════════════════════════════════════
-
-    describe('Recuperación', () => {
+    describe('Delegación de métodos', () => {
         beforeEach(async () => {
             fixture.componentRef.setInput('config', buildConfig());
             fixture.detectChanges();
-            await fixture.whenStable();
         });
 
-        it('returnToFullscreen debe restaurar fullscreen y limpiar needsFullscreenReturn', async () => {
-            component.needsFullscreenReturn.set(true);
+        it('handlePermissionPrepared debe delegar al orchestrator', () => {
+            component.handlePermissionPrepared();
+            expect(mockOrchestrator.handlePermissionPrepared).toHaveBeenCalled();
+        });
+
+        it('handleConsent debe delegar al orchestrator', () => {
+            component.handleConsent({ accepted: true, timestamp: '', permissionsConsented: [] });
+            expect(mockOrchestrator.handleConsent).toHaveBeenCalled();
+        });
+
+        it('handleBiometricCompleted debe delegar al orchestrator', async () => {
+            await component.handleBiometricCompleted({ photo: new Blob() });
+            expect(mockOrchestrator.handleBiometricCompleted).toHaveBeenCalled();
+        });
+
+        it('handleBiometricSuccessConfirmed debe delegar al orchestrator', () => {
+            component.handleBiometricSuccessConfirmed();
+            expect(mockOrchestrator.handleBiometricSuccessConfirmed).toHaveBeenCalled();
+        });
+
+        it('handleBiometricRetake debe delegar al orchestrator', () => {
+            component.handleBiometricRetake();
+            expect(mockOrchestrator.handleBiometricRetake).toHaveBeenCalled();
+        });
+
+        it('handleEnvironmentCheck debe delegar al orchestrator', () => {
+            component.handleEnvironmentCheck({ passed: true });
+            expect(mockOrchestrator.handleEnvironmentCheck).toHaveBeenCalled();
+        });
+
+        it('handleGazeCalibrationCompleted debe delegar al orchestrator', () => {
+            component.handleGazeCalibrationCompleted();
+            expect(mockOrchestrator.handleGazeCalibrationCompleted).toHaveBeenCalled();
+        });
+
+        it('handleBriefingAcknowledged debe delegar al orchestrator', () => {
+            component.handleBriefingAcknowledged();
+            expect(mockOrchestrator.handleBriefingAcknowledged).toHaveBeenCalled();
+        });
+
+        it('handleExamFinished debe delegar al orchestrator', () => {
+            component.handleExamFinished({ answers: {}, completedAt: '' });
+            expect(mockOrchestrator.handleExamFinished).toHaveBeenCalled();
+        });
+
+        it('returnToFullscreen debe delegar al orchestrator', async () => {
             await component.returnToFullscreen();
-            expect(mockSecurityService.enterFullscreen).toHaveBeenCalled();
-            expect(component.needsFullscreenReturn()).toBeFalse();
+            expect(mockOrchestrator.returnToFullscreen).toHaveBeenCalled();
         });
 
-        it('returnToFocus debe limpiar needsFocusReturn', () => {
-            component.needsFocusReturn.set(true);
+        it('returnToFocus debe delegar al orchestrator', () => {
             component.returnToFocus();
-            expect(component.needsFocusReturn()).toBeFalse();
+            expect(mockOrchestrator.returnToFocus).toHaveBeenCalled();
         });
 
-        it('confirmActivity debe resetear el timer de inactividad', () => {
+        it('retryMedia debe delegar al orchestrator', () => {
+            component.retryMedia();
+            expect(mockOrchestrator.retryMedia).toHaveBeenCalled();
+        });
+
+        it('confirmActivity debe delegar al orchestrator', () => {
             component.confirmActivity();
-            expect(mockInactivityService.resetTimer).toHaveBeenCalled();
+            expect(mockOrchestrator.confirmActivity).toHaveBeenCalled();
+        });
+
+        it('dismissCriticalAlert debe delegar al orchestrator', () => {
+            component.dismissCriticalAlert();
+            expect(mockOrchestrator.dismissCriticalAlert).toHaveBeenCalled();
+        });
+
+        it('clearLogs debe delegar al orchestrator', () => {
+            component.clearLogs();
+            expect(mockOrchestrator.clearLogs).toHaveBeenCalled();
         });
     });
 
     // ═══════════════════════════════════════════════════
-    // 4.7 — Finalización del examen
+    // Exposición de signals del orchestrator
     // ═══════════════════════════════════════════════════
 
-    describe('Finalización del examen', () => {
-        it('handleExamFinished debe enriquecer resultado con proctoringSummary', async () => {
-            const onFinished = jasmine.createSpy('onFinished');
-            fixture.componentRef.setInput('config', buildConfig({ onExamFinished: onFinished }));
+    describe('Exposición de signals', () => {
+        it('debe exponer state del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
             fixture.detectChanges();
-            await fixture.whenStable();
+            
+            // El componente debe exponer el signal del orchestrator
+            expect(component.state).toBe(mockOrchestrator.state);
+        });
 
-            const examResult: ExamResult = {
-                answers: { 1: 'A', 2: 'B' },
-                completedAt: new Date().toISOString(),
-            };
+        it('debe exponer stepsWithStatus del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.stepsWithStatus).toBe(mockOrchestrator.stepsWithStatus);
+        });
 
-            component.handleExamFinished(examResult);
+        it('debe exponer mediaStream del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.mediaStream).toBe(mockOrchestrator.mediaStream);
+        });
 
-            expect(mockFeedbackService.disconnect).toHaveBeenCalled();
-            expect(mockEvidenceService.endSession).toHaveBeenCalledWith('submitted');
-            expect(onFinished).toHaveBeenCalledTimes(1);
+        it('debe exponer tabSwitchCount del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.tabSwitchCount).toBe(mockOrchestrator.tabSwitchCount);
+        });
 
-            const enriched = onFinished.calls.first().args[0] as ExamResult;
-            expect(enriched.proctoringSummary).toBeTruthy();
-            expect(enriched.proctoringSummary!.totalViolations).toBe(0);
-            expect(enriched.proctoringSummary!.tabSwitches).toBe(0);
+        it('debe exponer needsFullscreenReturn del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.needsFullscreenReturn).toBe(mockOrchestrator.needsFullscreenReturn);
+        });
+
+        it('debe exponer needsFocusReturn del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.needsFocusReturn).toBe(mockOrchestrator.needsFocusReturn);
+        });
+
+        it('debe exponer biometricValidating del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.biometricValidating).toBe(mockOrchestrator.biometricValidating);
+        });
+
+        it('debe exponer biometricError del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.biometricError).toBe(mockOrchestrator.biometricError);
+        });
+
+        it('debe exponer biometricSuccess del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.biometricSuccess).toBe(mockOrchestrator.biometricSuccess);
+        });
+
+        it('debe exponer logs del orchestrator', () => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            
+            expect(component.logs).toBe(mockOrchestrator.logs);
         });
     });
 
     // ═══════════════════════════════════════════════════
-    // ngOnDestroy
+    // Badge de Evidencias Offline - Integración
+    // ═══════════════════════════════════════════════════
+
+    describe('Badge de evidencias offline', () => {
+        beforeEach(async () => {
+            // Resetear el signal antes de cada test
+            mockPendingCountSignal.set(0);
+            mockOrchestrator.isOnline.set(true);
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+        });
+
+        it('debe mostrar el badge cuando está offline Y hay evidencias pendientes', () => {
+            // Configurar estado: offline + pendientes
+            mockOrchestrator.isOnline.set(false);
+            mockPendingCountSignal.set(3);
+            fixture.detectChanges();
+
+            const badge = fixture.nativeElement.querySelector('.offline-badge');
+            expect(badge).toBeTruthy();
+            expect(badge.textContent).toContain('3');
+            expect(badge.textContent).toContain('evidencias');
+        });
+
+        it('debe mostrar el badge con singular cuando hay 1 evidencia pendiente', () => {
+            mockOrchestrator.isOnline.set(false);
+            mockPendingCountSignal.set(1);
+            fixture.detectChanges();
+
+            const badge = fixture.nativeElement.querySelector('.offline-badge');
+            expect(badge).toBeTruthy();
+            expect(badge.textContent).toContain('1');
+            expect(badge.textContent).toContain('evidencia');
+        });
+
+        it('NO debe mostrar el badge cuando está online aunque haya evidencias pendientes', () => {
+            // Configurar estado: online + pendientes
+            mockOrchestrator.isOnline.set(true);
+            mockPendingCountSignal.set(5);
+            fixture.detectChanges();
+
+            const badge = fixture.nativeElement.querySelector('.offline-badge');
+            expect(badge).toBeFalsy();
+        });
+
+        it('NO debe mostrar el badge cuando está offline pero sin evidencias pendientes', () => {
+            // Configurar estado: offline + sin pendientes
+            mockOrchestrator.isOnline.set(false);
+            mockPendingCountSignal.set(0);
+            fixture.detectChanges();
+
+            const badge = fixture.nativeElement.querySelector('.offline-badge');
+            expect(badge).toBeFalsy();
+        });
+
+        it('NO debe mostrar el badge cuando está online y sin evidencias pendientes', () => {
+            mockOrchestrator.isOnline.set(true);
+            mockPendingCountSignal.set(0);
+            fixture.detectChanges();
+
+            const badge = fixture.nativeElement.querySelector('.offline-badge');
+            expect(badge).toBeFalsy();
+        });
+    });
+
+    // ═══════════════════════════════════════════════════
+    // Cleanup
     // ═══════════════════════════════════════════════════
 
     describe('Cleanup (ngOnDestroy)', () => {
-        it('debe detener todos los servicios al destruirse', async () => {
+        it('debe llamar destroy del orchestrator al destruirse', () => {
             fixture.componentRef.setInput('config', buildConfig());
             fixture.detectChanges();
-            await fixture.whenStable();
-
+            
             component.ngOnDestroy();
-
-            expect(mockFeedbackService.disconnect).toHaveBeenCalled();
-            expect(mockMediaService.stop).toHaveBeenCalled();
-            expect(mockEvidenceService.stopAudioRecording).toHaveBeenCalled();
-            expect(mockSecurityService.disableProtection).toHaveBeenCalled();
-            expect(mockGazeService.stop).toHaveBeenCalled();
-            expect(mockInactivityService.stopMonitoring).toHaveBeenCalled();
+            
+            expect(mockOrchestrator.destroy).toHaveBeenCalled();
         });
     });
 });
