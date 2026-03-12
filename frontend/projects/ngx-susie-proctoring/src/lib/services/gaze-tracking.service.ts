@@ -6,6 +6,12 @@ import {
     WebGazerPrediction,
     IntervalHandle,
 } from '@lib/models/contracts';
+import { GazeCalibrationService } from './gaze/gaze-calibration.service';
+import { GazePredictionService } from './gaze/gaze-prediction.service';
+import { GazeSmoothingService } from './gaze/gaze-smoothing.service';
+import { GazeMetricsService } from './gaze/gaze-metrics.service';
+import { GazeDeviationDetectionService } from './gaze/gaze-deviation-detection.service';
+import { GazeWebGazerMutingService } from './gaze/gaze-webgaze-muting.service';
 
 /** Coordenada suavizada de gaze tracking */
 export interface GazePoint {
@@ -84,7 +90,23 @@ export class GazeTrackingService {
     private pollingRafId: number | null = null;
     private lastPollTime = 0;
 
-    constructor(private ngZone: NgZone, private cleanup: DestroyRefUtility) { }
+    constructor(
+        private ngZone: NgZone,
+        private cleanup: DestroyRefUtility,
+        // Phase 0: Inject sub-services for descomposition
+        // Phase 1: Calibration Service - handles initial calibration process
+        private calibration: GazeCalibrationService,
+        // Phase 2: Prediction Service - captures raw predictions from WebGazer
+        private prediction: GazePredictionService,
+        // Phase 3: Smoothing Service - normalizes and smooths raw coordinates
+        private smoothing: GazeSmoothingService,
+        // Phase 4: Metrics Service - aggregates and buffers smoothed points
+        private metrics: GazeMetricsService,
+        // Phase 5: Deviation Detection Service - detects sustained gaze deviations
+        private deviationDetection: GazeDeviationDetectionService,
+        // Phase 6: WebGazer Muting Service - silences WebGazer video elements
+        private webgazerMuting: GazeWebGazerMutingService
+    ) { }
 
     /** Configura el servicio */
     configure(
