@@ -1,124 +1,108 @@
-import { Injectable, DestroyRef, inject } from '@angular/core';
+import { Injectable, signal, NgZone, inject, DestroyRef } from '@angular/core';
 import { LoggerFn } from '@lib/models/contracts';
-import type { GazePoint } from './gaze-smoothing.service';
+import { GazePoint } from './gaze-smoothing.service';
 
-/**
- * GazeDeviationDetectionService
- *
- * Responsabilidad: Detectar cuando la mirada sale sostenidamente del área de pantalla.
- * - Se suscribe a puntos suavizados de GazeSmoothingService
- * - Verifica cada punto contra un umbral configurado
- * - Emite evento de desviación solo después de N segundos fuera del área
- * - Resuelve la desviación cuando el usuario regresa
- *
- * Notas:
- * - Puro: solo reacciona a GazePoints
- * - No sabe de WebGazer, calibración, ni implementación interna
- * - Emite deviationDetected$ y deviationResolved$ (implementar en Fase 5)
- */
+export interface GazeDeviationConfig {
+    deviationThreshold: number;
+    deviationToleranceSeconds: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GazeDeviationDetectionService {
-  private destroyRef = inject(DestroyRef);
-  private logger: LoggerFn = () => {};
+    private destroyRef = inject(DestroyRef);
+    private ngZone = inject(NgZone);
+    private logger: LoggerFn = () => {};
 
-  private deviationThreshold: number = 0.85;
-  private deviationToleranceSeconds: number = 5;
+    private deviationThreshold = 0.85;
+    private deviationToleranceSeconds = 5;
 
-  private isDeviated = false;
-  private deviationStartTime: number | null = null;
-  private deviationCheckInterval: any = undefined;
+    readonly hasDeviation = signal(false);
 
-  constructor() {}
+    private deviationStartTime: number | null = null;
+    private deviationCheckInterval: ReturnType<typeof setInterval> | undefined;
+    private deviationCallback?: () => void;
+    private lastPointProvider: (() => GazePoint | null) | null = null;
 
-  /**
-   * Configura el logger para este servicio
-   */
-  setLogger(logger: LoggerFn): void {
-    this.logger = logger;
-  }
+    constructor() {
+        this.destroyRef.onDestroy(() => this.destroy());
+    }
 
-  /**
-   * Configura el umbral de desviación.
-   * Si |x| o |y| > threshold, se considera fuera del área.
-   *
-   * @param threshold - Valor normalizado [0, 1]
-   */
-  setDeviationThreshold(threshold: number): void {
-    // TODO: Implement in Phase 5
-    this.deviationThreshold = threshold;
-  }
+    setLogger(logger: LoggerFn): void {
+        this.logger = logger;
+    }
 
-  /**
-   * Configura la tolerancia de tiempo antes de emitir desviación.
-   * Se cuenta cuántos segundos consecutivos está fuera del umbral.
-   *
-   * @param seconds - Segundos de tolerancia
-   */
-  setDeviationToleranceSeconds(seconds: number): void {
-    // TODO: Implement in Phase 5
-    this.deviationToleranceSeconds = seconds;
-  }
+    setConfig(threshold: number, toleranceSeconds: number): void {
+        this.deviationThreshold = threshold;
+        this.deviationToleranceSeconds = toleranceSeconds;
+    }
 
-  /**
-   * Inicia la monitorización de desviaciones.
-   * Debe llamarse cuando comienza el tracking real.
-   */
-  startMonitoring(): void {
-    // TODO: Implement in Phase 5
-    // - Setear intervalo de chequeo (cada 1 segundo)
-    // - Evaluar cada punto contra umbral
-    // - Emitir deviationDetected$ cuando elapsed >= tolerance
-    // - Resetear deviationStartTime cuando regresa al área
-    throw new Error('Not implemented');
-  }
+    start(lastPointProvider: () => GazePoint | null, onDeviation?: () => void): void {
+        this.stop();
 
-  /**
-   * Detiene la monitorización.
-   */
-  stopMonitoring(): void {
-    // TODO: Implement in Phase 5
-    // - Cancelar intervalo
-    // - Resetear estado
-    throw new Error('Not implemented');
-  }
+        this.lastPointProvider = lastPointProvider;
+        if (onDeviation) {
+            this.deviationCallback = onDeviation;
+        }
 
-  /**
-   * Evalúa un punto de gaze contra el umbral de desviación.
-   * Se llama desde el Facade cuando llega un punto suavizado.
-   *
-   * @param point - GazePoint a evaluar
-   */
-  evaluatePoint(point: GazePoint): void {
-    // TODO: Implement in Phase 5
-    // - Verificar si está fuera de umbral: |x| > threshold || |y| > threshold
-    // - Si sí: iniciar timer de desviación (si no existe)
-    // - Si elapsed >= tolerance: emitir deviationDetected$
-    // - Si no: resetear timer
-    throw new Error('Not implemented');
-  }
+        this.deviationCheckInterval = setInterval(() => {
+            const point = this.lastPointProvider?.();
+            if (!point) return;
 
-  /**
-   * Obtiene el estado actual de desviación.
-   */
-  getDeviationStatus(): boolean {
-    return this.isDeviated;
-  }
+            const isOutOfBounds =
+                Math.abs(point.x) > this.deviationThreshold ||
+                Math.abs(point.y) > this.deviationThreshold;
 
-  /**
-   * Obtiene cuántos milisegundos lleva en desviación (si aplica).
-   */
-  getDeviationDuration(): number {
-    if (!this.deviationStartTime) return 0;
-    return Date.now() - this.deviationStartTime;
-  }
+            if (isOutOfBounds) {
+                const now = Date.now();
+                if (!this.deviationStartTime) {
+                    this.deviationStartTime = now;
+                }
 
-  /**
-   * Limpia recursos del servicio.
-   */
-  destroy(): void {
-    // TODO: Implement in Phase 5
-    // - Cancelar intervalos
-    // - Resetear estado
-    throw new Error('Not implemented');
-  }
+                const elapsed = (now - this.deviationStartTime) / 1000;
+
+                if (elapsed >= this.deviationToleranceSeconds && !this.hasDeviation()) {
+                    this.hasDeviation.set(true);
+                    this.logger('error', `🚨 GAZE_DEVIATION: Mirada fuera de pantalla por ${elapsed.toFixed(1)}s`);
+                    this.deviationCallback?.();
+                }
+            } else {
+                if (this.deviationStartTime) {
+                    this.deviationStartTime = null;
+                    if (this.hasDeviation()) {
+                        this.hasDeviation.set(false);
+                        this.logger('info', '👁️ Mirada regresó al área de pantalla');
+                    }
+                }
+            }
+        }, 1000);
+    }
+
+    stop(): void {
+        if (this.deviationCheckInterval) {
+            clearInterval(this.deviationCheckInterval);
+            this.deviationCheckInterval = undefined;
+        }
+        this.deviationStartTime = null;
+        this.lastPointProvider = null;
+        this.deviationCallback = undefined;
+    }
+
+    reset(): void {
+        this.deviationStartTime = null;
+        this.hasDeviation.set(false);
+    }
+
+    destroy(): void {
+        this.stop();
+        this.hasDeviation.set(false);
+    }
+
+    getDeviationDuration(): number {
+        if (!this.deviationStartTime) return 0;
+        return Date.now() - this.deviationStartTime;
+    }
+
+    getDeviationStatus(): boolean {
+        return this.hasDeviation();
+    }
 }

@@ -54,7 +54,7 @@ export class GazeTrackingService {
     readonly lastPoint = signal<GazePoint | null>(null);
 
     /** Si hay una desviación sostenida activa */
-    readonly hasDeviation = signal(false);
+    readonly hasDeviation = () => this.deviationDetection.hasDeviation();
 
     private config: GazeConfig = { ...DEFAULT_CONFIG };
     private logger: LoggerFn = () => { };
@@ -62,10 +62,6 @@ export class GazeTrackingService {
 
     // Buffer de coordenadas para telemetría (se envía con snapshots)
     // DELEGADO A: GazeMetricsService (Fase 4)
-
-    // Detección de desviación sostenida
-      private deviationStartTime: number | null = null;
-      private deviationCheckInterval: IntervalHandle | undefined;
 
       // Referencia a WebGazer (se carga globalmente)
       private webgazer: WebGazerAPI | null = null;
@@ -114,6 +110,11 @@ export class GazeTrackingService {
         if (config.smoothingWindow) {
             this.smoothing.setSmoothingWindow(config.smoothingWindow);
         }
+        this.deviationDetection.setLogger(this.logger);
+        this.deviationDetection.setConfig(
+            this.config.deviationThreshold,
+            this.config.deviationToleranceSeconds
+        );
     }
 
     /**
@@ -197,7 +198,10 @@ export class GazeTrackingService {
             });
 
             // Iniciar chequeo de desviación periódico
-            this.startDeviationDetection();
+            this.deviationDetection.start(
+                () => this.lastPoint(),
+                () => this.deviationCallback?.()
+            );
 
             // Iniciar diagnóstico
             this.startDiagnosticLoop();
@@ -240,6 +244,9 @@ export class GazeTrackingService {
         // FASE 4: Limpiar el servicio de métricas
         this.metrics.destroy();
         
+        // FASE 5: Limpiar el servicio de detección de desviación
+        this.deviationDetection.destroy();
+        
         try {
             if (this.webgazer) {
                 this.webgazer.end();
@@ -249,12 +256,10 @@ export class GazeTrackingService {
             // WebGazer puede fallar al detenerse si ya fue destruido
         }
 
-        this.stopDeviationDetection();
         this.stopAggressiveMuting();
         this.stopDiagnosticLoop();
         this.gazeState.set('IDLE');
         this.isCalibrated.set(false);
-        this.hasDeviation.set(false);
         this.lastPoint.set(null);
         this.metrics.clear();
         this.gazeFrameCount = 0;
@@ -299,58 +304,6 @@ export class GazeTrackingService {
                 this.logger('info', `🔬 Calibrando — Gaze raw: (${point.x}, ${point.y}) — frames: ${this.gazeFrameCount}`);
             }
         }
-    }
-
-    /**
-     * Inicia la detección de desviación sostenida.
-     * Cada segundo verifica si el punto más reciente está fuera del umbral.
-     */
-     private startDeviationDetection() {
-         this.stopDeviationDetection();
-
-         this.deviationCheckInterval = this.cleanup.setInterval(() => {
-             const point = this.lastPoint();
-             if (!point) return;
-
-             const isOutOfBounds =
-                 Math.abs(point.x) > this.config.deviationThreshold ||
-                 Math.abs(point.y) > this.config.deviationThreshold;
-
-             if (isOutOfBounds) {
-                 if (!this.deviationStartTime) {
-                     this.deviationStartTime = Date.now();
-                 }
-
-                 const elapsed = (Date.now() - this.deviationStartTime) / 1000;
-
-                 if (elapsed >= this.config.deviationToleranceSeconds && !this.hasDeviation()) {
-                     this.ngZone.run(() => {
-                         this.hasDeviation.set(true);
-                         this.logger('error', `🚨 GAZE_DEVIATION: Mirada fuera de pantalla por ${elapsed.toFixed(1)}s`);
-                         this.deviationCallback?.();
-                     });
-                 }
-             } else {
-                 // Regresó al área segura
-                 if (this.deviationStartTime) {
-                     this.deviationStartTime = null;
-                     if (this.hasDeviation()) {
-                         this.ngZone.run(() => {
-                             this.hasDeviation.set(false);
-                             this.logger('info', '👁️ Mirada regresó al área de pantalla');
-                         });
-                     }
-                 }
-             }
-         }, 1000);
-     }
-
-    private stopDeviationDetection() {
-        if (this.deviationCheckInterval) {
-            clearInterval(this.deviationCheckInterval);
-            this.deviationCheckInterval = undefined;
-        }
-        this.deviationStartTime = null;
     }
 
     /**
