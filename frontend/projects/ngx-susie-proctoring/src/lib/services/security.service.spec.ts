@@ -284,6 +284,9 @@ describe('SecurityService', () => {
 
     describe('Cleanup Policy - Event Listeners', () => {
         it('NO debe haber event listeners después de disableProtection()', () => {
+            // Deshabilitar jasmine clock si está instalado
+            try { jasmine.clock().uninstall(); } catch (e) { /* ignore */ }
+            
             service.enableProtection({
                 requireFullscreen: true,
                 preventTabSwitch: true,
@@ -301,6 +304,8 @@ describe('SecurityService', () => {
         });
 
         it('NO debe haber timers/intervals después de disableProtection()', () => {
+            // Deshabilitar jasmine clock si está instalado
+            try { jasmine.clock().uninstall(); } catch (e) { /* ignore */ }
             jasmine.clock().install();
 
             service.enableProtection({ preventInspection: true }, violationCallback);

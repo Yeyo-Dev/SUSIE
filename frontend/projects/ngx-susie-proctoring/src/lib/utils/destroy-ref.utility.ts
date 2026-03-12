@@ -92,9 +92,10 @@ export class DestroyRefUtility {
    * @param timeoutId ID del timeout a cancelar
    */
   clearTimeout(timeoutId: ReturnType<typeof setTimeout>): void {
+    if (!timeoutId) return;
     clearTimeout(timeoutId);
-    const index = this.activeTimers.indexOf(timeoutId);
-    if (index > -1) {
+    const index = this.activeTimers?.indexOf(timeoutId);
+    if (index !== undefined && index > -1) {
       this.activeTimers.splice(index, 1);
     }
   }
@@ -116,9 +117,10 @@ export class DestroyRefUtility {
    * @param intervalId ID del interval a cancelar
    */
   clearInterval(intervalId: ReturnType<typeof setInterval>): void {
+    if (!intervalId) return;
     clearInterval(intervalId);
-    const index = this.activeIntervals.indexOf(intervalId);
-    if (index > -1) {
+    const index = this.activeIntervals?.indexOf(intervalId);
+    if (index !== undefined && index > -1) {
       this.activeIntervals.splice(index, 1);
     }
   }
@@ -139,7 +141,12 @@ export class DestroyRefUtility {
     options?: boolean | AddEventListenerOptions
   ): void {
     const listener = handler as EventListener;
-    target.addEventListener(event, listener, options);
+    // Solo pasar options si está definido para evitar issues en tests
+    if (options !== undefined) {
+      target.addEventListener(event, listener, options);
+    } else {
+      target.addEventListener(event, listener);
+    }
     this.activeListeners.push({ target, event, handler: listener, options });
   }
 
@@ -148,8 +155,8 @@ export class DestroyRefUtility {
    * @param target Elemento donde fue registrado
    * @param event Nombre del evento
    * @param handler Función manejadora (DEBE ser la misma referencia)
-    * @param options Opciones usadas en addEventListener
-    */
+   * @param options Opciones usadas en addEventListener
+   */
   removeEventListener(
     target: EventTarget,
     event: string,
@@ -157,7 +164,12 @@ export class DestroyRefUtility {
     options?: boolean | AddEventListenerOptions
   ): void {
     const listener = handler as EventListener;
-    target.removeEventListener(event, listener, options);
+    // Solo pasar options si está definido para evitar issues en tests
+    if (options !== undefined) {
+      target.removeEventListener(event, listener, options);
+    } else {
+      target.removeEventListener(event, listener);
+    }
     const index = this.activeListeners.findIndex(
       (l) => l.target === target && l.event === event && l.handler === listener
     );

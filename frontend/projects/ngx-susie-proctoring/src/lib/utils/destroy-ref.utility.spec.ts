@@ -59,6 +59,7 @@ describe('DestroyRefUtility', () => {
       expect(callCount).toBe(1);
 
       // Trigger destroy manually by calling the destroy callbacks
+      try { jasmine.clock().uninstall(); } catch (e) { /* ignore */ }
       TestBed.inject(DestroyRefUtility);
       TestBed.resetTestingModule();
 
@@ -67,6 +68,11 @@ describe('DestroyRefUtility', () => {
   });
 
   describe('setInterval', () => {
+    beforeEach(() => {
+      // Limpiar cualquier timer pendiente
+      try { jasmine.clock().uninstall(); } catch (e) { /* ignore */ }
+    });
+    
     it('should execute callback at intervals', fakeAsync(() => {
       let callCount = 0;
       const callback = () => { callCount++; };
@@ -81,6 +87,9 @@ describe('DestroyRefUtility', () => {
 
       tick(100);
       expect(callCount).toBe(3);
+      
+      // Limpiar timer pendiente
+      try { jasmine.clock().uninstall(); } catch (e) { /* ignore */ }
     }));
 
     it('should allow clearInterval', fakeAsync(() => {
