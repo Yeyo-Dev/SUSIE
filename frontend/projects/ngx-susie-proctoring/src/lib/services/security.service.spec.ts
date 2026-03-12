@@ -277,4 +277,41 @@ describe('SecurityService', () => {
             jasmine.clock().uninstall();
         });
     });
+
+    // ══════════════════════════════════════════════════════════════
+    // Cleanup Policy Tests — Verificar NO quedan timers/listeners
+    // ══════════════════════════════════════════════════════════════
+
+    describe('Cleanup Policy - Event Listeners', () => {
+        it('NO debe haber event listeners después de disableProtection()', () => {
+            service.enableProtection({
+                requireFullscreen: true,
+                preventTabSwitch: true,
+                preventInspection: true,
+                preventBackNavigation: true,
+                preventPageReload: true,
+                preventCopyPaste: true,
+            }, violationCallback);
+
+            service.disableProtection();
+
+            // Verificar que todos los listeners fueron removidos
+            expect(docRemoveSpy).toHaveBeenCalledWith('fullscreenchange', jasmine.any(Function));
+            expect(winRemoveSpy).toHaveBeenCalledWith('blur', jasmine.any(Function));
+        });
+
+        it('NO debe haber timers/intervals después de disableProtection()', () => {
+            jasmine.clock().install();
+
+            service.enableProtection({ preventInspection: true }, violationCallback);
+
+            const clearIntervalSpy = spyOn(globalThis, 'clearInterval').and.callThrough();
+            service.disableProtection();
+
+            // El intervalo debe haberse limpiado
+            expect(clearIntervalSpy).toHaveBeenCalled();
+
+            jasmine.clock().uninstall();
+        });
+    });
 });

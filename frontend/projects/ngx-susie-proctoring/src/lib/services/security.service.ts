@@ -1,5 +1,6 @@
 import { Injectable, NgZone, inject } from '@angular/core';
 import { SecurityViolation } from '../models/contracts';
+import { DestroyRefUtility } from '../utils/destroy-ref.utility';
 
 @Injectable({ providedIn: 'root' })
 export class SecurityService {
@@ -9,7 +10,10 @@ export class SecurityService {
     
     private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
 
-    constructor(private ngZone: NgZone) { }
+    constructor(
+        private ngZone: NgZone,
+        private cleanup: DestroyRefUtility
+    ) { }
 
     setLogger(fn: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void) {
         this.logger = fn;
@@ -20,48 +24,48 @@ export class SecurityService {
         this.violationCallback = callback;
 
         if (policies.requireFullscreen) {
-            document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+            this.cleanup.addEventListener(document, 'fullscreenchange', this.handleFullscreenChange);
         }
 
         if (policies.preventTabSwitch) {
-            document.addEventListener('visibilitychange', this.handleVisibilityChange);
-            window.addEventListener('blur', this.handleBlur);
+            this.cleanup.addEventListener(document, 'visibilitychange', this.handleVisibilityChange);
+            this.cleanup.addEventListener(window, 'blur', this.handleBlur);
         }
 
         if (policies.preventInspection) {
             // Polling approach to catch devtools opened via browser UI (menu)
-            this.devToolsInterval = setInterval(() => this.checkDevtoolsSize(), 5000);
+            this.devToolsInterval = this.cleanup.setInterval(() => this.checkDevtoolsSize(), 5000);
         }
 
         if (policies.preventBackNavigation) {
             history.pushState(null, '', window.location.href);
-            window.addEventListener('popstate', this.preventBack);
+            this.cleanup.addEventListener(window, 'popstate', this.preventBack);
         }
 
         if (policies.preventPageReload) {
-            window.addEventListener('beforeunload', this.preventReload);
+            this.cleanup.addEventListener(window, 'beforeunload', this.preventReload);
         }
 
         if (policies.preventCopyPaste) {
-            ['copy', 'cut', 'paste'].forEach(evt => document.addEventListener(evt, this.preventClipboard));
-            document.addEventListener('selectstart', this.preventSelection);
+            ['copy', 'cut', 'paste'].forEach(evt => this.cleanup.addEventListener(document, evt, this.preventClipboard));
+            this.cleanup.addEventListener(document, 'selectstart', this.preventSelection);
         }
     }
 
     disableProtection() {
         if (this.devToolsInterval) {
-            clearInterval(this.devToolsInterval);
+            this.cleanup.clearInterval(this.devToolsInterval);
             this.devToolsInterval = undefined;
         }
 
-        document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
-        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-        window.removeEventListener('blur', this.handleBlur);
-        window.removeEventListener('popstate', this.preventBack);
-        window.removeEventListener('beforeunload', this.preventReload);
+        this.cleanup.removeEventListener(document, 'fullscreenchange', this.handleFullscreenChange);
+        this.cleanup.removeEventListener(document, 'visibilitychange', this.handleVisibilityChange);
+        this.cleanup.removeEventListener(window, 'blur', this.handleBlur);
+        this.cleanup.removeEventListener(window, 'popstate', this.preventBack);
+        this.cleanup.removeEventListener(window, 'beforeunload', this.preventReload);
 
-        ['copy', 'cut', 'paste'].forEach(evt => document.removeEventListener(evt, this.preventClipboard));
-        document.removeEventListener('selectstart', this.preventSelection);
+        ['copy', 'cut', 'paste'].forEach(evt => this.cleanup.removeEventListener(document, evt, this.preventClipboard));
+        this.cleanup.removeEventListener(document, 'selectstart', this.preventSelection);
     }
 
 

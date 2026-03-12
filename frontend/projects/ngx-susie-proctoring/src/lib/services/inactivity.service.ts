@@ -1,4 +1,5 @@
-import { Injectable, signal, OnDestroy } from '@angular/core';
+import { Injectable, signal, OnDestroy, inject } from '@angular/core';
+import { DestroyRefUtility } from '../utils/destroy-ref.utility';
 
 @Injectable({ providedIn: 'root' })
 export class InactivityService implements OnDestroy {
@@ -11,6 +12,7 @@ export class InactivityService implements OnDestroy {
     private events = ['mousemove', 'keydown', 'click', 'scroll'];
     private lastActivity = Date.now();
     private checkInterval: ReturnType<typeof setInterval> | undefined;
+    private cleanup = inject(DestroyRefUtility);
 
     configure(limitMinutes: number, callback?: () => void) {
         if (limitMinutes > 0) {
@@ -24,11 +26,11 @@ export class InactivityService implements OnDestroy {
 
         // Listen to user events
         this.events.forEach(event => {
-            window.addEventListener(event, this.handleUserActivity, { passive: true });
+            this.cleanup.addEventListener(window, event, this.handleUserActivity, { passive: true });
         });
 
         // Check periodically
-        this.checkInterval = setInterval(() => {
+        this.checkInterval = this.cleanup.setInterval(() => {
             const now = Date.now();
             const elapsed = now - this.lastActivity;
 
@@ -46,9 +48,12 @@ export class InactivityService implements OnDestroy {
 
     stopMonitoring() {
         this.events.forEach(event => {
-            window.removeEventListener(event, this.handleUserActivity);
+            this.cleanup.removeEventListener(window, event, this.handleUserActivity);
         });
-        if (this.checkInterval) clearInterval(this.checkInterval);
+        if (this.checkInterval) {
+            this.cleanup.clearInterval(this.checkInterval);
+            this.checkInterval = undefined;
+        }
         this.showWarning.set(false);
     }
 

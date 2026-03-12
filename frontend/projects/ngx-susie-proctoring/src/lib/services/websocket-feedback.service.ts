@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { DestroyRefUtility } from '../utils/destroy-ref.utility';
 
 /**
  * Estructura del payload JSON que el backend envía a través del WebSocket.
@@ -27,6 +28,7 @@ export class WebSocketFeedbackService {
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private reconnectAttempts = 0;
     private intentionalClose = false;
+    private cleanup = inject(DestroyRefUtility);
 
     /** Duración en ms de la alerta visible antes de auto-descartarse */
     private readonly ALERT_DURATION_MS = 6000;
@@ -122,13 +124,13 @@ export class WebSocketFeedbackService {
     private showAlert(payload: AIAlertPayload) {
         // Limpiar timer anterior si había una alerta activa
         if (this.dismissTimer) {
-            clearTimeout(this.dismissTimer);
+            this.cleanup.clearTimeout(this.dismissTimer);
         }
 
         this.currentAlert.set(payload);
 
         // Auto-descartar después de N segundos
-        this.dismissTimer = setTimeout(() => {
+        this.dismissTimer = this.cleanup.setTimeout(() => {
             this.currentAlert.set(null);
             this.dismissTimer = null;
         }, this.ALERT_DURATION_MS);
@@ -145,18 +147,18 @@ export class WebSocketFeedbackService {
 
         this.logger('info', `🔄 Reintentando conexión de feedback en ${delay / 1000}s (intento ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})`);
 
-        this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = this.cleanup.setTimeout(() => {
             this.initSocket(url);
         }, delay);
     }
 
     private clearTimers() {
         if (this.dismissTimer) {
-            clearTimeout(this.dismissTimer);
+            this.cleanup.clearTimeout(this.dismissTimer);
             this.dismissTimer = null;
         }
         if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
+            this.cleanup.clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
     }

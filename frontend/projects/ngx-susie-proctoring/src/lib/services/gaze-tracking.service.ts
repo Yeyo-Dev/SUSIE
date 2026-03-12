@@ -1,4 +1,5 @@
-import { Injectable, signal, NgZone } from '@angular/core';
+import { Injectable, signal, NgZone, inject } from '@angular/core';
+import { DestroyRefUtility } from '../utils/destroy-ref.utility';
 
 /** Coordenada suavizada de gaze tracking */
 export interface GazePoint {
@@ -77,7 +78,7 @@ export class GazeTrackingService {
     private pollingRafId: number | null = null;
     private lastPollTime = 0;
 
-    constructor(private ngZone: NgZone) { }
+    constructor(private ngZone: NgZone, private cleanup: DestroyRefUtility) { }
 
     /** Configura el servicio */
     configure(
@@ -359,45 +360,45 @@ export class GazeTrackingService {
      * Inicia la detección de desviación sostenida.
      * Cada segundo verifica si el punto más reciente está fuera del umbral.
      */
-    private startDeviationDetection() {
-        this.stopDeviationDetection();
+     private startDeviationDetection() {
+         this.stopDeviationDetection();
 
-        this.deviationCheckInterval = setInterval(() => {
-            const point = this.lastPoint();
-            if (!point) return;
+         this.deviationCheckInterval = this.cleanup.setInterval(() => {
+             const point = this.lastPoint();
+             if (!point) return;
 
-            const isOutOfBounds =
-                Math.abs(point.x) > this.config.deviationThreshold ||
-                Math.abs(point.y) > this.config.deviationThreshold;
+             const isOutOfBounds =
+                 Math.abs(point.x) > this.config.deviationThreshold ||
+                 Math.abs(point.y) > this.config.deviationThreshold;
 
-            if (isOutOfBounds) {
-                if (!this.deviationStartTime) {
-                    this.deviationStartTime = Date.now();
-                }
+             if (isOutOfBounds) {
+                 if (!this.deviationStartTime) {
+                     this.deviationStartTime = Date.now();
+                 }
 
-                const elapsed = (Date.now() - this.deviationStartTime) / 1000;
+                 const elapsed = (Date.now() - this.deviationStartTime) / 1000;
 
-                if (elapsed >= this.config.deviationToleranceSeconds && !this.hasDeviation()) {
-                    this.ngZone.run(() => {
-                        this.hasDeviation.set(true);
-                        this.logger('error', `🚨 GAZE_DEVIATION: Mirada fuera de pantalla por ${elapsed.toFixed(1)}s`);
-                        this.deviationCallback?.();
-                    });
-                }
-            } else {
-                // Regresó al área segura
-                if (this.deviationStartTime) {
-                    this.deviationStartTime = null;
-                    if (this.hasDeviation()) {
-                        this.ngZone.run(() => {
-                            this.hasDeviation.set(false);
-                            this.logger('info', '👁️ Mirada regresó al área de pantalla');
-                        });
-                    }
-                }
-            }
-        }, 1000);
-    }
+                 if (elapsed >= this.config.deviationToleranceSeconds && !this.hasDeviation()) {
+                     this.ngZone.run(() => {
+                         this.hasDeviation.set(true);
+                         this.logger('error', `🚨 GAZE_DEVIATION: Mirada fuera de pantalla por ${elapsed.toFixed(1)}s`);
+                         this.deviationCallback?.();
+                     });
+                 }
+             } else {
+                 // Regresó al área segura
+                 if (this.deviationStartTime) {
+                     this.deviationStartTime = null;
+                     if (this.hasDeviation()) {
+                         this.ngZone.run(() => {
+                             this.hasDeviation.set(false);
+                             this.logger('info', '👁️ Mirada regresó al área de pantalla');
+                         });
+                     }
+                 }
+             }
+         }, 1000);
+     }
 
     private stopDeviationDetection() {
         if (this.deviationCheckInterval) {
@@ -487,16 +488,16 @@ export class GazeTrackingService {
             subtree: true
         });
 
-        // También un intervalo de respaldo cada 500ms durante 10 segundos
-        let retryCount = 0;
-        this.muteRetryInterval = setInterval(() => {
-            this.muteAllWebgazerVideos();
-            retryCount++;
-            if (retryCount >= 20) { // 10 segundos
-                clearInterval(this.muteRetryInterval);
-                this.muteRetryInterval = undefined;
-            }
-        }, 500);
+         // También un intervalo de respaldo cada 500ms durante 10 segundos
+         let retryCount = 0;
+         this.muteRetryInterval = this.cleanup.setInterval(() => {
+             this.muteAllWebgazerVideos();
+             retryCount++;
+             if (retryCount >= 20) { // 10 segundos
+                 this.cleanup.clearInterval(this.muteRetryInterval as any);
+                 this.muteRetryInterval = undefined;
+             }
+         }, 500);
     }
 
     /**
@@ -585,38 +586,38 @@ export class GazeTrackingService {
      * Diagnóstico: verifica cada 2s que WebGazer sigue procesando frames.
      * Logs directos a console.log para máxima visibilidad.
      */
-    private startDiagnosticLoop() {
-        this.stopDiagnosticLoop();
+     private startDiagnosticLoop() {
+         this.stopDiagnosticLoop();
 
-        let lastCheckedFrameCount = this.gazeFrameCount;
+         let lastCheckedFrameCount = this.gazeFrameCount;
 
-        this.diagnosticInterval = setInterval(() => {
-            const wg = this.webgazer;
-            const currentFrames = this.gazeFrameCount;
-            const newFrames = currentFrames - lastCheckedFrameCount;
-            lastCheckedFrameCount = currentFrames;
+         this.diagnosticInterval = this.cleanup.setInterval(() => {
+             const wg = this.webgazer;
+             const currentFrames = this.gazeFrameCount;
+             const newFrames = currentFrames - lastCheckedFrameCount;
+             lastCheckedFrameCount = currentFrames;
 
-            // Verificar video element
-            const videoEl = document.getElementById('webgazerVideoFeed') as HTMLVideoElement | null;
-            const videoStatus = videoEl ? {
-                paused: videoEl.paused,
-                readyState: videoEl.readyState,
-                videoWidth: videoEl.videoWidth,
-                videoHeight: videoEl.videoHeight,
-                srcObject: !!videoEl.srcObject,
-                muted: videoEl.muted,
-                currentTime: videoEl.currentTime?.toFixed(1),
-            } : 'NO ENCONTRADO';
+             // Verificar video element
+             const videoEl = document.getElementById('webgazerVideoFeed') as HTMLVideoElement | null;
+             const videoStatus = videoEl ? {
+                 paused: videoEl.paused,
+                 readyState: videoEl.readyState,
+                 videoWidth: videoEl.videoWidth,
+                 videoHeight: videoEl.videoHeight,
+                 srcObject: !!videoEl.srcObject,
+                 muted: videoEl.muted,
+                 currentTime: videoEl.currentTime?.toFixed(1),
+             } : 'NO ENCONTRADO';
 
-            // Silenciado el bloque gigante de diagnóstico
-            if (newFrames === 0) {
-                // Solo loguear este error de UI cada 10 segundos
-                if (currentFrames % 5 === 0) {
-                    this.logger('error', '⚠️ WebGazer no envía datos de gaze (pipeline detenido)');
-                }
-            }
-        }, 10000); // Revisar cada 10s en vez de 2s para no saturar
-    }
+             // Silenciado el bloque gigante de diagnóstico
+             if (newFrames === 0) {
+                 // Solo loguear este error de UI cada 10 segundos
+                 if (currentFrames % 5 === 0) {
+                     this.logger('error', '⚠️ WebGazer no envía datos de gaze (pipeline detenido)');
+                 }
+             }
+         }, 10000); // Revisar cada 10s en vez de 2s para no saturar
+     }
 
     private stopDiagnosticLoop() {
         if (this.diagnosticInterval) {

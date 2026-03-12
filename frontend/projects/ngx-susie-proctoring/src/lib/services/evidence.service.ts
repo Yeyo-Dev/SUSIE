@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { EvidenceQueueService } from './evidence-queue.service';
+import { DestroyRefUtility } from '../utils/destroy-ref.utility';
 import {
     EvidencePayload,
     EvidenceMetadata,
@@ -20,6 +21,7 @@ export class EvidenceService {
 
     /** Cola de reintentos offline (IndexedDB). */
     private queue = inject(EvidenceQueueService);
+    private cleanup = inject(DestroyRefUtility);
 
     /** ID de sesión remota devuelto por POST /sesiones/ */
     private remoteSessionId: string | null = null;
@@ -109,7 +111,7 @@ export class EvidenceService {
     };
 
     private initMediaRecorder(stream: MediaStream, config: any) {
-        window.addEventListener('beforeunload', this.handleUnload);
+        this.cleanup.addEventListener(window, 'beforeunload', this.handleUnload);
 
         try {
             const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -136,7 +138,7 @@ export class EvidenceService {
 
             this.mediaRecorder.start();
 
-            this.recordingInterval = setInterval(() => {
+            this.recordingInterval = this.cleanup.setInterval(() => {
                 if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
                     this.mediaRecorder.stop();
                     this.mediaRecorder.start();
@@ -151,9 +153,9 @@ export class EvidenceService {
     }
 
     stopAudioRecording() {
-        window.removeEventListener('beforeunload', this.handleUnload);
+        this.cleanup.removeEventListener(window, 'beforeunload', this.handleUnload);
         if (this.recordingInterval) {
-            clearInterval(this.recordingInterval);
+            this.cleanup.clearInterval(this.recordingInterval);
             this.recordingInterval = undefined;
         }
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {

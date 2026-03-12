@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject, effect, output } from '@angular/core';
+import { Injectable, signal, computed, inject, effect, output, OnDestroy } from '@angular/core';
 import { SusieConfig, StepInfo, SecurityViolation, ConsentResult, ExamResult } from '../models/contracts';
 import { MediaService } from './media.service';
 import { EvidenceService } from './evidence.service';
@@ -7,6 +7,7 @@ import { NetworkMonitorService } from './network-monitor.service';
 import { InactivityService } from './inactivity.service';
 import { GazeTrackingService } from './gaze-tracking.service';
 import { WebSocketFeedbackService } from './websocket-feedback.service';
+import { DestroyRefUtility } from '../utils/destroy-ref.utility';
 
 /** Estado interno del flujo de proctoring */
 export type ProctoringState = 
@@ -42,7 +43,7 @@ export interface OrchestratorCallbacks {
  * y este servicio.
  */
 @Injectable({ providedIn: 'root' })
-export class ProctoringOrchestratorService {
+export class ProctoringOrchestratorService implements OnDestroy {
   // Services
   private readonly mediaService = inject(MediaService);
   private readonly evidenceService = inject(EvidenceService);
@@ -51,6 +52,7 @@ export class ProctoringOrchestratorService {
   private readonly inactivityService = inject(InactivityService);
   private readonly gazeService = inject(GazeTrackingService);
   private readonly feedbackService = inject(WebSocketFeedbackService);
+  private readonly cleanup = inject(DestroyRefUtility);
 
   // --- State Signals ---
   readonly state = signal<ProctoringState>('CHECKING_PERMISSIONS');
@@ -161,8 +163,8 @@ export class ProctoringOrchestratorService {
   }
 
   private setupEventListeners(): void {
-    document.addEventListener('contextmenu', this.preventGlobalContextMenu);
-    document.addEventListener('keydown', this.preventGlobalDevTools);
+    this.cleanup.addEventListener(document, 'contextmenu', this.preventGlobalContextMenu);
+    this.cleanup.addEventListener(document, 'keydown', this.preventGlobalDevTools);
   }
 
   private handlePreventContextMenu(e: Event): boolean {
@@ -359,7 +361,7 @@ export class ProctoringOrchestratorService {
 
     // Visibility handler for fullscreen recovery
     if (policies.requireFullscreen) {
-      document.addEventListener('visibilitychange', this.visibilityReturnHandler);
+      this.cleanup.addEventListener(document, 'visibilitychange', this.visibilityReturnHandler);
     }
 
     // Start session with backend
@@ -517,12 +519,16 @@ export class ProctoringOrchestratorService {
 
   // --- Cleanup ---
 
+  ngOnDestroy(): void {
+    this.destroy();
+  }
+
   destroy(): void {
     this.log('info', '🛑 Deteniendo orchestrator');
 
-    document.removeEventListener('contextmenu', this.preventGlobalContextMenu);
-    document.removeEventListener('keydown', this.preventGlobalDevTools);
-    document.removeEventListener('visibilitychange', this.visibilityReturnHandler);
+    this.cleanup.removeEventListener(document, 'contextmenu', this.preventGlobalContextMenu);
+    this.cleanup.removeEventListener(document, 'keydown', this.preventGlobalDevTools);
+    this.cleanup.removeEventListener(document, 'visibilitychange', this.visibilityReturnHandler);
 
     if (this.state() === 'MONITORING') {
       this.evidenceService.endSession('cancelled');
