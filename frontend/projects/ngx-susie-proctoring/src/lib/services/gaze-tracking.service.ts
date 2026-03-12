@@ -87,8 +87,7 @@ export class GazeTrackingService {
       private diagnosticInterval: IntervalHandle | undefined;
 
     // Polling manual de gaze (fallback cuando setGazeListener deja de funcionar)
-    private pollingRafId: number | null = null;
-    private lastPollTime = 0;
+    // AHORA DELEGADO A: GazePredictionService (Fase 2)
 
     constructor(
         private ngZone: NgZone,
@@ -188,9 +187,17 @@ export class GazeTrackingService {
 
             console.log('[GAZE] completeCalibration() — gazeFrameCount:', this.gazeFrameCount);
 
-            // Iniciar polling manual de predicciones
-            // No depende de setGazeListener — llama directamente a getCurrentPrediction()
-            this.startManualPolling();
+            // FASE 2: Delegar polling y captura de predicciones a GazePredictionService
+            this.prediction.setLogger(this.logger);
+            await this.prediction.startTracking(webgazer);
+
+            // Suscribirse a predicciones crudas y procesarlas
+            this.prediction.predictionReceived$.subscribe((prediction) => {
+                if (prediction && prediction.x != null && prediction.y != null) {
+                    this.gazeFrameCount++;
+                    this.processRawGaze(prediction.x, prediction.y);
+                }
+            });
 
             // Iniciar chequeo de desviación periódico
             this.startDeviationDetection();
@@ -198,7 +205,7 @@ export class GazeTrackingService {
             // Iniciar diagnóstico
             this.startDiagnosticLoop();
 
-            this.logger('success', '✅ Calibración completada — Tracking activo (polling manual)');
+            this.logger('success', '✅ Calibración completada — Tracking activo (delegado a GazePredictionService)');
         } catch (error) {
             this.logger('error', 'Error en completeCalibration:', error);
         }
@@ -227,6 +234,9 @@ export class GazeTrackingService {
         // FASE 1: Limpiar el servicio de calibración
         this.calibration.destroy();
         
+        // FASE 2: Limpiar el servicio de predicciones
+        this.prediction.stopTracking();
+        
         try {
             if (this.webgazer) {
                 this.webgazer.end();
@@ -239,7 +249,6 @@ export class GazeTrackingService {
         this.stopDeviationDetection();
         this.stopAggressiveMuting();
         this.stopDiagnosticLoop();
-        this.stopManualPolling();
         this.gazeState.set('IDLE');
         this.isCalibrated.set(false);
         this.hasDeviation.set(false);
@@ -473,86 +482,21 @@ export class GazeTrackingService {
         }
     }
 
-    /**
-     * Polling manual de predicciones de WebGazer.
-     * Usa requestAnimationFrame + getCurrentPrediction() como fallback
-     * cuando setGazeListener deja de disparar después de la calibración.
-     */
-    private startManualPolling() {
-        this.stopManualPolling();
-        console.log('[GAZE] Iniciando polling manual de gaze...');
+    // FASE 2: Polling DELEGADO a GazePredictionService
+    // Los métodos startManualPolling() y stopManualPolling() fueron movidos
 
-        const poll = () => {
-            if (this.gazeState() !== 'TRACKING') {
-                console.log('[GAZE] Polling detenido — estado:', this.gazeState());
-                return;
-            }
-
-            // Limitar a ~10 predicciones/segundo (cada 100ms)
-            const now = Date.now();
-            if (now - this.lastPollTime >= 100) {
-                this.lastPollTime = now;
-
-                if (this.webgazer) {
-                    try {
-                         // Intentar getCurrentPrediction (método común de WebGazer)
-                         let prediction: WebGazerPrediction | null = null;
-
-                         if (typeof this.webgazer.getCurrentPrediction === 'function') {
-                             prediction = this.webgazer.getCurrentPrediction();
-                         } else if (typeof (this.webgazer as any).predict === 'function') {
-                             prediction = (this.webgazer as any).predict();
-                         }
-
-                        if (prediction && prediction.x != null && prediction.y != null) {
-                            this.gazeFrameCount++;
-
-                            if (this.gazeFrameCount <= 3) {
-                                console.log(`[GAZE-POLL] ✅ Predicción #${this.gazeFrameCount}:`, prediction);
-                                this.logger('success', `👁️ Gaze polling: dato #${this.gazeFrameCount}`);
-                            }
-
-                            if (this.gazeFrameCount % 30 === 0) {
-                                console.log(`[GAZE-POLL] Frame #${this.gazeFrameCount} → x:${prediction.x.toFixed(2)}, y:${prediction.y.toFixed(2)}`);
-                            }
-
-                                 this.processRawGaze(prediction.x, prediction.y);
-                             } else if (this.gazeFrameCount % 50 === 0) {
-                                 // No face detected - expected occasionally
-                             }
-                     } catch (e) {
-                         if (this.gazeFrameCount % 100 === 0) {
-                             this.logger('error', 'Error en polling de gaze:', e);
-                         }
-                     }
-                }
-            }
-
-            this.pollingRafId = requestAnimationFrame(poll);
-        };
-
-        this.pollingRafId = requestAnimationFrame(poll);
-    }
-
-    private stopManualPolling() {
-        if (this.pollingRafId !== null) {
-            cancelAnimationFrame(this.pollingRafId);
-            this.pollingRafId = null;
-        }
-    }
-
-    /**
-     * Diagnóstico: verifica cada 2s que WebGazer sigue procesando frames.
-     * Logs directos a console.log para máxima visibilidad.
-     */
+     /**
+      * Diagnóstico: verifica cada 2s que WebGazer sigue procesando frames.
+      * Logs directos a console.log para máxima visibilidad.
+      */
      private startDiagnosticLoop() {
          this.stopDiagnosticLoop();
 
-         let lastCheckedFrameCount = this.gazeFrameCount;
+         let lastCheckedFrameCount = this.prediction.getFrameCount();
 
          this.diagnosticInterval = this.cleanup.setInterval(() => {
              const wg = this.webgazer;
-             const currentFrames = this.gazeFrameCount;
+             const currentFrames = this.prediction.getFrameCount();
              const newFrames = currentFrames - lastCheckedFrameCount;
              lastCheckedFrameCount = currentFrames;
 

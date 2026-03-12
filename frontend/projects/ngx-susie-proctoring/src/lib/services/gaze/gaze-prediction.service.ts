@@ -1,4 +1,5 @@
 import { Injectable, DestroyRef, inject } from '@angular/core';
+import { Subject } from 'rxjs';
 import { LoggerFn, WebGazerAPI, WebGazerPrediction } from '@lib/models/contracts';
 
 /**
@@ -22,9 +23,18 @@ export class GazePredictionService {
   private webgazer: WebGazerAPI | null = null;
   private isTracking = false;
   private pollingRafId: number | null = null;
+  private lastPollTime = 0;
   private gazeFrameCount = 0;
+  private customListener: ((data: WebGazerPrediction | null, clock: number) => void) | null = null;
 
-  constructor() {}
+  private predictionSubject = new Subject<WebGazerPrediction>();
+  predictionReceived$ = this.predictionSubject.asObservable();
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.destroy();
+    });
+  }
 
   /**
    * Configura el logger para este servicio
@@ -40,13 +50,16 @@ export class GazePredictionService {
    * @param webgazer - Instancia de WebGazer (obtenida del CalibrationService)
    */
   async startTracking(webgazer: WebGazerAPI): Promise<void> {
-    // TODO: Implement in Phase 2
-    // - Guardar referencia a WebGazer
-    // - Setear listener: webgazer.setGazeListener((data, clock) => { ... })
-    // - Iniciar polling manual con RAF
-    // - Emitir predictionReceived$ con datos crudos (x, y en píxeles)
-    // - Marcar isTracking = true
-    throw new Error('Not implemented');
+    this.webgazer = webgazer;
+    this.isTracking = true;
+    this.gazeFrameCount = 0;
+    this.lastPollTime = 0;
+
+    if (this.customListener) {
+      webgazer.setGazeListener(this.customListener);
+    }
+
+    this.startManualPolling();
   }
 
   /**
@@ -54,11 +67,18 @@ export class GazePredictionService {
    * Limpia listeners y RAF.
    */
   stopTracking(): void {
-    // TODO: Implement in Phase 2
-    // - Cancelar RAF polling
-    // - Limpiar listener de WebGazer
-    // - Marcar isTracking = false
-    throw new Error('Not implemented');
+    this.isTracking = false;
+    this.stopManualPolling();
+
+    if (this.webgazer) {
+      try {
+        this.webgazer.setGazeListener(() => {});
+      } catch {
+        // Ignore errors when clearing listener
+      }
+    }
+
+    this.webgazer = null;
   }
 
   /**
@@ -68,10 +88,11 @@ export class GazePredictionService {
    * @param callback - Función que se ejecuta cuando llega una predicción
    */
   setGazeListener(callback: (data: WebGazerPrediction | null, clock: number) => void): void {
-    // TODO: Implement in Phase 2
-    // - Guardar callback
-    // - Registrarlo con WebGazer
-    throw new Error('Not implemented');
+    this.customListener = callback;
+
+    if (this.webgazer && this.isTracking) {
+      this.webgazer.setGazeListener(callback);
+    }
   }
 
   /**
@@ -79,20 +100,49 @@ export class GazePredictionService {
    * Fallback cuando setGazeListener deja de funcionar después de calibración.
    */
   startManualPolling(): void {
-    // TODO: Implement in Phase 2
-    // - Implementar RAF loop
-    // - Llamar webgazer.getCurrentPrediction()
-    // - Throttle a ~10 predicciones/segundo (cada 100ms)
-    throw new Error('Not implemented');
+    this.stopManualPolling();
+
+    const poll = () => {
+      if (!this.isTracking || !this.webgazer) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - this.lastPollTime >= 100) {
+        this.lastPollTime = now;
+
+        try {
+          let prediction: WebGazerPrediction | null = null;
+
+          if (typeof this.webgazer.getCurrentPrediction === 'function') {
+            prediction = this.webgazer.getCurrentPrediction();
+          } else if (typeof (this.webgazer as any).predict === 'function') {
+            prediction = (this.webgazer as any).predict();
+          }
+
+          if (prediction && prediction.x != null && prediction.y != null) {
+            this.gazeFrameCount++;
+            this.predictionSubject.next(prediction);
+          }
+        } catch {
+          // Silently ignore polling errors
+        }
+      }
+
+      this.pollingRafId = requestAnimationFrame(poll);
+    };
+
+    this.pollingRafId = requestAnimationFrame(poll);
   }
 
   /**
    * Detiene el polling manual.
    */
   stopManualPolling(): void {
-    // TODO: Implement in Phase 2
-    // - Cancelar RAF
-    throw new Error('Not implemented');
+    if (this.pollingRafId !== null) {
+      cancelAnimationFrame(this.pollingRafId);
+      this.pollingRafId = null;
+    }
   }
 
   /**
@@ -107,7 +157,8 @@ export class GazePredictionService {
    * Limpia recursos del servicio.
    */
   destroy(): void {
-    // TODO: Implement in Phase 2
-    throw new Error('Not implemented');
+    this.stopTracking();
+    this.predictionSubject.complete();
+    this.customListener = null;
   }
 }
