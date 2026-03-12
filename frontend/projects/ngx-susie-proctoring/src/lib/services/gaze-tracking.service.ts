@@ -66,16 +66,12 @@ export class GazeTrackingService {
       // Referencia a WebGazer (se carga globalmente)
       private webgazer: WebGazerAPI | null = null;
 
-      // Contador de frames de gaze recibidos
-      private gazeFrameCount = 0;
-      private lastGazeLogTime = 0;
+    // Contador de frames de gaze recibidos
+    private gazeFrameCount = 0;
+    private lastGazeLogTime = 0;
 
-      // Observer para silenciar videos de WebGazer
-      private muteObserver: MutationObserver | null = null;
-      private muteRetryInterval: IntervalHandle | undefined;
-
-      // Diagnóstico para debugging
-      private diagnosticInterval: IntervalHandle | undefined;
+    // Diagnóstico para debugging
+    private diagnosticInterval: IntervalHandle | undefined;
 
     // Polling manual de gaze (fallback cuando setGazeListener deja de funcionar)
     // AHORA DELEGADO A: GazePredictionService (Fase 2)
@@ -129,8 +125,9 @@ export class GazeTrackingService {
             // Configurar logger en el servicio de calibración
             this.calibration.setLogger(this.logger);
             
-            // Iniciar observador agresivo de muting ANTES de begin()
-            this.startAggressiveMuting();
+            // FASE 6: Iniciar muting antes de begin()
+            this.webgazerMuting.setLogger(this.logger);
+            this.webgazerMuting.start();
 
             // FASE 1: Delegamos la lógica de inicialización de WebGazer al GazeCalibrationService
             const success = await this.calibration.startCalibration(existingStream);
@@ -247,6 +244,9 @@ export class GazeTrackingService {
         // FASE 5: Limpiar el servicio de detección de desviación
         this.deviationDetection.destroy();
         
+        // FASE 6: Limpiar el servicio de muting
+        this.webgazerMuting.destroy();
+        
         try {
             if (this.webgazer) {
                 this.webgazer.end();
@@ -256,7 +256,6 @@ export class GazeTrackingService {
             // WebGazer puede fallar al detenerse si ya fue destruido
         }
 
-        this.stopAggressiveMuting();
         this.stopDiagnosticLoop();
         this.gazeState.set('IDLE');
         this.isCalibrated.set(false);
@@ -303,112 +302,6 @@ export class GazeTrackingService {
                 this.lastGazeLogTime = now;
                 this.logger('info', `🔬 Calibrando — Gaze raw: (${point.x}, ${point.y}) — frames: ${this.gazeFrameCount}`);
             }
-        }
-    }
-
-    /**
-     * Silencia TODOS los videos de WebGazer en el DOM.
-     */
-    private muteAllWebgazerVideos() {
-        // Silenciar video principal de WebGazer
-        const videoEl = document.getElementById('webgazerVideoFeed') as HTMLVideoElement | null;
-        if (videoEl) {
-            videoEl.muted = true;
-            videoEl.volume = 0;
-            videoEl.setAttribute('muted', '');
-            console.log('[GAZE] 🔇 webgazerVideoFeed silenciado');
-        }
-
-        // Silenciar TODOS los videos dentro del container de WebGazer
-        const containers = ['webgazerVideoContainer', 'webgazerGazeDot'];
-        containers.forEach(id => {
-            const container = document.getElementById(id);
-            if (container) {
-                container.querySelectorAll('video').forEach(v => {
-                    v.muted = true;
-                    v.volume = 0;
-                    v.setAttribute('muted', '');
-                });
-            }
-        });
-
-        // También buscar cualquier video en el body que NO tenga muted
-        document.querySelectorAll('video').forEach(v => {
-            if (!v.muted) {
-                // Verificar si es un video de WebGazer (por su id o por estar en un container de webgazer)
-                const isWebgazerVideo = v.id === 'webgazerVideoFeed' ||
-                    v.closest('#webgazerVideoContainer') !== null;
-                if (isWebgazerVideo) {
-                    v.muted = true;
-                    v.volume = 0;
-                    v.setAttribute('muted', '');
-                    console.log('[GAZE] 🔇 Video de WebGazer adicional silenciado:', v.id || '(sin id)');
-                }
-            }
-        });
-    }
-
-    /**
-     * Inicia un MutationObserver para silenciar agresivamente
-     * cualquier elemento <video> que WebGazer cree en el DOM.
-     * Esto resuelve el problema de timing donde muteWebgazerVideo()
-     * se ejecuta antes de que WebGazer cree su video.
-     */
-    private startAggressiveMuting() {
-        this.stopAggressiveMuting();
-
-        // MutationObserver: detectar cuando se añade un <video> al DOM
-        this.muteObserver = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                for (const node of Array.from(mutation.addedNodes)) {
-                    if (node instanceof HTMLVideoElement) {
-                        node.muted = true;
-                        node.volume = 0;
-                        node.setAttribute('muted', '');
-                        console.log('[GAZE] 🔇 Video nuevo detectado y silenciado:', node.id || '(sin id)');
-                        this.logger('info', '🔇 Video de WebGazer silenciado automáticamente');
-                    }
-                    // También verificar si un container fue añadido que contiene videos
-                    if (node instanceof HTMLElement) {
-                        node.querySelectorAll('video').forEach(v => {
-                            v.muted = true;
-                            v.volume = 0;
-                            v.setAttribute('muted', '');
-                            console.log('[GAZE] 🔇 Video dentro de container nuevo silenciado:', v.id || '(sin id)');
-                        });
-                    }
-                }
-            }
-        });
-
-        this.muteObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
-         // También un intervalo de respaldo cada 500ms durante 10 segundos
-         let retryCount = 0;
-         this.muteRetryInterval = this.cleanup.setInterval(() => {
-             this.muteAllWebgazerVideos();
-             retryCount++;
-             if (retryCount >= 20) { // 10 segundos
-                 this.cleanup.clearInterval(this.muteRetryInterval as any);
-                 this.muteRetryInterval = undefined;
-             }
-         }, 500);
-    }
-
-    /**
-     * Detiene el observer y el intervalo de muting.
-     */
-    private stopAggressiveMuting() {
-        if (this.muteObserver) {
-            this.muteObserver.disconnect();
-            this.muteObserver = null;
-        }
-        if (this.muteRetryInterval) {
-            clearInterval(this.muteRetryInterval);
-            this.muteRetryInterval = undefined;
         }
     }
 
