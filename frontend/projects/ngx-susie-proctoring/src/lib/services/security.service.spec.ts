@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { NgZone } from '@angular/core';
 import { SecurityService } from './security.service';
-import { SecurityViolation } from '../models/contracts';
+import { SecurityViolation } from '@lib/models/contracts';
 
 describe('SecurityService', () => {
     let service: SecurityService;

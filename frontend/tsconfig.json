@@ -19,6 +19,42 @@
     "paths": {
       "ngx-susie-proctoring": [
         "projects/ngx-susie-proctoring/src/public-api.ts"
+      ],
+      "@lib": [
+        "projects/ngx-susie-proctoring/src/lib"
+      ],
+      "@lib/*": [
+        "projects/ngx-susie-proctoring/src/lib/*"
+      ],
+      "@lib/services": [
+        "projects/ngx-susie-proctoring/src/lib/services"
+      ],
+      "@lib/services/*": [
+        "projects/ngx-susie-proctoring/src/lib/services/*"
+      ],
+      "@lib/models": [
+        "projects/ngx-susie-proctoring/src/lib/models"
+      ],
+      "@lib/models/*": [
+        "projects/ngx-susie-proctoring/src/lib/models/*"
+      ],
+      "@lib/components": [
+        "projects/ngx-susie-proctoring/src/lib/components"
+      ],
+      "@lib/components/*": [
+        "projects/ngx-susie-proctoring/src/lib/components/*"
+      ],
+      "@lib/helpers": [
+        "projects/ngx-susie-proctoring/src/lib/helpers"
+      ],
+      "@lib/helpers/*": [
+        "projects/ngx-susie-proctoring/src/lib/helpers/*"
+      ],
+      "@lib/utils": [
+        "projects/ngx-susie-proctoring/src/lib/utils"
+      ],
+      "@lib/utils/*": [
+        "projects/ngx-susie-proctoring/src/lib/utils/*"
       ]
     }
   },

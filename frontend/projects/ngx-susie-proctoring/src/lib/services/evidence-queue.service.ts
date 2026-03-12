@@ -1,7 +1,7 @@
 import { Injectable, OnDestroy, effect, inject, signal } from '@angular/core';
 import { openDB, type IDBPDatabase } from 'idb';
 import { NetworkMonitorService } from './network-monitor.service';
-import { LoggerFn } from '../models/contracts';
+import { LoggerFn } from '@lib/models/contracts';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

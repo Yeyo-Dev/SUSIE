@@ -1,7 +1,7 @@
 import { Component, input, output, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SusieConfig, StepInfo } from '../../models/contracts';
-import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
+import { SusieConfig, StepInfo } from '@lib/models/contracts';
+import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
 
 interface BriefingRule {
     icon: string;

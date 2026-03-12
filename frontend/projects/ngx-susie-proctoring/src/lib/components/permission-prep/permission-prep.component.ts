@@ -11,9 +11,9 @@ import {
   effect
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { StepInfo, SusieConfig } from '../../models/contracts';
-import { MediaService } from '../../services/media.service';
-import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
+import { StepInfo, SusieConfig } from '@lib/models/contracts';
+import { MediaService } from '@lib/services/media.service';
+import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
 
 /** Estados internos del PermissionPrepComponent */
 type PermissionPrepState = 'preparing' | 'requesting' | 'granted' | 'denied';

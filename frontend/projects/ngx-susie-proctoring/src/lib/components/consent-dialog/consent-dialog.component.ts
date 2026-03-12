@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, input, output, computed, signal } from '@angular/core';
-import { ConsentResult, ConsentPermission, SusieConfig, StepInfo } from '../../models/contracts';
-import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
+import { ConsentResult, ConsentPermission, SusieConfig, StepInfo } from '@lib/models/contracts';
+import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
 
 /**
  * Componente de consentimiento de términos y condiciones.

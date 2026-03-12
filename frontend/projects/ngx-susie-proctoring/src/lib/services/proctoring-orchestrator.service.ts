@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject, effect, output, OnDestroy } from '@angular/core';
-import { SusieConfig, StepInfo, SecurityViolation, ConsentResult, ExamResult, LoggerFn } from '../models/contracts';
+import { SusieConfig, StepInfo, SecurityViolation, ConsentResult, ExamResult, LoggerFn } from '@lib/models/contracts';
 import { MediaService } from './media.service';
 import { EvidenceService } from './evidence.service';
 import { SecurityService } from './security.service';
@@ -7,7 +7,7 @@ import { NetworkMonitorService } from './network-monitor.service';
 import { InactivityService } from './inactivity.service';
 import { GazeTrackingService } from './gaze-tracking.service';
 import { WebSocketFeedbackService } from './websocket-feedback.service';
-import { DestroyRefUtility } from '../utils/destroy-ref.utility';
+import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 
 /** Estado interno del flujo de proctoring */
 export type ProctoringState = 

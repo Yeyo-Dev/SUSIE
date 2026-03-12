@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
 import { ConsentDialogComponent } from './consent-dialog.component';
-import { SusieConfig, ConsentResult } from '../../models/contracts';
+import { SusieConfig, ConsentResult } from '@lib/models/contracts';
 
 // ── Stub del sub-componente StepIndicator ──
 @Component({ selector: 'susie-step-indicator', standalone: true, template: '' })

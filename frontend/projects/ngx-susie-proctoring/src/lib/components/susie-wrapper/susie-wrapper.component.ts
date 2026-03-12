@@ -17,21 +17,21 @@ import {
   ExamResult,
   ConsentResult,
   LoggerFn
-} from '../../models/contracts';
-import { ProctoringOrchestratorService, ProctoringState } from '../../services/proctoring-orchestrator.service';
-import { ProctoringMonitorHelper } from '../../helpers/proctoring-monitor.helper';
-import { EvidenceQueueService } from '../../services/evidence-queue.service';
+} from '@lib/models/contracts';
+import { ProctoringOrchestratorService, ProctoringState } from '@lib/services/proctoring-orchestrator.service';
+import { ProctoringMonitorHelper } from '@lib/helpers/proctoring-monitor.helper';
+import { EvidenceQueueService } from '@lib/services/evidence-queue.service';
 
 // Child components
-import { CameraPipComponent } from '../camera-pip/camera-pip.component';
-import { ConsentDialogComponent } from '../consent-dialog/consent-dialog.component';
-import { EnvironmentCheckComponent } from '../environment-check/environment-check.component';
-import { BiometricOnboardingComponent } from '../biometric-onboarding/biometric-onboarding.component';
-import { ExamEngineComponent } from '../exam-engine/exam-engine.component';
-import { GazeCalibrationComponent } from '../gaze-calibration/gaze-calibration.component';
-import { ExamBriefingComponent } from '../exam-briefing/exam-briefing.component';
-import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
-import { PermissionPrepComponent } from '../permission-prep/permission-prep.component';
+import { CameraPipComponent } from '@lib/components/camera-pip/camera-pip.component';
+import { ConsentDialogComponent } from '@lib/components/consent-dialog/consent-dialog.component';
+import { EnvironmentCheckComponent } from '@lib/components/environment-check/environment-check.component';
+import { BiometricOnboardingComponent } from '@lib/components/biometric-onboarding/biometric-onboarding.component';
+import { ExamEngineComponent } from '@lib/components/exam-engine/exam-engine.component';
+import { GazeCalibrationComponent } from '@lib/components/gaze-calibration/gaze-calibration.component';
+import { ExamBriefingComponent } from '@lib/components/exam-briefing/exam-briefing.component';
+import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
+import { PermissionPrepComponent } from '@lib/components/permission-prep/permission-prep.component';
 
 
 @Component({

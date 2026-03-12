@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common'; // Importante para KeyValuePipe, DatePipe, etc.
-import { SusieConfig, SusieQuestion, ExamResult } from '../../models/contracts';
+import { SusieConfig, SusieQuestion, ExamResult } from '@lib/models/contracts';
 
 /**
  * Motor de Examen de SUSIE.

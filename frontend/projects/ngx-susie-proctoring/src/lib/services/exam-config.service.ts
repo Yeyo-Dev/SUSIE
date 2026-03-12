@@ -7,7 +7,7 @@ import {
     SusieQuestion,
     mapBackendPreguntas,
     mapBackendConfigToSupervision,
-} from '../models/contracts';
+} from '@lib/models/contracts';
 import { firstValueFrom } from 'rxjs';
 
 /**

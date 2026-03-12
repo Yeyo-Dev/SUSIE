@@ -1,6 +1,6 @@
 import { Injectable, NgZone, inject } from '@angular/core';
-import { SecurityViolation, LoggerFn, SecurityPoliciesConfig, IntervalHandle } from '../models/contracts';
-import { DestroyRefUtility } from '../utils/destroy-ref.utility';
+import { SecurityViolation, LoggerFn, SecurityPoliciesConfig, IntervalHandle } from '@lib/models/contracts';
+import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 
 @Injectable({ providedIn: 'root' })
 export class SecurityService {

@@ -1,11 +1,11 @@
 import { Injectable, signal, NgZone, inject } from '@angular/core';
-import { DestroyRefUtility } from '../utils/destroy-ref.utility';
+import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 import {
     LoggerFn,
     WebGazerAPI,
     WebGazerPrediction,
     IntervalHandle,
-} from '../models/contracts';
+} from '@lib/models/contracts';
 
 /** Coordenada suavizada de gaze tracking */
 export interface GazePoint {

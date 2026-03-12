@@ -1,8 +1,8 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { Component, signal, NO_ERRORS_SCHEMA } from '@angular/core';
 import { SusieWrapperComponent } from './susie-wrapper.component';
-import { ProctoringOrchestratorService, ProctoringState } from '../../services/proctoring-orchestrator.service';
-import { EvidenceQueueService } from '../../services/evidence-queue.service';
+import { ProctoringOrchestratorService, ProctoringState } from '@lib/services/proctoring-orchestrator.service';
+import { EvidenceQueueService } from '@lib/services/evidence-queue.service';
 
 // ── Stubs de sub-componentes (evitar renderizado profundo) ──
 @Component({ selector: 'susie-consent-dialog', standalone: true, template: '' })

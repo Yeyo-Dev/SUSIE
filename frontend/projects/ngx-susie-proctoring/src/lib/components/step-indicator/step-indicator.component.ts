@@ -1,6 +1,6 @@
 import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { StepInfo } from '../../models/contracts';
+import { StepInfo } from '@lib/models/contracts';
 
 /**
  * Indicador de pasos dinámico compartido (modo solo puntos).

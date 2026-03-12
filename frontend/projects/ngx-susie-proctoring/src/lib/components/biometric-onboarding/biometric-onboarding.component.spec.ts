@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, ElementRef } from '@angular/core';
 import { BiometricOnboardingComponent } from './biometric-onboarding.component';
-import { MediaService } from '../../services/media.service';
+import { MediaService } from '@lib/services/media.service';
 
 // ── Stub del sub-componente StepIndicator ──
 @Component({ selector: 'susie-step-indicator', standalone: true, template: '' })

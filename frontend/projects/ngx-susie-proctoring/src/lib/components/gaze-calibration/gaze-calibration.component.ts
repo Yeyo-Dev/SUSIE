@@ -9,9 +9,9 @@ import {
   ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { GazeTrackingService } from '../../services/gaze-tracking.service';
-import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
-import { StepInfo } from '../../models/contracts';
+import { GazeTrackingService } from '@lib/services/gaze-tracking.service';
+import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
+import { StepInfo } from '@lib/models/contracts';
 
 interface CalibrationPoint {
   id: number;

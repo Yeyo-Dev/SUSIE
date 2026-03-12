@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick, discardPeriodicTasks, flush } from '@angular/core/testing';
 import { ExamEngineComponent } from './exam-engine.component';
-import { SusieConfig, SusieQuestion, ExamResult } from '../../models/contracts';
+import { SusieConfig, SusieQuestion, ExamResult } from '@lib/models/contracts';
 
 // ── Helpers ──
 

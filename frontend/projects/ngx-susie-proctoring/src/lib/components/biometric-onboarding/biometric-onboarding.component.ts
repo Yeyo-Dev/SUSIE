@@ -1,8 +1,8 @@
 import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, signal, output, input, inject, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MediaService } from '../../services/media.service';
-import { StepInfo } from '../../models/contracts';
-import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
+import { MediaService } from '@lib/services/media.service';
+import { StepInfo } from '@lib/models/contracts';
+import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
 
 @Component({
     selector: 'susie-biometric-onboarding',

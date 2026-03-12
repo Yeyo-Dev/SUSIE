@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { PermissionPrepComponent } from './permission-prep.component';
-import { MediaService } from '../../services/media.service';
+import { MediaService } from '@lib/services/media.service';
 import { ChangeDetectionStrategy } from '@angular/core';
 
 describe('PermissionPrepComponent', () => {

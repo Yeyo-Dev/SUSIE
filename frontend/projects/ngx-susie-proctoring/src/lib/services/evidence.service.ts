@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { EvidenceQueueService } from './evidence-queue.service';
-import { DestroyRefUtility } from '../utils/destroy-ref.utility';
+import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 import {
     EvidencePayload,
     EvidenceMetadata,
@@ -13,7 +13,7 @@ import {
     SessionContextData,
     IntervalHandle,
     MediaRecorderErrorEvent,
-} from '../models/contracts';
+} from '@lib/models/contracts';
 
 @Injectable({ providedIn: 'root' })
 export class EvidenceService {

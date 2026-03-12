@@ -1,5 +1,5 @@
 import { Injectable, signal, OnDestroy, inject } from '@angular/core';
-import { DestroyRefUtility } from '../utils/destroy-ref.utility';
+import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 
 @Injectable({ providedIn: 'root' })
 export class NetworkMonitorService implements OnDestroy {

@@ -1,10 +1,10 @@
 import { Component, input, output, signal, computed, inject, ElementRef, ViewChild, AfterViewInit, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SusieConfig } from '../../models/contracts';
-import { StepInfo } from '../../models/contracts';
-import { MediaService } from '../../services/media.service';
-import { NetworkMonitorService } from '../../services/network-monitor.service';
-import { StepIndicatorComponent } from '../step-indicator/step-indicator.component';
+import { SusieConfig } from '@lib/models/contracts';
+import { StepInfo } from '@lib/models/contracts';
+import { MediaService } from '@lib/services/media.service';
+import { NetworkMonitorService } from '@lib/services/network-monitor.service';
+import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
 
 interface SystemCheck {
   id: 'browser' | 'camera' | 'microphone' | 'network';

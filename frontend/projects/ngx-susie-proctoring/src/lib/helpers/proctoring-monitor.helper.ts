@@ -1,8 +1,8 @@
 import { ElementRef } from '@angular/core';
-import { EvidenceService } from '../services/evidence.service';
-import { GazeTrackingService, GazePoint } from '../services/gaze-tracking.service';
-import { MediaService } from '../services/media.service';
-import { IntervalHandle, LoggerFn, MediaStreamSource } from '../models/contracts';
+import { EvidenceService } from '@lib/services/evidence.service';
+import { GazeTrackingService, GazePoint } from '@lib/services/gaze-tracking.service';
+import { MediaService } from '@lib/services/media.service';
+import { IntervalHandle, LoggerFn, MediaStreamSource } from '@lib/models/contracts';
 
 /**
  * Helper class para manejar los loops de monitoreo (snapshots, gaze tracking).
