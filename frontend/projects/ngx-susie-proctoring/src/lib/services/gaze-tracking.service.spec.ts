@@ -277,10 +277,11 @@ describe('GazeTrackingService', () => {
     });
 
     // ══════════════════════════════════════════════════════════════
-    // Deviation Detection
+    // Deviation Detection - Ahora en GazeDeviationDetectionService
+    // Los tests están en gaze-deviation-detection.service.spec.ts
     // ══════════════════════════════════════════════════════════════
 
-    describe('Deviation Detection', () => {
+    xdescribe('Deviation Detection', () => {
 
         beforeEach(async () => {
             spyOnProperty(window, 'innerWidth', 'get').and.returnValue(1000);
