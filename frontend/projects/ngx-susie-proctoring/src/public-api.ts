@@ -16,6 +16,9 @@ export * from './lib/components/exam-briefing/exam-briefing.component';
 
 // Gaze Tracking Services
 // Facade service (re-exports types: GazePoint, GazeState, GazeConfig)
+export * from './lib/services/gaze/gaze-tracking.facade';
+
+// Legacy wrapper (backward compatibility)
 export * from './lib/services/gaze-tracking.service';
 
 // Sub-services (Calibration, Prediction, Smoothing, Metrics, Deviation, Muting)

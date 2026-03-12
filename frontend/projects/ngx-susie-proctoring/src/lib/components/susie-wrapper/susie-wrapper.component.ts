@@ -252,7 +252,7 @@ export class SusieWrapperComponent {
 
   // --- Debug Helper ---
 
-  log(type: 'info' | 'error' | 'success', msg: string, details?: unknown) {
+  log(type: 'info' | 'error' | 'success' | 'warn', msg: string, details?: unknown) {
     if (this.config().debugMode) {
       // Logs handled by orchestrator
     }

@@ -94,7 +94,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
   readonly biometricSuccess = signal(false);
 
   // Debug
-  readonly logs = signal<{ time: string; type: 'info' | 'error' | 'success'; msg: string; details?: Record<string, unknown> }[]>([]);
+  readonly logs = signal<{ time: string; type: 'info' | 'error' | 'success' | 'warn'; msg: string; details?: Record<string, unknown> }[]>([]);
 
   // Config (set on init)
   private config: SusieConfig | null = null;
@@ -505,7 +505,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.logs.set([]);
   }
 
-  private log(type: 'info' | 'error' | 'success', msg: string, details?: unknown): void {
+  private log(type: 'info' | 'error' | 'success' | 'warn', msg: string, details?: unknown): void {
     if (this.config?.debugMode) {
       this.logs.update(prev => [{
         time: new Date().toLocaleTimeString(),

@@ -408,7 +408,7 @@ export function calcularMinutoInfraccion(sessionStartTime: Date): string {
  * Si necesitas validar datos, usa EnvironmentCheckResult u otros tipos específicos.
  */
 export type LoggerFn = (
-  type: 'info' | 'error' | 'success',
+  type: 'info' | 'error' | 'success' | 'warn',
   msg: string,
   details?: unknown
 ) => void;
