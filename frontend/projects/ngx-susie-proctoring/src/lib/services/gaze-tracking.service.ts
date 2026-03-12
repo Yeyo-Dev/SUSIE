@@ -99,17 +99,15 @@ export class GazeTrackingService {
             this.gazeState.set('CALIBRATING');
             this.webgazer = (window as any).webgazer;
 
-            if (!this.webgazer) {
-                this.logger('error', '❌ WebGazer no está cargado. Asegúrate de incluir webgazer.js');
-                console.error('[GAZE] WebGazer no está disponible en window.webgazer');
-                this.gazeState.set('ERROR');
-                return false;
-            }
+             if (!this.webgazer) {
+                 this.logger('error', '❌ WebGazer no está cargado. Asegúrate de incluir webgazer.js');
+                 this.gazeState.set('ERROR');
+                 return false;
+             }
 
-            this.logger('info', '🔄 Iniciando WebGazer...');
-            console.log('[GAZE] WebGazer encontrado, configurando...');
-
-            // Iniciar observador agresivo de muting ANTES de begin()
+             this.logger('info', '🔄 Iniciando WebGazer...');
+ 
+             // Iniciar observador agresivo de muting ANTES de begin()
             this.startAggressiveMuting();
 
             // Si tenemos un stream existente, monkey-patch getUserMedia
@@ -158,12 +156,11 @@ export class GazeTrackingService {
             console.log('[GAZE] ✅ webgazer.begin() completado exitosamente');
 
             // Mostrar video y predicciones durante la calibración
-            try {
-                this.webgazer.showVideoPreview(true).showPredictionPoints(true);
-                console.log('[GAZE] showVideoPreview y showPredictionPoints activados');
-            } catch (e) {
-                console.warn('[GAZE] Error al configurar video preview:', e);
-            }
+             try {
+                 this.webgazer.showVideoPreview(true).showPredictionPoints(true);
+             } catch (e) {
+                 this.logger('error', 'Error al configurar video preview:', e);
+             }
 
             // Silenciar el video de WebGazer (forzar inmediatamente)
             this.muteAllWebgazerVideos();
@@ -203,13 +200,12 @@ export class GazeTrackingService {
         if (this.webgazer) {
             // Intentar resume() por si WebGazer auto-pausó su loop
             try {
-                if (typeof this.webgazer.resume === 'function') {
-                    this.webgazer.resume();
-                    console.log('[GAZE] webgazer.resume() llamado');
-                }
-            } catch (e) {
-                console.warn('[GAZE] webgazer.resume() falló:', e);
-            }
+                 if (typeof this.webgazer.resume === 'function') {
+                     this.webgazer.resume();
+                 }
+             } catch (e) {
+                 this.logger('error', 'Error al reanudar WebGazer:', e);
+             }
 
             // Listar métodos disponibles en webgazer para diagnóstico
             // console.log('[GAZE] Métodos disponibles en webgazer:', methods.join(', '));
@@ -560,15 +556,15 @@ export class GazeTrackingService {
                                 console.log(`[GAZE-POLL] Frame #${this.gazeFrameCount} → x:${prediction.x.toFixed(2)}, y:${prediction.y.toFixed(2)}`);
                             }
 
-                            this.processRawGaze(prediction.x, prediction.y);
-                        } else if (this.gazeFrameCount % 50 === 0) {
-                            console.log('[GAZE-POLL] prediction=null (no face)');
-                        }
-                    } catch (e) {
-                        if (this.gazeFrameCount % 100 === 0) {
-                            console.warn('[GAZE-POLL] Error en polling:', e);
-                        }
-                    }
+                                 this.processRawGaze(prediction.x, prediction.y);
+                             } else if (this.gazeFrameCount % 50 === 0) {
+                                 // No face detected - expected occasionally
+                             }
+                     } catch (e) {
+                         if (this.gazeFrameCount % 100 === 0) {
+                             this.logger('error', 'Error en polling de gaze:', e);
+                         }
+                     }
                 }
             }
 

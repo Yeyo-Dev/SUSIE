@@ -1,4 +1,4 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, inject } from '@angular/core';
 import { SecurityViolation } from '../models/contracts';
 
 @Injectable({ providedIn: 'root' })
@@ -6,8 +6,14 @@ export class SecurityService {
     private policies: any = {};
     private violationCallback?: (v: SecurityViolation) => void;
     private devToolsInterval?: any;
+    
+    private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
 
     constructor(private ngZone: NgZone) { }
+
+    setLogger(fn: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void) {
+        this.logger = fn;
+    }
 
     enableProtection(policies: any, callback: (v: SecurityViolation) => void) {
         this.policies = policies;
@@ -24,7 +30,7 @@ export class SecurityService {
 
         if (policies.preventInspection) {
             // Polling approach to catch devtools opened via browser UI (menu)
-            this.devToolsInterval = setInterval(() => this.checkDevtoolsSize(), 2000);
+            this.devToolsInterval = setInterval(() => this.checkDevtoolsSize(), 5000);
         }
 
         if (policies.preventBackNavigation) {
@@ -64,7 +70,7 @@ export class SecurityService {
             try {
                 await document.documentElement.requestFullscreen();
             } catch (err) {
-                console.error('Error entering fullscreen:', err);
+                this.logger('error', 'Error entering fullscreen:', err);
             }
         }
     }

@@ -161,6 +161,7 @@ export class ProctoringOrchestratorService {
       if (cfg) {
         this.evidenceService.configure(cfg.apiUrl, cfg.authToken, cfg.sessionContext);
         this.evidenceService.setLogger((type, msg, details) => this.log(type, msg, details));
+        this.securityService.setLogger((type, msg, details) => this.log(type, msg, details));
         this.inactivityService.configure(
           cfg.inactivityTimeoutMinutes ?? 3,
           cfg.onInactivityDetected
@@ -318,7 +319,7 @@ export class ProctoringOrchestratorService {
   private configureGazeService(): void {
     this.gazeService.configure(
       {},
-      () => {}, // Empty logger for calibration
+      (type, msg, details) => this.log(type, msg, details),
       () => this.handleGazeDeviation()
     );
   }

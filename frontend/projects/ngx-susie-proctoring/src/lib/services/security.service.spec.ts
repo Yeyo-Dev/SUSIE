@@ -205,8 +205,8 @@ describe('SecurityService', () => {
 
             service.enableProtection({ preventInspection: true }, violationCallback);
 
-            // Adelantar el reloj para que se ejecute el intervalo
-            jasmine.clock().tick(2100);
+            // Adelantar el reloj para que se ejecute el intervalo (polling cambió de 2s a 5s)
+            jasmine.clock().tick(5100);
 
             expect(violationCallback).toHaveBeenCalledWith(
                 jasmine.objectContaining({ type: 'INSPECTION_ATTEMPT' })
@@ -222,7 +222,7 @@ describe('SecurityService', () => {
 
             service.enableProtection({ preventInspection: true }, violationCallback);
 
-            jasmine.clock().tick(2100);
+            jasmine.clock().tick(5100);
 
             expect(violationCallback).not.toHaveBeenCalled();
         });

@@ -282,15 +282,14 @@ export class EvidenceService {
                 this.logger('success', `📤 ${label} enviado al servidor (${data.file.size} bytes)`);
             }
 
-        } catch (err) {
-            let label = 'evidencia';
-            if (internalType === 'AUDIO_CHUNK') label = 'audio';
-            else if (internalType === 'SNAPSHOT') label = 'snapshot';
-
-            this.logger('info', `📥 ${label} encolado offline (red no disponible)`);
-            console.warn(`[EVIDENCE] Upload failed, queueing ${label} for retry`);
-
-            // Persist in IndexedDB for retry when the network recovers
+         } catch (err) {
+             let label = 'evidencia';
+             if (internalType === 'AUDIO_CHUNK') label = 'audio';
+             else if (internalType === 'SNAPSHOT') label = 'snapshot';
+ 
+             this.logger('info', `📥 ${label} encolado offline (red no disponible)`);
+ 
+             // Persist in IndexedDB for retry when the network recovers
             this.queue.enqueueMultipart(
                 endpointUrl,
                 data.metadata.meta,
@@ -326,12 +325,11 @@ export class EvidenceService {
                 keepalive: true
             });
             this.logger('success', `📤 Datos de seguimiento ocular enviados (${points.length} puntos)`);
-        } catch (err) {
-            this.logger('info', '📥 Datos de gaze tracking encolados offline');
-            console.warn('[EVIDENCE] Gaze data send failed, queueing for retry');
-
-            this.queue.enqueueJson(url, payload);
-        }
+             } catch (err) {
+                 this.logger('info', '📥 Datos de gaze tracking encolados offline');
+ 
+                 this.queue.enqueueJson(url, payload);
+             }
     }
 
     /**
@@ -394,15 +392,14 @@ export class EvidenceService {
                 keepalive: true
             });
             this.logger('success', `📤 Infracción registrada: ${tipoInfraccion} (${minuteStr})`);
-        } catch (err) {
-            this.logger('info', '📥 Infracción encolada offline');
-            console.warn('[EVIDENCE] Infraccion send failed, queueing for retry');
-
-            this.queue.enqueueJson(
-                `${this.apiUrl}/monitoreo/infracciones`,
-                payload
-            );
-        }
+             } catch (err) {
+                 this.logger('info', '📥 Infracción encolada offline');
+ 
+                 this.queue.enqueueJson(
+                     `${this.apiUrl}/monitoreo/infracciones`,
+                     payload
+                 );
+             }
     }
 
     /**
@@ -455,14 +452,13 @@ export class EvidenceService {
                 return false;
             }
         } catch (err: any) {
-            clearTimeout(timeoutId);
-            if (err?.name === 'AbortError') {
-                this.logger('error', '⏱️ Timeout: el servidor tardó más de 10s en responder la validación biométrica');
-            } else {
-                this.logger('error', '❌ Error de red al validar biometría', err);
-            }
-            console.error('[EVIDENCE] Biometric validation failed:', err);
-            return false;
-        }
-    }
-}
+             clearTimeout(timeoutId);
+             if (err?.name === 'AbortError') {
+                 this.logger('error', '⏱️ Timeout: el servidor tardó más de 10s en responder la validated biométrica');
+             } else {
+                 this.logger('error', '❌ Error de red al validar biometría', err);
+             }
+             return false;
+         }
+     }
+ }
