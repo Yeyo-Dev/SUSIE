@@ -55,7 +55,7 @@ export class DestroyRefUtility {
   private activeListeners: Array<{
     target: EventTarget;
     event: string;
-    handler: EventListener | ((evt: any) => void);
+    handler: EventListener | ((evt: unknown) => void);
     options?: boolean | AddEventListenerOptions;
   }> = [];
 
@@ -124,18 +124,18 @@ export class DestroyRefUtility {
   }
 
   /**
-   * Registra un event listener que será removido automáticamente en ngOnDestroy.
-   * IMPORTANTE: Usa arrow functions o referencias estables de métodos.
-   * 
-   * @param target Elemento o window/document donde se registra el listener
-   * @param event Nombre del evento (ej: 'click', 'resize', 'beforeunload')
-   * @param handler Función manejadora del evento (puede ser typado o EventListener)
-   * @param options Opciones de addEventListener (passive, capture, once, etc)
-   */
+    * Registra un event listener que será removido automáticamente en ngOnDestroy.
+    * IMPORTANTE: Usa arrow functions o referencias estables de métodos.
+    * 
+    * @param target Elemento o window/document donde se registra el listener
+    * @param event Nombre del evento (ej: 'click', 'resize', 'beforeunload')
+    * @param handler Función manejadora del evento (puede ser typado o EventListener)
+    * @param options Opciones de addEventListener (passive, capture, once, etc)
+    */
   addEventListener(
     target: EventTarget,
     event: string,
-    handler: EventListener | ((evt: Event) => void) | ((evt: any) => void),
+    handler: EventListener | ((evt: unknown) => void),
     options?: boolean | AddEventListenerOptions
   ): void {
     const listener = handler as EventListener;
@@ -148,12 +148,12 @@ export class DestroyRefUtility {
    * @param target Elemento donde fue registrado
    * @param event Nombre del evento
    * @param handler Función manejadora (DEBE ser la misma referencia)
-   * @param options Opciones usadas en addEventListener
-   */
+    * @param options Opciones usadas en addEventListener
+    */
   removeEventListener(
     target: EventTarget,
     event: string,
-    handler: EventListener | ((evt: Event) => void) | ((evt: any) => void),
+    handler: EventListener | ((evt: unknown) => void),
     options?: boolean | AddEventListenerOptions
   ): void {
     const listener = handler as EventListener;

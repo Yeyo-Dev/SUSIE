@@ -2,6 +2,7 @@ import { ElementRef } from '@angular/core';
 import { EvidenceService } from '../services/evidence.service';
 import { GazeTrackingService, GazePoint } from '../services/gaze-tracking.service';
 import { MediaService } from '../services/media.service';
+import { IntervalHandle, LoggerFn, MediaStreamSource } from '../models/contracts';
 
 /**
  * Helper class para manejar los loops de monitoreo (snapshots, gaze tracking).
@@ -10,8 +11,8 @@ import { MediaService } from '../services/media.service';
  * Esto mantiene la complejidad de los loops fuera del componente principal.
  */
 export class ProctoringMonitorHelper {
-  private snapshotInterval: any = null;
-  private gazeInterval: any = null;
+  private snapshotInterval: IntervalHandle | null = null;
+  private gazeInterval: IntervalHandle | null = null;
   
   // Reference to video element for snapshot capture
   private snapshotVideoRef: ElementRef<HTMLVideoElement> | null = null;
@@ -32,9 +33,9 @@ export class ProctoringMonitorHelper {
   }
 
   /**
-   * Inicia el loop de captura periódica de snapshots.
-   */
-  startSnapshotLoop(intervalSeconds: number, mediaStream: any): void {
+    * Inicia el loop de captura periódica de snapshots.
+    */
+  startSnapshotLoop(intervalSeconds: number, mediaStream: MediaStreamSource): void {
     this.log('info', `📸 Iniciando snapshots cada ${intervalSeconds}s`);
     this.stopSnapshotLoop();
 

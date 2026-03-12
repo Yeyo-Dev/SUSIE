@@ -1,5 +1,6 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { DestroyRefUtility } from '../utils/destroy-ref.utility';
+import { LoggerFn, IntervalHandle } from '../models/contracts';
 
 /**
  * Estructura del payload JSON que el backend envía a través del WebSocket.
@@ -35,9 +36,9 @@ export class WebSocketFeedbackService {
     /** Máximo de intentos de reconexión antes de rendirse */
     private readonly MAX_RECONNECT_ATTEMPTS = 8;
 
-    private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
+    private logger: LoggerFn = () => { };
 
-    setLogger(fn: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void) {
+    setLogger(fn: LoggerFn) {
         this.logger = fn;
     }
 

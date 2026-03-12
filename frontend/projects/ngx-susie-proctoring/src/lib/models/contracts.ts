@@ -125,7 +125,7 @@ export interface ExamResult {
   answers: Record<number, string>; // Map<QuestionId, SelectedOption>
   completedAt: string;
   score?: number; // Si se calcula en el cliente
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   /** Resumen de métricas de supervisión recopiladas durante la sesión. */
   proctoringSummary?: {
     totalViolations: number;
@@ -195,7 +195,7 @@ export interface SusieConfig {
   /** Callback invocado cuando el candidato acepta o rechaza el consentimiento */
   onConsentResult?: (result: ConsentResult) => void;
   /** Callback para resultados de verificación de entorno */
-  onEnvironmentCheckResult?: (result: { passed: boolean; details?: any }) => void;
+  onEnvironmentCheckResult?: (result: EnvironmentCheckResult) => void;
   /** Callback por inactividad */
   onInactivityDetected?: () => void;
   /** Tiempo en minutos antes de considerar inactivo (default: 3) */
@@ -396,4 +396,144 @@ export function calcularMinutoInfraccion(sessionStartTime: Date): string {
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
   return `${hours}:${minutes}:${seconds}`;
+}
+
+// --- TYPE INTERFACES (Remover `any` types) ---
+
+/**
+ * Firma de función logger reutilizada en múltiples servicios.
+ * Reemplaza: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void
+ * 
+ * El parámetro details puede ser cualquier valor porque logger es para debug.
+ * Si necesitas validar datos, usa EnvironmentCheckResult u otros tipos específicos.
+ */
+export type LoggerFn = (
+  type: 'info' | 'error' | 'success',
+  msg: string,
+  details?: unknown
+) => void;
+
+/**
+ * Datos de predicción de gaze devueltos por WebGazer.
+ * Estructura interna de WebGazer - puede tener x, y, confidence, etc.
+ */
+export interface WebGazerPrediction {
+  x: number;
+  y: number;
+  confidence?: number;
+}
+
+/**
+ * API pública de WebGazer (biblioteca externa de gaze tracking).
+ * Define los métodos que usamos para initializar y usar WebGazer.
+ */
+export interface WebGazerAPI {
+  // Configuración
+  setTracker(tracker: 'TFFacemesh' | 'webgazer' | string): WebGazerAPI;
+  setRegression(method: 'ridge' | 'linear' | string): WebGazerAPI;
+  setGazeListener(callback: (data: WebGazerPrediction | null, clock: number) => void): WebGazerAPI;
+
+  // Control de lifecycle
+  begin(): Promise<void>;
+  resume(): void;
+  pause(): void;
+  end(): void;
+  destroy(): void;
+
+  // UI
+  showVideoPreview(show: boolean): WebGazerAPI;
+  showPredictionPoints(show: boolean): WebGazerAPI;
+
+  // Acceso a datos
+  getCurrentPrediction(): WebGazerPrediction | null;
+}
+
+/**
+ * Configuración de grabación de audio (para MediaRecorder).
+ * Reemplaza: config: any en startAudioRecording() e initMediaRecorder()
+ */
+export interface AudioRecordingConfig {
+  /** Bitrate en bits por segundo (default: 32000) */
+  bitrate?: number;
+  /** Intervalo de duración de cada chunk en segundos (default: 15) */
+  chunkIntervalSeconds?: number;
+  /** MIME type para la grabación (e.g., 'audio/webm;codecs=opus') */
+  mimeType?: string;
+}
+
+/**
+ * Contexto de sesión que identifica un examen y el candidato.
+ * Reemplaza: private sessionContext: any = {} en EvidenceService
+ */
+export interface SessionContextData {
+  examSessionId: string;
+  examId: string | number;
+  examTitle: string;
+  userId?: string | number;
+  userName?: string;
+  durationMinutes: number;
+  assignmentId?: number;
+  remoteSessionId?: string;
+}
+
+/**
+ * Configuración de políticas de seguridad del proctoring.
+ * Reemplaza: private policies: any en SecurityService
+ */
+export interface SecurityPoliciesConfig {
+  requireCamera: boolean;
+  requireMicrophone: boolean;
+  requireFullscreen: boolean;
+  requireConsent?: boolean;
+  requireEnvironmentCheck?: boolean;
+  requireBiometrics?: boolean;
+  preventTabSwitch?: boolean;
+  preventInspection?: boolean;
+  preventBackNavigation?: boolean;
+  preventPageReload?: boolean;
+  preventCopyPaste?: boolean;
+  requireGazeTracking?: boolean;
+}
+
+/**
+ * Resultado de verificación de entorno de prueba.
+ * Reemplaza: details?: any en onEnvironmentCheckResult callback
+ */
+export interface EnvironmentCheckResult {
+  passed: boolean;
+  details?: Record<string, unknown>;
+  errors?: string[];
+  warnings?: string[];
+}
+
+/**
+ * Stream de medios (video/audio) tipado.
+ * MediaStream es nativamente tipado en TS, pero explicitamos aquí para claridad.
+ */
+export type MediaStreamSource = MediaStream | null;
+
+/**
+ * Tipo de intervalo devuelto por setInterval (NodeJS.Timeout).
+ * Reemplaza: private snapshotInterval: any = null
+ */
+export type IntervalHandle = ReturnType<typeof setInterval>;
+
+/**
+ * Información de error de MediaRecorder.
+ * Reemplaza: (event: any) en mediaRecorder.onerror
+ */
+export interface MediaRecorderErrorEvent extends Event {
+  error: DOMException;
+}
+
+/**
+ * Parámetros para snapshot capture (modo monitoreo).
+ * Abstrae los detalles de captura de pantalla.
+ */
+export interface SnapshotCaptureParams {
+  type: 'SNAPSHOT' | 'BROWSER_EVENT' | 'FOCUS_LOST';
+  browser_focus: boolean;
+  file?: Blob;
+  gaze_history?: Array<{ x: number; y: number }>;
+  trigger?: SecurityViolation['type'];
 }

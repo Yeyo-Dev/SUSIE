@@ -14,7 +14,9 @@ import { CommonModule } from '@angular/common';
 import { 
   SusieConfig, 
   SusieQuestion, 
-  ExamResult 
+  ExamResult,
+  ConsentResult,
+  LoggerFn
 } from '../../models/contracts';
 import { ProctoringOrchestratorService, ProctoringState } from '../../services/proctoring-orchestrator.service';
 import { ProctoringMonitorHelper } from '../../helpers/proctoring-monitor.helper';
@@ -190,7 +192,7 @@ export class SusieWrapperComponent {
     this.orchestrator.handlePermissionPrepared();
   }
 
-  handleConsent(result: any) {
+  handleConsent(result: ConsentResult) {
     this.orchestrator.handleConsent(result);
   }
 
@@ -250,7 +252,7 @@ export class SusieWrapperComponent {
 
   // --- Debug Helper ---
 
-  log(type: 'info' | 'error' | 'success', msg: string, details?: any) {
+  log(type: 'info' | 'error' | 'success', msg: string, details?: unknown) {
     if (this.config().debugMode) {
       // Logs handled by orchestrator
     }

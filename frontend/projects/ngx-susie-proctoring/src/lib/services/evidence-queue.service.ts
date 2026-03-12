@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, effect, inject, signal } from '@angular/core';
 import { openDB, type IDBPDatabase } from 'idb';
 import { NetworkMonitorService } from './network-monitor.service';
+import { LoggerFn } from '../models/contracts';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ export class EvidenceQueueService implements OnDestroy {
     private _pendingCount = signal(0);
     readonly pendingCount = this._pendingCount.asReadonly();
 
-    private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
+    private logger: LoggerFn = () => { };
 
     /** Reactively flush queue when the browser comes back online. */
     private onlineEffect = effect(() => {
@@ -53,7 +54,7 @@ export class EvidenceQueueService implements OnDestroy {
 
     // ── Public API ───────────────────────────────────────────────────────────
 
-    setLogger(fn: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void) {
+    setLogger(fn: LoggerFn) {
         this.logger = fn;
     }
 

@@ -1,5 +1,11 @@
 import { Injectable, signal, NgZone, inject } from '@angular/core';
 import { DestroyRefUtility } from '../utils/destroy-ref.utility';
+import {
+    LoggerFn,
+    WebGazerAPI,
+    WebGazerPrediction,
+    IntervalHandle,
+} from '../models/contracts';
 
 /** Coordenada suavizada de gaze tracking */
 export interface GazePoint {
@@ -45,7 +51,7 @@ export class GazeTrackingService {
     readonly hasDeviation = signal(false);
 
     private config: GazeConfig = { ...DEFAULT_CONFIG };
-    private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
+    private logger: LoggerFn = () => { };
     private deviationCallback?: () => void;
 
     // Historial de suavizado
@@ -56,23 +62,23 @@ export class GazeTrackingService {
     private gazeBuffer: GazePoint[] = [];
     private maxBufferSize = 60; // ~60 segundos de datos a 1 muestra/seg
 
-     // Detección de desviación sostenida
-     private deviationStartTime: number | null = null;
-     private deviationCheckInterval: ReturnType<typeof setInterval> | undefined;
+    // Detección de desviación sostenida
+      private deviationStartTime: number | null = null;
+      private deviationCheckInterval: IntervalHandle | undefined;
 
-     // Referencia a WebGazer (se carga globalmente)
-     private webgazer: any = null;
+      // Referencia a WebGazer (se carga globalmente)
+      private webgazer: WebGazerAPI | null = null;
 
-     // Contador de frames de gaze recibidos
-     private gazeFrameCount = 0;
-     private lastGazeLogTime = 0;
+      // Contador de frames de gaze recibidos
+      private gazeFrameCount = 0;
+      private lastGazeLogTime = 0;
 
-     // Observer para silenciar videos de WebGazer
-     private muteObserver: MutationObserver | null = null;
-     private muteRetryInterval: ReturnType<typeof setInterval> | undefined;
+      // Observer para silenciar videos de WebGazer
+      private muteObserver: MutationObserver | null = null;
+      private muteRetryInterval: IntervalHandle | undefined;
 
-     // Diagnóstico para debugging
-     private diagnosticInterval: ReturnType<typeof setInterval> | undefined;
+      // Diagnóstico para debugging
+      private diagnosticInterval: IntervalHandle | undefined;
 
     // Polling manual de gaze (fallback cuando setGazeListener deja de funcionar)
     private pollingRafId: number | null = null;
@@ -83,7 +89,7 @@ export class GazeTrackingService {
     /** Configura el servicio */
     configure(
         config: Partial<GazeConfig> = {},
-        logger?: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void,
+        logger?: LoggerFn,
         onDeviation?: () => void
     ) {
         this.config = { ...DEFAULT_CONFIG, ...config };
@@ -97,10 +103,10 @@ export class GazeTrackingService {
      */
     async startCalibration(existingStream?: MediaStream | null): Promise<boolean> {
         try {
-            this.gazeState.set('CALIBRATING');
-            this.webgazer = (window as any).webgazer;
+             this.gazeState.set('CALIBRATING');
+             this.webgazer = (window as any).webgazer as WebGazerAPI;
 
-             if (!this.webgazer) {
+              if (!this.webgazer) {
                  this.logger('error', '❌ WebGazer no está cargado. Asegúrate de incluir webgazer.js');
                  this.gazeState.set('ERROR');
                  return false;
@@ -122,7 +128,7 @@ export class GazeTrackingService {
             this.webgazer
                 .setTracker('TFFacemesh')
                 .setRegression('ridge')
-                .setGazeListener((data: any, _clock: number) => {
+                .setGazeListener((data: WebGazerPrediction | null, _clock: number) => {
                     // Contar TODOS los callbacks, incluyendo data=null
                     this.gazeFrameCount++;
 
@@ -536,14 +542,14 @@ export class GazeTrackingService {
 
                 if (this.webgazer) {
                     try {
-                        // Intentar getCurrentPrediction (método común de WebGazer)
-                        let prediction: any = null;
+                         // Intentar getCurrentPrediction (método común de WebGazer)
+                         let prediction: WebGazerPrediction | null = null;
 
-                        if (typeof this.webgazer.getCurrentPrediction === 'function') {
-                            prediction = this.webgazer.getCurrentPrediction();
-                        } else if (typeof this.webgazer.predict === 'function') {
-                            prediction = this.webgazer.predict();
-                        }
+                         if (typeof this.webgazer.getCurrentPrediction === 'function') {
+                             prediction = this.webgazer.getCurrentPrediction();
+                         } else if (typeof (this.webgazer as any).predict === 'function') {
+                             prediction = (this.webgazer as any).predict();
+                         }
 
                         if (prediction && prediction.x != null && prediction.y != null) {
                             this.gazeFrameCount++;

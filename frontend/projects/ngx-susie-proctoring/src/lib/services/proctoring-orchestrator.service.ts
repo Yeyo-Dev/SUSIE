@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject, effect, output, OnDestroy } from '@angular/core';
-import { SusieConfig, StepInfo, SecurityViolation, ConsentResult, ExamResult } from '../models/contracts';
+import { SusieConfig, StepInfo, SecurityViolation, ConsentResult, ExamResult, LoggerFn } from '../models/contracts';
 import { MediaService } from './media.service';
 import { EvidenceService } from './evidence.service';
 import { SecurityService } from './security.service';
@@ -28,7 +28,7 @@ export interface OrchestratorCallbacks {
   onStateChange: (state: ProctoringState) => void;
   onViolation: (violation: SecurityViolation) => void;
   onExamFinished: (result: ExamResult) => void;
-  onLog: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void;
+  onLog: LoggerFn;
   onBiometricValidationRequired: (photo: Blob, userId: string) => Promise<boolean>;
   onSessionStarted: (sessionId: string) => void;
   onInactivityWarning: () => void;
@@ -94,7 +94,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
   readonly biometricSuccess = signal(false);
 
   // Debug
-  readonly logs = signal<{ time: string; type: 'info' | 'error' | 'success'; msg: string; details?: any }[]>([]);
+  readonly logs = signal<{ time: string; type: 'info' | 'error' | 'success'; msg: string; details?: Record<string, unknown> }[]>([]);
 
   // Config (set on init)
   private config: SusieConfig | null = null;
@@ -163,8 +163,8 @@ export class ProctoringOrchestratorService implements OnDestroy {
   }
 
   private setupEventListeners(): void {
-    this.cleanup.addEventListener(document, 'contextmenu', this.preventGlobalContextMenu);
-    this.cleanup.addEventListener(document, 'keydown', this.preventGlobalDevTools);
+    this.cleanup.addEventListener(document, 'contextmenu', this.preventGlobalContextMenu as EventListener);
+    this.cleanup.addEventListener(document, 'keydown', this.preventGlobalDevTools as EventListener);
   }
 
   private handlePreventContextMenu(e: Event): boolean {
@@ -505,13 +505,13 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.logs.set([]);
   }
 
-  private log(type: 'info' | 'error' | 'success', msg: string, details?: any): void {
+  private log(type: 'info' | 'error' | 'success', msg: string, details?: unknown): void {
     if (this.config?.debugMode) {
       this.logs.update(prev => [{
         time: new Date().toLocaleTimeString(),
         type,
         msg,
-        details
+        details: details && typeof details === 'object' ? details as Record<string, unknown> : undefined
       }, ...prev]);
     }
     this.callbacks?.onLog(type, msg, details);
@@ -526,9 +526,9 @@ export class ProctoringOrchestratorService implements OnDestroy {
   destroy(): void {
     this.log('info', '🛑 Deteniendo orchestrator');
 
-    this.cleanup.removeEventListener(document, 'contextmenu', this.preventGlobalContextMenu);
-    this.cleanup.removeEventListener(document, 'keydown', this.preventGlobalDevTools);
-    this.cleanup.removeEventListener(document, 'visibilitychange', this.visibilityReturnHandler);
+    this.cleanup.removeEventListener(document, 'contextmenu', this.preventGlobalContextMenu as EventListener);
+    this.cleanup.removeEventListener(document, 'keydown', this.preventGlobalDevTools as EventListener);
+    this.cleanup.removeEventListener(document, 'visibilitychange', this.visibilityReturnHandler as EventListener);
 
     if (this.state() === 'MONITORING') {
       this.evidenceService.endSession('cancelled');

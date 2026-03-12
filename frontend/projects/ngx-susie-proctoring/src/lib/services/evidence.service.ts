@@ -8,15 +8,20 @@ import {
     BackendInfraccionPayload,
     BackendInfraccionTipo,
     calcularMinutoInfraccion,
+    LoggerFn,
+    AudioRecordingConfig,
+    SessionContextData,
+    IntervalHandle,
+    MediaRecorderErrorEvent,
 } from '../models/contracts';
 
 @Injectable({ providedIn: 'root' })
 export class EvidenceService {
     private apiUrl = '';
     private authToken = '';
-    private sessionContext: any = {};
+    private sessionContext: SessionContextData = {} as SessionContextData;
     private mediaRecorder: MediaRecorder | null = null;
-    private recordingInterval: ReturnType<typeof setInterval> | undefined;
+    private recordingInterval: IntervalHandle | undefined;
     private audioChunks: Blob[] = [];
 
     /** Cola de reintentos offline (IndexedDB). */
@@ -30,10 +35,10 @@ export class EvidenceService {
     /** Índice secuencial para fragmentos de audio. */
     private audioFragmentIndex = 0;
 
-    private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
+    private logger: LoggerFn = () => { };
 
 
-    configure(apiUrl: string, authToken: string, sessionContext: any) {
+    configure(apiUrl: string, authToken: string, sessionContext: SessionContextData) {
         this.apiUrl = apiUrl;
         this.authToken = authToken;
         this.sessionContext = sessionContext;
@@ -44,7 +49,7 @@ export class EvidenceService {
         this.queue.init();
     }
 
-    setLogger(fn: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void) {
+    setLogger(fn: LoggerFn) {
         this.logger = fn;
     }
 
@@ -61,7 +66,7 @@ export class EvidenceService {
             meta: {
                 sesion_id: Number(this.remoteSessionId) || 0,
                 usuario_id: Number(this.sessionContext.userId) || 0,
-                nombre_usuario: this.sessionContext.userName || this.sessionContext.userId || 'anonymous',
+                nombre_usuario: String(this.sessionContext.userName || this.sessionContext.userId || 'anonymous'),
                 examen_id: Number(this.sessionContext.examId) || 0,
                 nombre_examen: this.sessionContext.examTitle || '',
                 timestamp: Date.now(),
@@ -92,7 +97,7 @@ export class EvidenceService {
     }
 
 
-    startAudioRecording(stream: MediaStream | null, config: any) {
+    startAudioRecording(stream: MediaStream | null, config: AudioRecordingConfig) {
         if (!stream) {
             this.logger('error', '❌ No hay stream de audio disponible para grabar');
             return;
@@ -110,7 +115,7 @@ export class EvidenceService {
         }
     };
 
-    private initMediaRecorder(stream: MediaStream, config: any) {
+    private initMediaRecorder(stream: MediaStream, config: AudioRecordingConfig) {
         this.cleanup.addEventListener(window, 'beforeunload', this.handleUnload);
 
         try {
@@ -130,8 +135,9 @@ export class EvidenceService {
             };
 
 
-            this.mediaRecorder.onerror = (event: any) => {
-                this.logger('error', '❌ Error en MediaRecorder', event.error);
+            this.mediaRecorder.onerror = (event: Event) => {
+                const error = (event as any).error;
+                this.logger('error', '❌ Error en MediaRecorder', error);
             };
 
             const interval = ((config.chunkIntervalSeconds || 15) * 1000) + 500;

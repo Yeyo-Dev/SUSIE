@@ -1,25 +1,25 @@
 import { Injectable, NgZone, inject } from '@angular/core';
-import { SecurityViolation } from '../models/contracts';
+import { SecurityViolation, LoggerFn, SecurityPoliciesConfig, IntervalHandle } from '../models/contracts';
 import { DestroyRefUtility } from '../utils/destroy-ref.utility';
 
 @Injectable({ providedIn: 'root' })
 export class SecurityService {
-    private policies: any = {};
+    private policies: SecurityPoliciesConfig = {} as SecurityPoliciesConfig;
     private violationCallback?: (v: SecurityViolation) => void;
-    private devToolsInterval?: ReturnType<typeof setInterval>;
+    private devToolsInterval?: IntervalHandle;
     
-    private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
+    private logger: LoggerFn = () => { };
 
     constructor(
         private ngZone: NgZone,
         private cleanup: DestroyRefUtility
     ) { }
 
-    setLogger(fn: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void) {
+    setLogger(fn: LoggerFn) {
         this.logger = fn;
     }
 
-    enableProtection(policies: any, callback: (v: SecurityViolation) => void) {
+    enableProtection(policies: SecurityPoliciesConfig, callback: (v: SecurityViolation) => void) {
         this.policies = policies;
         this.violationCallback = callback;
 
@@ -39,7 +39,7 @@ export class SecurityService {
 
         if (policies.preventBackNavigation) {
             history.pushState(null, '', window.location.href);
-            this.cleanup.addEventListener(window, 'popstate', this.preventBack);
+            this.cleanup.addEventListener(window, 'popstate', this.preventBack as EventListener);
         }
 
         if (policies.preventPageReload) {
@@ -58,14 +58,14 @@ export class SecurityService {
             this.devToolsInterval = undefined;
         }
 
-        this.cleanup.removeEventListener(document, 'fullscreenchange', this.handleFullscreenChange);
-        this.cleanup.removeEventListener(document, 'visibilitychange', this.handleVisibilityChange);
-        this.cleanup.removeEventListener(window, 'blur', this.handleBlur);
-        this.cleanup.removeEventListener(window, 'popstate', this.preventBack);
-        this.cleanup.removeEventListener(window, 'beforeunload', this.preventReload);
+        this.cleanup.removeEventListener(document, 'fullscreenchange', this.handleFullscreenChange as EventListener);
+        this.cleanup.removeEventListener(document, 'visibilitychange', this.handleVisibilityChange as EventListener);
+        this.cleanup.removeEventListener(window, 'blur', this.handleBlur as EventListener);
+        this.cleanup.removeEventListener(window, 'popstate', this.preventBack as EventListener);
+        this.cleanup.removeEventListener(window, 'beforeunload', this.preventReload as EventListener);
 
-        ['copy', 'cut', 'paste'].forEach(evt => this.cleanup.removeEventListener(document, evt, this.preventClipboard));
-        this.cleanup.removeEventListener(document, 'selectstart', this.preventSelection);
+        ['copy', 'cut', 'paste'].forEach(evt => this.cleanup.removeEventListener(document, evt, this.preventClipboard as EventListener));
+        this.cleanup.removeEventListener(document, 'selectstart', this.preventSelection as EventListener);
     }
 
 
@@ -137,7 +137,7 @@ export class SecurityService {
 
 
 
-    private reportViolation(type: any, message: string) {
+    private reportViolation(type: SecurityViolation['type'], message: string) {
         this.ngZone.run(() => {
             this.violationCallback?.({
                 type,
