@@ -113,6 +113,19 @@ export class GazePredictionService {
 
         try {
           let prediction: WebGazerPrediction | null = null;
+          let faceDetected = true;
+
+          // Verificar si realmente se está detectando un rostro usando el API interno
+          if (typeof (this.webgazer as any).getTracker === 'function') {
+            const tracker = (this.webgazer as any).getTracker();
+            if (tracker && typeof tracker.getPositions === 'function') {
+              const positions = tracker.getPositions();
+              // getPositions() devuelve un float array si hay cara, false/null o array vacío si no hay
+              if (!positions || positions === false || positions.length === 0) {
+                faceDetected = false;
+              }
+            }
+          }
 
           if (typeof this.webgazer.getCurrentPrediction === 'function') {
             prediction = this.webgazer.getCurrentPrediction();
@@ -120,7 +133,11 @@ export class GazePredictionService {
             prediction = (this.webgazer as any).predict();
           }
 
-          if (prediction && prediction.x != null && prediction.y != null) {
+          if (!faceDetected) {
+            // Rostro perdido: Forzamos null para disparar los threshold de error en el facade/deviation
+            this.gazeFrameCount++;
+            this.predictionSubject.next({ x: -999, y: -999, confidence: 0 }); 
+          } else if (prediction && prediction.x != null && prediction.y != null) {
             this.gazeFrameCount++;
             this.predictionSubject.next(prediction);
           }

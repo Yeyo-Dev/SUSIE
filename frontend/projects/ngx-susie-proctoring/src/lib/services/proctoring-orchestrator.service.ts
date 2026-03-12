@@ -337,6 +337,13 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.setState('MONITORING');
     const policies = this.config.securityPolicies;
 
+    // Start session with backend FIRST to obtain realSessionId
+    const realSessionId = await this.evidenceService.startSession();
+    if (realSessionId) {
+      this.resolvedSessionId.set(realSessionId);
+      this.callbacks?.onSessionStarted(realSessionId);
+    }
+
     // Activate protections
     if (policies.requireFullscreen) {
       this.securityService.enterFullscreen();
@@ -356,19 +363,30 @@ export class ProctoringOrchestratorService implements OnDestroy {
       this.log('info', '👁️ Gaze Tracking activo');
     }
 
+    // Audio recording setup if needed
+    this.log('info', `🔎 Políticas de supervisión al iniciar monitoreo`, policies);
+    
+    if (policies.requireMicrophone) {
+      const audioStream = this.mediaService.getAudioStream();
+      if (audioStream) {
+        this.evidenceService.startAudioRecording(audioStream, {
+          chunkIntervalSeconds: 15,
+          bitrate: 32000
+        });
+        this.log('info', '🎙️ Grabación de audio activa (intervalo: 15s)');
+      } else {
+        this.log('warn', '⚠️ No se pudo iniciar el audio: stream no disponible');
+      }
+    } else {
+      this.log('info', '🔕 La política "requireMicrophone" es FALSA (Audio no configurado en backend)');
+    }
+
     // Inactivity
     this.inactivityService.startMonitoring();
 
     // Visibility handler for fullscreen recovery
     if (policies.requireFullscreen) {
       this.cleanup.addEventListener(document, 'visibilitychange', this.visibilityReturnHandler);
-    }
-
-    // Start session with backend
-    const realSessionId = await this.evidenceService.startSession();
-    if (realSessionId) {
-      this.resolvedSessionId.set(realSessionId);
-      this.callbacks?.onSessionStarted(realSessionId);
     }
 
     // WebSocket feedback

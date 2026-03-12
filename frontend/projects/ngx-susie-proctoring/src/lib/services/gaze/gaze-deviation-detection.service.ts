@@ -36,6 +36,9 @@ export class GazeDeviationDetectionService {
         this.deviationToleranceSeconds = toleranceSeconds;
     }
 
+    private lastFrozenPoint: GazePoint | null = null;
+    private frozenDurationMs: number = 0;
+
     start(lastPointProvider: () => GazePoint | null, onDeviation?: () => void): void {
         this.stop();
 
@@ -44,15 +47,35 @@ export class GazeDeviationDetectionService {
             this.deviationCallback = onDeviation;
         }
 
+        const TICK_MS = 1000;
         this.deviationCheckInterval = setInterval(() => {
             const point = this.lastPointProvider?.();
             if (!point) return;
 
+            // Detectar si el punto está 100% congelado (WebGazer perdió el rostro)
+            let isFrozen = false;
+            if (this.lastFrozenPoint && this.lastFrozenPoint.x === point.x && this.lastFrozenPoint.y === point.y) {
+                this.frozenDurationMs += TICK_MS;
+            } else {
+                this.frozenDurationMs = 0;
+                this.lastFrozenPoint = { ...point };
+            }
+
+            // Consideramos "Pérdida de visión" si está congelado por más de 2 segundos,
+            // ya que el ojo humano tiene microsacadas naturales y NUNCA está perfectamente quieto a nivel subpixel.
+            if (this.frozenDurationMs >= 2000) {
+                isFrozen = true;
+            }
+
+            // O está mirando fuera de la pantalla, o perdimos el rostro por completo.
+            // point.x/y === -999 es el código que envía GazePredictionService cuando no detecta rostro
+            const faceLostExplicitly = point.x === -999 || point.y === -999;
             const isOutOfBounds =
+                faceLostExplicitly ||
                 Math.abs(point.x) > this.deviationThreshold ||
                 Math.abs(point.y) > this.deviationThreshold;
 
-            if (isOutOfBounds) {
+            if (isOutOfBounds || isFrozen) {
                 const now = Date.now();
                 if (!this.deviationStartTime) {
                     this.deviationStartTime = now;
@@ -62,7 +85,8 @@ export class GazeDeviationDetectionService {
 
                 if (elapsed >= this.deviationToleranceSeconds && !this.hasDeviation()) {
                     this.hasDeviation.set(true);
-                    this.logger('error', `🚨 GAZE_DEVIATION: Mirada fuera de pantalla por ${elapsed.toFixed(1)}s`);
+                    const reason = isFrozen ? 'Rostro no detectado / Pérdida de visión' : 'Mirada fuera de pantalla';
+                    this.logger('error', `🚨 GAZE_DEVIATION: ${reason} por ${elapsed.toFixed(1)}s`);
                     this.deviationCallback?.();
                 }
             } else {

@@ -443,6 +443,12 @@ export interface WebGazerAPI {
   // UI
   showVideoPreview(show: boolean): WebGazerAPI;
   showPredictionPoints(show: boolean): WebGazerAPI;
+  showFaceOverlay(show: boolean): WebGazerAPI;
+  showFaceFeedbackBox(show: boolean): WebGazerAPI;
+
+  // Interacción y Mouse Tracking
+  removeMouseEventListeners(): WebGazerAPI;
+  recordScreenPosition(x: number, y: number, eventType: string): void;
 
   // Acceso a datos
   getCurrentPrediction(): WebGazerPrediction | null;

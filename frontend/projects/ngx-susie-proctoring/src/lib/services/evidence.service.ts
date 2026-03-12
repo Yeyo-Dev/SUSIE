@@ -58,6 +58,8 @@ export class EvidenceService {
         return this.remoteSessionId;
     }
 
+    private shouldRestartAudio = false;
+
     sendEvent(payload: Partial<EvidenceMetadata['_internal']> & { file?: Blob }) {
         const { file, ...restPayload } = payload;
 
@@ -102,6 +104,8 @@ export class EvidenceService {
             this.logger('error', '❌ No hay stream de audio disponible para grabar');
             return;
         }
+        this.stopAudioRecording(); // Limpia timers previos si se llama doble accidentalmente
+        this.shouldRestartAudio = true;
         this.audioFragmentIndex = 0;
         this.initMediaRecorder(stream, config);
     }
@@ -129,17 +133,29 @@ export class EvidenceService {
             });
 
             this.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
+                // Ignore empty or tiny blobs (e.g. headers only) from rapid stop/starts
+                if (event.data && event.data.size > 200) {
                     this.sendAudioChunk(event.data);
                 }
             };
 
+            this.mediaRecorder.onstop = () => {
+                if (this.shouldRestartAudio && this.mediaRecorder) {
+                    try {
+                        this.mediaRecorder.start();
+                    } catch (e) {
+                        this.logger('error', '❌ Error al reiniciar MediaRecorder', e);
+                    }
+                }
+            };
 
             this.mediaRecorder.onerror = (event: Event) => {
                 const error = (event as any).error;
                 this.logger('error', '❌ Error en MediaRecorder', error);
             };
 
+            // Se suma un pequeño offset para asegurar que el reproductor
+            // marque el tiempo completo (ej: 15s redondos en vez de 14.8s)
             const interval = ((config.chunkIntervalSeconds || 15) * 1000) + 500;
 
             this.mediaRecorder.start();
@@ -147,7 +163,6 @@ export class EvidenceService {
             this.recordingInterval = this.cleanup.setInterval(() => {
                 if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
                     this.mediaRecorder.stop();
-                    this.mediaRecorder.start();
                 }
             }, interval);
 
@@ -159,6 +174,7 @@ export class EvidenceService {
     }
 
     stopAudioRecording() {
+        this.shouldRestartAudio = false;
         this.cleanup.removeEventListener(window, 'beforeunload', this.handleUnload);
         if (this.recordingInterval) {
             this.cleanup.clearInterval(this.recordingInterval);
@@ -318,6 +334,7 @@ export class EvidenceService {
         const url = `${this.apiUrl}/monitoreo/evidencias/gaze_tracking`;
         const payload = {
             sesion_id: Number(this.remoteSessionId),
+            usuario_id: Number(this.sessionContext.userId), // Añadido para mandar a RabbitMQ (el backend debe pasarlo)
             timestamp: new Date().toISOString(),
             gaze_points: points
         };

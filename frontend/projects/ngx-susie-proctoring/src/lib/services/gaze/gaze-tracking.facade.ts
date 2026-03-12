@@ -128,7 +128,15 @@ export class GazeTrackingFacade {
             this.prediction.predictionReceived$.subscribe((prediction) => {
                 if (prediction && prediction.x != null && prediction.y != null) {
                     this.gazeFrameCount++;
-                    this.processRawGaze(prediction.x, prediction.y);
+
+                    if (prediction.x === -999 && prediction.y === -999) {
+                        // Rostro perdido explícitamente desde GazePredictionService
+                        // Bypasseamos el suavizado y seteamos el lastPoint directamente para que DeviationDetection lo vea
+                        this.lastPoint.set({ x: -999, y: -999, ts: Date.now() });
+                    } else {
+                        // Coordenadas normales, van por el pipeline de suavizado
+                        this.processRawGaze(prediction.x, prediction.y);
+                    }
                 }
             });
 

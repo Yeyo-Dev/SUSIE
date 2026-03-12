@@ -141,6 +141,10 @@ export class GazeCalibrationService {
 
       await this.webgazer.begin();
 
+      // WebGazer añade los event listeners del mouse por defecto al iniciar.
+      // Los removemos AHORA para que el punto no siga al ratón.
+      this.webgazer.removeMouseEventListeners();
+
       // Restaurar getUserMedia original
       if (this.originalGetUserMedia) {
         navigator.mediaDevices.getUserMedia = this.originalGetUserMedia;
@@ -151,7 +155,29 @@ export class GazeCalibrationService {
 
       // Mostrar video y predicciones durante la calibración
       try {
-        this.webgazer.showVideoPreview(true).showPredictionPoints(true);
+        this.webgazer
+          .showVideoPreview(true)
+          .showPredictionPoints(true)
+          .showFaceOverlay(true)
+          .showFaceFeedbackBox(true);
+
+        // La UI de calibración tiene un z-index de 9999 y fondo opaco.
+        // Forzamos el contenedor de video a 10000 para que la malla facial se vea.
+        const wgContainer = document.getElementById('webgazerVideoContainer');
+        if (wgContainer) {
+          wgContainer.style.zIndex = '10000';
+          wgContainer.style.display = 'block';
+          // Hacemos que los clics traspasen el video para poder hacer clic en los puntos
+          wgContainer.style.pointerEvents = 'none';
+          wgContainer.style.opacity = '0.7';
+          // Lo ubicamos abajo al centro, evitando los puntos de calibración (que están al 90% en y)
+          wgContainer.style.position = 'fixed';
+          wgContainer.style.top = 'auto';
+          wgContainer.style.left = '50%';
+          wgContainer.style.bottom = '0px';
+          wgContainer.style.transform = 'translate(-50%, 0) scale(0.8)';
+          wgContainer.style.transformOrigin = 'bottom center';
+        }
       } catch (e) {
         this.logger('error', 'Error al configurar video preview:', e);
       }
@@ -183,8 +209,12 @@ export class GazeCalibrationService {
       return;
     }
 
-    // WebGazer registra automáticamente los clics como datos de entrenamiento
-    // Solo necesitamos loguearlo para feedback
+    // Como desactivamos el mouse tracking global para que el punto no siga al ratón,
+    // TENEMOS que enviarle manualmente a WebGazer las coordenadas de los clics para que aprenda.
+    if (typeof this.webgazer.recordScreenPosition === 'function') {
+      this.webgazer.recordScreenPosition(screenX, screenY, 'click');
+    }
+
     this.calibrationPointsRecorded++;
     this.logger('info', `📍 Punto de calibración #${this.calibrationPointsRecorded} registrado en (${screenX}, ${screenY})`);
     console.log(`[GAZE] 📍 Punto de calibración #${this.calibrationPointsRecorded}: (${screenX}, ${screenY})`);

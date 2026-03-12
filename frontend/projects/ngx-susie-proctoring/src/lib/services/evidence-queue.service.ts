@@ -222,7 +222,11 @@ export class EvidenceQueueService implements OnDestroy {
             const formData = new FormData();
             if (item.meta_json) formData.append('meta', item.meta_json);
             if (item.payload_info_json) formData.append('payload_info', item.payload_info_json);
-            if (item.blob) formData.append('file', item.blob);
+            if (item.blob) {
+                const isAudio = item.endpoint.includes('audios');
+                const filename = isAudio ? 'audio.webm' : 'snapshot.jpg';
+                formData.append('file', item.blob, filename);
+            }
             body = formData;
         }
 

@@ -19,7 +19,12 @@ export class MediaService implements OnDestroy {
 
             // Si hay audio track, lo guardamos o extraemos
             if (audio) {
-                this.audioStream = stream;
+                const audioTracks = stream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    this.audioStream = new MediaStream(audioTracks);
+                } else {
+                    this.audioStream = null;
+                }
             }
         } catch (err: unknown) {
             let msg = 'Error desconocido al acceder a dispositivos.';

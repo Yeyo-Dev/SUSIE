@@ -7,7 +7,7 @@ import {
   inject,
   ChangeDetectionStrategy,
   ElementRef,
-  ViewChild,
+  viewChild,
   effect
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -52,7 +52,7 @@ export class PermissionPrepComponent {
 
   private mediaService = inject(MediaService);
 
-  @ViewChild('previewVideo') previewVideo!: ElementRef<HTMLVideoElement>;
+  readonly previewVideo = viewChild<ElementRef<HTMLVideoElement>>('previewVideo');
 
   /** Estado interno del componente */
   readonly state = signal<PermissionPrepState>('preparing');
@@ -77,9 +77,10 @@ export class PermissionPrepComponent {
     // Sincronizar el stream del MediaService con el elemento de video
     effect(() => {
       const stream = this.mediaService.stream();
-      if (stream && this.previewVideo?.nativeElement) {
-        const videoEl = this.previewVideo.nativeElement;
+      const videoEl = this.previewVideo()?.nativeElement;
+      if (stream && videoEl) {
         videoEl.srcObject = stream;
+        videoEl.muted = true;
         videoEl.play().catch(() => {
           // Ignore autoplay errors
         });

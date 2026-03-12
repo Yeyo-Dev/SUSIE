@@ -135,14 +135,6 @@ export class SusieWrapperComponent {
       this.monitorHelper.startSnapshotLoop(cfg.capture.snapshotIntervalSeconds, this.mediaStream());
     }
 
-    // Start audio if configured
-    if (policies.requireMicrophone && cfg.audioConfig?.enabled) {
-      const audioStream = this.orchestrator.getMediaService().getAudioStream();
-      if (audioStream) {
-        this.orchestrator.getEvidenceService().startAudioRecording(audioStream, cfg.audioConfig);
-      }
-    }
-
     // Start gaze if calibrated
     if (policies.requireGazeTracking && this.orchestrator.getGazeService().isCalibrated()) {
       this.monitorHelper.startGazeLoop();
