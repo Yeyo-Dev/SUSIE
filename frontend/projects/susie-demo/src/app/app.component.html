@@ -161,7 +161,7 @@
                     <span class="stat-label">Hora de envío</span>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-value">{{ res.metadata?.sessionId ?? examConfig()?.sessionContext?.examSessionId
+                    <span class="stat-value">{{ res.metadata?.['sessionId'] ?? examConfig()?.sessionContext?.examSessionId
                         }}</span>
                     <span class="stat-label">ID de sesión</span>
                 </div>
