@@ -466,12 +466,12 @@ export interface AudioRecordingConfig {
  * Reemplaza: private sessionContext: any = {} en EvidenceService
  */
 export interface SessionContextData {
-  examSessionId: string;
-  examId: string | number;
-  examTitle: string;
+  examSessionId?: string;
+  examId?: string | number;
+  examTitle?: string;
   userId?: string | number;
   userName?: string;
-  durationMinutes: number;
+  durationMinutes?: number;
   assignmentId?: number;
   remoteSessionId?: string;
 }
@@ -481,9 +481,9 @@ export interface SessionContextData {
  * Reemplaza: private policies: any en SecurityService
  */
 export interface SecurityPoliciesConfig {
-  requireCamera: boolean;
-  requireMicrophone: boolean;
-  requireFullscreen: boolean;
+  requireCamera?: boolean;
+  requireMicrophone?: boolean;
+  requireFullscreen?: boolean;
   requireConsent?: boolean;
   requireEnvironmentCheck?: boolean;
   requireBiometrics?: boolean;

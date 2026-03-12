@@ -121,83 +121,33 @@ export class GazeTrackingService {
 
     /**
      * Inicia WebGazer en modo calibración.
+     * DELEGADO A: GazeCalibrationService (Fase 1)
      * Acepta un MediaStream existente para evitar conflictos con getUserMedia.
      */
     async startCalibration(existingStream?: MediaStream | null): Promise<boolean> {
         try {
-             this.gazeState.set('CALIBRATING');
-             this.webgazer = (window as any).webgazer as WebGazerAPI;
-
-              if (!this.webgazer) {
-                 this.logger('error', '❌ WebGazer no está cargado. Asegúrate de incluir webgazer.js');
-                 this.gazeState.set('ERROR');
-                 return false;
-             }
-
-             this.logger('info', '🔄 Iniciando WebGazer...');
- 
-             // Iniciar observador agresivo de muting ANTES de begin()
+            this.gazeState.set('CALIBRATING');
+            
+            // Configurar logger en el servicio de calibración
+            this.calibration.setLogger(this.logger);
+            
+            // Iniciar observador agresivo de muting ANTES de begin()
             this.startAggressiveMuting();
 
-            // Si tenemos un stream existente, monkey-patch getUserMedia
-            // para que WebGazer lo reutilice en vez de abrir otra cámara
-            const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-            if (existingStream) {
-                this.logger('info', '🔗 Inyectando stream existente para WebGazer...');
-                navigator.mediaDevices.getUserMedia = () => Promise.resolve(existingStream);
+            // FASE 1: Delegamos la lógica de inicialización de WebGazer al GazeCalibrationService
+            const success = await this.calibration.startCalibration(existingStream);
+            
+            if (!success) {
+                this.gazeState.set('ERROR');
+                return false;
             }
-
-            this.webgazer
-                .setTracker('TFFacemesh')
-                .setRegression('ridge')
-                .setGazeListener((data: WebGazerPrediction | null, _clock: number) => {
-                    // Contar TODOS los callbacks, incluyendo data=null
-                    this.gazeFrameCount++;
-
-                    if (!data) {
-                        // WebGazer llama con null cuando no detecta rostro
-                        if (this.gazeFrameCount % 30 === 0) {
-                            console.log(`[GAZE] Frame #${this.gazeFrameCount} — data=null (no face detected)`);
-                        }
-                        return;
-                    }
-
-                    if (this.gazeFrameCount <= 3) {
-                        this.logger('success', `👁️ Dato de gaze #${this.gazeFrameCount} recibido de WebGazer`);
-                        console.log(`[GAZE] ✅ Dato de gaze #${this.gazeFrameCount}:`, data);
-                    }
-
-                    // Log directo a consola cada 60 frames (~2s a 30fps)
-                    if (this.gazeFrameCount % 60 === 0) {
-                        console.log(`[GAZE] Frame #${this.gazeFrameCount} → x:${data.x?.toFixed(0)}, y:${data.y?.toFixed(0)}`);
-                    }
-
-                    this.processRawGaze(data.x, data.y);
-                });
-
-            console.log('[GAZE] Llamando webgazer.begin()...');
-            await this.webgazer.begin();
-
-            // Restaurar getUserMedia original
-            navigator.mediaDevices.getUserMedia = originalGetUserMedia;
-
-            this.logger('info', '✅ WebGazer.begin() completado');
-            console.log('[GAZE] ✅ webgazer.begin() completado exitosamente');
-
-            // Mostrar video y predicciones durante la calibración
-             try {
-                 this.webgazer.showVideoPreview(true).showPredictionPoints(true);
-             } catch (e) {
-                 this.logger('error', 'Error al configurar video preview:', e);
-             }
-
-            // Silenciar el video de WebGazer (forzar inmediatamente)
-            this.muteAllWebgazerVideos();
-
-            this.logger('success', '👁️ WebGazer iniciado — Haz clic en los puntos rojos mirándolos fijamente');
+            
+            // Obtener referencia a WebGazer del servicio de calibración
+            this.webgazer = (window as any).webgazer as WebGazerAPI;
+            
             return true;
         } catch (error) {
-            this.logger('error', '❌ Error al iniciar WebGazer', error);
+            this.logger('error', '❌ Error al iniciar calibración', error);
             this.gazeState.set('ERROR');
             return false;
         }
@@ -216,64 +166,42 @@ export class GazeTrackingService {
 
     /**
      * Marca la calibración como completada y comienza el tracking real.
+     * DELEGADO A: GazeCalibrationService (Fase 1)
      */
-    completeCalibration() {
-        this.isCalibrated.set(true);
-        this.gazeState.set('TRACKING');
-        this.xHistory = [];
-        this.yHistory = [];
-        this.gazeBuffer = [];
-
-        console.log('[GAZE] completeCalibration() — gazeFrameCount:', this.gazeFrameCount);
-
-        if (this.webgazer) {
-            // Intentar resume() por si WebGazer auto-pausó su loop
-            try {
-                 if (typeof this.webgazer.resume === 'function') {
-                     this.webgazer.resume();
-                 }
-             } catch (e) {
-                 this.logger('error', 'Error al reanudar WebGazer:', e);
-             }
-
-            // Listar métodos disponibles en webgazer para diagnóstico
-            // console.log('[GAZE] Métodos disponibles en webgazer:', methods.join(', '));
-
-            // ESTRATEGIA DEFINITIVA: 
-            // Los navegadores modernos detienen el pipeline de video si detectan que no es visible
-            // (opacity=0, visibility=hidden, display=none, o a traves de la API del canvas).
-            // Solución: Dejarlo 100% visible, pero renderizado fuera de la pantalla.
-            const wgContainer = document.getElementById('webgazerVideoContainer');
-            if (wgContainer) {
-                // Restaurar cualquier intento anterior
-                wgContainer.style.opacity = '1';
-                wgContainer.style.visibility = 'visible';
-                wgContainer.style.display = 'block';
-
-                // Moverlo fuera de la pantalla
-                wgContainer.style.position = 'fixed';
-                wgContainer.style.top = '-9999px';
-                wgContainer.style.left = '-9999px';
-                wgContainer.style.pointerEvents = 'none';
+    async completeCalibration() {
+        try {
+            // FASE 1: Delegamos el cleanup de calibración al GazeCalibrationService
+            const webgazer = await this.calibration.completeCalibration();
+            
+            if (!webgazer) {
+                this.logger('error', 'Error al completar calibración en GazeCalibrationService');
+                return;
             }
+            
+            // Actualizar estado local
+            this.isCalibrated.set(true);
+            this.gazeState.set('TRACKING');
+            this.xHistory = [];
+            this.yHistory = [];
+            this.gazeBuffer = [];
+            this.webgazer = webgazer;
 
-            const gazeDot = document.getElementById('webgazerGazeDot');
-            if (gazeDot) {
-                gazeDot.style.display = 'none';
-            }
+            console.log('[GAZE] completeCalibration() — gazeFrameCount:', this.gazeFrameCount);
+
+            // Iniciar polling manual de predicciones
+            // No depende de setGazeListener — llama directamente a getCurrentPrediction()
+            this.startManualPolling();
+
+            // Iniciar chequeo de desviación periódico
+            this.startDeviationDetection();
+
+            // Iniciar diagnóstico
+            this.startDiagnosticLoop();
+
+            this.logger('success', '✅ Calibración completada — Tracking activo (polling manual)');
+        } catch (error) {
+            this.logger('error', 'Error en completeCalibration:', error);
         }
-
-        // Iniciar polling manual de predicciones
-        // No depende de setGazeListener — llama directamente a getCurrentPrediction()
-        this.startManualPolling();
-
-        // Iniciar chequeo de desviación periódico
-        this.startDeviationDetection();
-
-        // Iniciar diagnóstico
-        this.startDiagnosticLoop();
-
-        this.logger('success', '✅ Calibración completada — Tracking activo (polling manual)');
     }
 
     /**
@@ -296,6 +224,9 @@ export class GazeTrackingService {
      * Detiene todo: WebGazer, intervalos y limpia estado.
      */
     stop() {
+        // FASE 1: Limpiar el servicio de calibración
+        this.calibration.destroy();
+        
         try {
             if (this.webgazer) {
                 this.webgazer.end();
