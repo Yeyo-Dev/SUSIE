@@ -187,20 +187,20 @@ describe('GazeTrackingService', () => {
             await service.startCalibration();
         });
 
-        it('debe cambiar gazeState a TRACKING e isCalibrated a true', () => {
-            service.completeCalibration();
+        it('debe cambiar gazeState a TRACKING e isCalibrated a true', async () => {
+            await service.completeCalibration();
 
             expect(service.gazeState()).toBe('TRACKING');
             expect(service.isCalibrated()).toBeTrue();
         });
 
-        it('debe llamar resume() en webgazer si está disponible', () => {
-            service.completeCalibration();
+        it('debe llamar resume() en webgazer si está disponible', async () => {
+            await service.completeCalibration();
             expect(mockWebgazer.resume).toHaveBeenCalled();
         });
 
-        it('debe iniciar polling manual (requestAnimationFrame)', () => {
-            service.completeCalibration();
+        it('debe iniciar polling manual (requestAnimationFrame)', async () => {
+            await service.completeCalibration();
             expect(rafSpy).toHaveBeenCalled();
         });
     });
@@ -218,7 +218,7 @@ describe('GazeTrackingService', () => {
 
             service.configure({ smoothingWindow: 3, samplingIntervalMs: 100 }, loggerSpy, deviationCb);
             await service.startCalibration();
-            service.completeCalibration();
+            await service.completeCalibration();
         });
 
         it('debe normalizar coordenadas del centro de pantalla a ~(0,0)', () => {
@@ -347,7 +347,7 @@ describe('GazeTrackingService', () => {
 
             service.configure({ samplingIntervalMs: 50, smoothingWindow: 1 }, loggerSpy);
             await service.startCalibration();
-            service.completeCalibration();
+            await service.completeCalibration();
         });
 
         it('getGazeBuffer() debe retornar copia sin limpiar', () => {
