@@ -123,9 +123,10 @@ export class PermissionPrepComponent {
       await this.mediaService.requestPermissions(needsCamera, needsMic);
       // Permisos concedidos - el effect se encarga de mostrar el preview
       this.state.set('granted');
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Permisos denegados o error
-      this.errorMessage.set(err.message ?? 'Permiso denegado');
+      const errorMsg = err instanceof Error ? err.message : 'Permiso denegado';
+      this.errorMessage.set(errorMsg);
       this.hasError.set(true);
       this.state.set('denied');
     }

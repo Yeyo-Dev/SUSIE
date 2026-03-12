@@ -55,23 +55,23 @@ export class GazeTrackingService {
     private gazeBuffer: GazePoint[] = [];
     private maxBufferSize = 60; // ~60 segundos de datos a 1 muestra/seg
 
-    // Detección de desviación sostenida
-    private deviationStartTime: number | null = null;
-    private deviationCheckInterval: any = null;
+     // Detección de desviación sostenida
+     private deviationStartTime: number | null = null;
+     private deviationCheckInterval: ReturnType<typeof setInterval> | undefined;
 
-    // Referencia a WebGazer (se carga globalmente)
-    private webgazer: any = null;
+     // Referencia a WebGazer (se carga globalmente)
+     private webgazer: any = null;
 
-    // Contador de frames de gaze recibidos
-    private gazeFrameCount = 0;
-    private lastGazeLogTime = 0;
+     // Contador de frames de gaze recibidos
+     private gazeFrameCount = 0;
+     private lastGazeLogTime = 0;
 
-    // Observer para silenciar videos de WebGazer
-    private muteObserver: MutationObserver | null = null;
-    private muteRetryInterval: any = null;
+     // Observer para silenciar videos de WebGazer
+     private muteObserver: MutationObserver | null = null;
+     private muteRetryInterval: ReturnType<typeof setInterval> | undefined;
 
-    // Diagnóstico para debugging
-    private diagnosticInterval: any = null;
+     // Diagnóstico para debugging
+     private diagnosticInterval: ReturnType<typeof setInterval> | undefined;
 
     // Polling manual de gaze (fallback cuando setGazeListener deja de funcionar)
     private pollingRafId: number | null = null;
@@ -402,7 +402,7 @@ export class GazeTrackingService {
     private stopDeviationDetection() {
         if (this.deviationCheckInterval) {
             clearInterval(this.deviationCheckInterval);
-            this.deviationCheckInterval = null;
+            this.deviationCheckInterval = undefined;
         }
         this.deviationStartTime = null;
     }
@@ -494,7 +494,7 @@ export class GazeTrackingService {
             retryCount++;
             if (retryCount >= 20) { // 10 segundos
                 clearInterval(this.muteRetryInterval);
-                this.muteRetryInterval = null;
+                this.muteRetryInterval = undefined;
             }
         }, 500);
     }
@@ -509,7 +509,7 @@ export class GazeTrackingService {
         }
         if (this.muteRetryInterval) {
             clearInterval(this.muteRetryInterval);
-            this.muteRetryInterval = null;
+            this.muteRetryInterval = undefined;
         }
     }
 
@@ -621,7 +621,7 @@ export class GazeTrackingService {
     private stopDiagnosticLoop() {
         if (this.diagnosticInterval) {
             clearInterval(this.diagnosticInterval);
-            this.diagnosticInterval = null;
+            this.diagnosticInterval = undefined;
         }
     }
 }

@@ -21,14 +21,16 @@ export class MediaService implements OnDestroy {
             if (audio) {
                 this.audioStream = stream;
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             let msg = 'Error desconocido al acceder a dispositivos.';
-            if (err.name === 'NotAllowedError') {
-                msg = 'Permiso denegado. Por favor permite el acceso a la cámara y micrófono.';
-            } else if (err.name === 'NotFoundError') {
-                msg = 'No se encontraron dispositivos de cámara o micrófono.';
-            } else if (err.name === 'NotReadableError') {
-                msg = 'El dispositivo está siendo usado por otra aplicación.';
+            if (err instanceof DOMException) {
+                if (err.name === 'NotAllowedError') {
+                    msg = 'Permiso denegado. Por favor permite el acceso a la cámara y micrófono.';
+                } else if (err.name === 'NotFoundError') {
+                    msg = 'No se encontraron dispositivos de cámara o micrófono.';
+                } else if (err.name === 'NotReadableError') {
+                    msg = 'El dispositivo está siendo usado por otra aplicación.';
+                }
             }
             this.error.set(msg);
             throw err;

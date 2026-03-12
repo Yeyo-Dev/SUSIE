@@ -54,7 +54,6 @@ export class ProctoringOrchestratorService {
 
   // --- State Signals ---
   readonly state = signal<ProctoringState>('CHECKING_PERMISSIONS');
-  readonly stateChange = output<ProctoringState>();
   
   // Exposed signals for template
   readonly mediaStream = this.mediaService.stream;
@@ -62,6 +61,19 @@ export class ProctoringOrchestratorService {
   readonly isOnline = this.networkService.isOnline;
   readonly aiAlert = this.feedbackService.currentAlert;
   readonly inactivityWarning = this.inactivityService.showWarning;
+
+  constructor() {
+    // Effect: network monitoring
+    effect(() => {
+      if (!this.isOnline()) {
+        this.log('error', '⚠️ Conexión perdida - Modo offline activado');
+        this.callbacks?.onNetworkStatusChange(false);
+      } else {
+        this.log('success', '✅ Conexión estable');
+        this.callbacks?.onNetworkStatusChange(true);
+      }
+    }, { allowSignalWrites: true });
+  }
 
   // Metrics
   readonly tabSwitchCount = signal(0);
@@ -130,44 +142,20 @@ export class ProctoringOrchestratorService {
 
   // --- Initialization ---
 
-  /**
-   * Inicializa el orchestrator con la configuración y callbacks.
-   */
   initialize(config: SusieConfig, callbacks: OrchestratorCallbacks): void {
     this.config = config;
     this.callbacks = callbacks;
 
     this.log('info', '🚀 ProctoringOrchestrator inicializado');
 
-    // Effect: state changes emit to parent
-    effect(() => {
-      this.stateChange.emit(this.state());
-    });
-
-    // Effect: network monitoring
-    effect(() => {
-      if (!this.isOnline()) {
-        this.log('error', '⚠️ Conexión perdida - Modo offline activado');
-        this.callbacks?.onNetworkStatusChange(false);
-      } else {
-        this.log('success', '✅ Conexión estable');
-        this.callbacks?.onNetworkStatusChange(true);
-      }
-    }, { allowSignalWrites: true });
-
-    // Effect: configure services when config changes
-    effect(() => {
-      const cfg = this.config;
-      if (cfg) {
-        this.evidenceService.configure(cfg.apiUrl, cfg.authToken, cfg.sessionContext);
-        this.evidenceService.setLogger((type, msg, details) => this.log(type, msg, details));
-        this.securityService.setLogger((type, msg, details) => this.log(type, msg, details));
-        this.inactivityService.configure(
-          cfg.inactivityTimeoutMinutes ?? 3,
-          cfg.onInactivityDetected
-        );
-      }
-    }, { allowSignalWrites: true });
+    // Configure services synchronously
+    this.evidenceService.configure(config.apiUrl, config.authToken, config.sessionContext);
+    this.evidenceService.setLogger((type, msg, details) => this.log(type, msg, details));
+    this.securityService.setLogger((type, msg, details) => this.log(type, msg, details));
+    this.inactivityService.configure(
+      config.inactivityTimeoutMinutes ?? 3,
+      config.onInactivityDetected
+    );
 
     this.setupEventListeners();
   }

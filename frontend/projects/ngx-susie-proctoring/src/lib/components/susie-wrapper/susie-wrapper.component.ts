@@ -98,9 +98,9 @@ export class SusieWrapperComponent {
   readonly logs = this.orchestrator.logs;
 
   constructor() {
-    // Forward state changes to parent (OutputEmitterRef has subscribe method)
-    this.orchestrator.stateChange.subscribe((state: ProctoringState) => {
-      this.stateChange.emit(state);
+    // Forward state changes to parent
+    effect(() => {
+      this.stateChange.emit(this.state());
     });
 
     // Configure monitor helper when state becomes MONITORING

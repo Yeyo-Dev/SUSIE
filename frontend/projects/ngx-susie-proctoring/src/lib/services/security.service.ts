@@ -5,7 +5,7 @@ import { SecurityViolation } from '../models/contracts';
 export class SecurityService {
     private policies: any = {};
     private violationCallback?: (v: SecurityViolation) => void;
-    private devToolsInterval?: any;
+    private devToolsInterval?: ReturnType<typeof setInterval>;
     
     private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
 

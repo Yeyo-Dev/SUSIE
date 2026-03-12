@@ -4,13 +4,13 @@ import { Injectable, signal, OnDestroy } from '@angular/core';
 export class InactivityService implements OnDestroy {
     showWarning = signal(false);
 
-    private timeoutId: any;
-    private warningTimeoutId: any;
+    private timeoutId: ReturnType<typeof setTimeout> | undefined;
+    private warningTimeoutId: ReturnType<typeof setTimeout> | undefined;
     private inactivityLimitMs = 3 * 60 * 1000; // 3 min default
     private onInactivityCallback?: () => void;
     private events = ['mousemove', 'keydown', 'click', 'scroll'];
     private lastActivity = Date.now();
-    private checkInterval: any;
+    private checkInterval: ReturnType<typeof setInterval> | undefined;
 
     configure(limitMinutes: number, callback?: () => void) {
         if (limitMinutes > 0) {

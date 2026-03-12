@@ -15,7 +15,7 @@ export class EvidenceService {
     private authToken = '';
     private sessionContext: any = {};
     private mediaRecorder: MediaRecorder | null = null;
-    private recordingInterval: any = null;
+    private recordingInterval: ReturnType<typeof setInterval> | undefined;
     private audioChunks: Blob[] = [];
 
     /** Cola de reintentos offline (IndexedDB). */
@@ -145,7 +145,7 @@ export class EvidenceService {
 
             this.logger('success', `🎙️ Grabación de audio por bloques iniciada (${mimeType})`, { interval });
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             this.logger('error', '❌ Falló al iniciar MediaRecorder', err);
         }
     }
@@ -154,7 +154,7 @@ export class EvidenceService {
         window.removeEventListener('beforeunload', this.handleUnload);
         if (this.recordingInterval) {
             clearInterval(this.recordingInterval);
-            this.recordingInterval = null;
+            this.recordingInterval = undefined;
         }
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
@@ -451,9 +451,9 @@ export class EvidenceService {
                 this.logger('error', `❌ Validación biométrica fallida (${response.status})`, body);
                 return false;
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
              clearTimeout(timeoutId);
-             if (err?.name === 'AbortError') {
+             if (err instanceof Error && err?.name === 'AbortError') {
                  this.logger('error', '⏱️ Timeout: el servidor tardó más de 10s en responder la validated biométrica');
              } else {
                  this.logger('error', '❌ Error de red al validar biometría', err);

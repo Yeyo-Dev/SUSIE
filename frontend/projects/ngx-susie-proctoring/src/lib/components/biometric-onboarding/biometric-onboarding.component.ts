@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, signal, output, input, inject, computed } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, signal, output, input, inject, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MediaService } from '../../services/media.service';
 import { StepInfo } from '../../models/contracts';
@@ -15,6 +15,7 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     // Outputs
     completed = output<{ photo: Blob }>();
     retakeRequested = output<void>();
+    successConfirmed = output<void>();
 
     /** Pasos dinámicos del indicador (recibidos del wrapper) */
     steps = input<StepInfo[]>([]);
@@ -38,6 +39,17 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
 
     private mediaService = inject(MediaService);
     private stream: MediaStream | null = null;
+
+    constructor() {
+        effect(() => {
+            if (this.validationSuccess()) {
+                // Wait for the animation to finish before proceeding
+                setTimeout(() => {
+                    this.successConfirmed.emit();
+                }, 2000);
+            }
+        });
+    }
 
     async ngAfterViewInit() {
         await this.startCamera();

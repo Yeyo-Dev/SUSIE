@@ -37,7 +37,7 @@ export class ExamEngineComponent {
     timerSeconds = signal(0);
 
     /** Intervalo del timer. */
-    private timerInterval: any;
+    private timerInterval: ReturnType<typeof setInterval> | undefined;
 
     /** Notificación flotante (Toast). */
     toast = signal<{ message: string; type: 'info' | 'warning' | 'critical' } | null>(null);
@@ -115,7 +115,7 @@ export class ExamEngineComponent {
     private stopTimer() {
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
-            this.timerInterval = null;
+            this.timerInterval = undefined;
         }
     }
 

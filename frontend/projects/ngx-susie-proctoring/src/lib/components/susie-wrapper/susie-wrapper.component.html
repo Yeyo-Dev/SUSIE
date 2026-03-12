@@ -225,7 +225,8 @@
         <!-- Paso 3: Onboarding Biométrico -->
         <susie-biometric-onboarding [steps]="stepsWithStatus()" [isValidating]="biometricValidating()"
             [validationError]="biometricError()" [validationSuccess]="biometricSuccess()"
-            (completed)="handleBiometricCompleted($event)" (retakeRequested)="handleBiometricRetake()" />
+            (completed)="handleBiometricCompleted($event)" (retakeRequested)="handleBiometricRetake()"
+            (successConfirmed)="handleBiometricSuccessConfirmed()" />
         }
 
         @case ('ENVIRONMENT_CHECK') {
