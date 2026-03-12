@@ -60,10 +60,6 @@ export class GazeTrackingService {
     private logger: LoggerFn = () => { };
     private deviationCallback?: () => void;
 
-    // Historial de suavizado
-    private xHistory: number[] = [];
-    private yHistory: number[] = [];
-
     // Buffer de coordenadas para telemetría (se envía con snapshots)
     private gazeBuffer: GazePoint[] = [];
     private maxBufferSize = 60; // ~60 segundos de datos a 1 muestra/seg
@@ -116,6 +112,9 @@ export class GazeTrackingService {
         this.config = { ...DEFAULT_CONFIG, ...config };
         if (logger) this.logger = logger;
         if (onDeviation) this.deviationCallback = onDeviation;
+        if (config.smoothingWindow) {
+            this.smoothing.setSmoothingWindow(config.smoothingWindow);
+        }
     }
 
     /**
@@ -180,8 +179,7 @@ export class GazeTrackingService {
             // Actualizar estado local
             this.isCalibrated.set(true);
             this.gazeState.set('TRACKING');
-            this.xHistory = [];
-            this.yHistory = [];
+            this.smoothing.reset();
             this.gazeBuffer = [];
             this.webgazer = webgazer;
 
@@ -237,6 +235,9 @@ export class GazeTrackingService {
         // FASE 2: Limpiar el servicio de predicciones
         this.prediction.stopTracking();
         
+        // FASE 3: Limpiar el servicio de smoothing
+        this.smoothing.destroy();
+        
         try {
             if (this.webgazer) {
                 this.webgazer.end();
@@ -253,8 +254,6 @@ export class GazeTrackingService {
         this.isCalibrated.set(false);
         this.hasDeviation.set(false);
         this.lastPoint.set(null);
-        this.xHistory = [];
-        this.yHistory = [];
         this.gazeBuffer = [];
         this.gazeFrameCount = 0;
         this.lastGazeLogTime = 0;
@@ -267,32 +266,10 @@ export class GazeTrackingService {
     /**
      * Procesa coordenadas brutas del gaze listener de WebGazer.
      * Escala a [-1, 1], suaviza y almacena.
+     * DELEGADO A: GazeSmoothingService (Fase 3)
      */
     private processRawGaze(rawX: number, rawY: number) {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        // Escalar a [-1, 1] donde (0,0) es el centro
-        const scaledX = (rawX / width) * 2 - 1;
-        const scaledY = (rawY / height) * 2 - 1;
-
-        // Suavizar con ventana deslizante
-        this.xHistory.push(scaledX);
-        this.yHistory.push(scaledY);
-
-        if (this.xHistory.length > this.config.smoothingWindow) {
-            this.xHistory.shift();
-            this.yHistory.shift();
-        }
-
-        const avgX = this.xHistory.reduce((a, b) => a + b, 0) / this.xHistory.length;
-        const avgY = this.yHistory.reduce((a, b) => a + b, 0) / this.yHistory.length;
-
-        const point: GazePoint = {
-            x: parseFloat(avgX.toFixed(3)),
-            y: parseFloat(avgY.toFixed(3)),
-            ts: Date.now(),
-        };
+        const point = this.smoothing.smoothAndNormalize(rawX, rawY);
 
         // Solo almacenar si estamos en TRACKING (no durante calibración)
         if (this.gazeState() === 'TRACKING') {

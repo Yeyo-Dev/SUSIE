@@ -37,10 +37,11 @@ export class GazeSmoothingService {
    * @param windowSize - Cantidad de frames anteriores a promediar
    */
   setSmoothingWindow(windowSize: number): void {
-    // TODO: Implement in Phase 3
-    // - Guardar nuevo tamaño
-    // - Limpiar históricos si es necesario
-    throw new Error('Not implemented');
+    this.smoothingWindow = windowSize;
+    if (this.xHistory.length > windowSize) {
+      this.xHistory = this.xHistory.slice(-windowSize);
+      this.yHistory = this.yHistory.slice(-windowSize);
+    }
   }
 
   /**
@@ -53,12 +54,28 @@ export class GazeSmoothingService {
    * @returns GazePoint suavizado y normalizado
    */
   smoothAndNormalize(rawX: number, rawY: number): GazePoint {
-    // TODO: Implement in Phase 3
-    // - Escalar píxeles a [-1, 1]: (x / width) * 2 - 1
-    // - Guardar en xHistory / yHistory
-    // - Promediar ventana deslizante
-    // - Retornar GazePoint con promedio, clipped a [-1, 1]
-    throw new Error('Not implemented');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const scaledX = (rawX / width) * 2 - 1;
+    const scaledY = (rawY / height) * 2 - 1;
+
+    this.xHistory.push(scaledX);
+    this.yHistory.push(scaledY);
+
+    if (this.xHistory.length > this.smoothingWindow) {
+      this.xHistory.shift();
+      this.yHistory.shift();
+    }
+
+    const avgX = this.xHistory.reduce((a, b) => a + b, 0) / this.xHistory.length;
+    const avgY = this.yHistory.reduce((a, b) => a + b, 0) / this.yHistory.length;
+
+    return {
+      x: parseFloat(Math.max(-1, Math.min(1, avgX)).toFixed(3)),
+      y: parseFloat(Math.max(-1, Math.min(1, avgY)).toFixed(3)),
+      ts: Date.now(),
+    };
   }
 
   /**
@@ -66,10 +83,8 @@ export class GazeSmoothingService {
    * Útil cuando se cambia de estado (calibración → tracking).
    */
   reset(): void {
-    // TODO: Implement in Phase 3
-    // - Limpiar xHistory
-    // - Limpiar yHistory
-    throw new Error('Not implemented');
+    this.xHistory = [];
+    this.yHistory = [];
   }
 
   /**
@@ -90,8 +105,7 @@ export class GazeSmoothingService {
    * Limpia recursos del servicio.
    */
   destroy(): void {
-    // TODO: Implement in Phase 3
-    // - Limpiar históricos
-    throw new Error('Not implemented');
+    this.xHistory = [];
+    this.yHistory = [];
   }
 }
