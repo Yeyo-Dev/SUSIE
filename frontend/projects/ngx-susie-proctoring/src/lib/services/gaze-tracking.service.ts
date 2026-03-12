@@ -61,8 +61,7 @@ export class GazeTrackingService {
     private deviationCallback?: () => void;
 
     // Buffer de coordenadas para telemetría (se envía con snapshots)
-    private gazeBuffer: GazePoint[] = [];
-    private maxBufferSize = 60; // ~60 segundos de datos a 1 muestra/seg
+    // DELEGADO A: GazeMetricsService (Fase 4)
 
     // Detección de desviación sostenida
       private deviationStartTime: number | null = null;
@@ -180,7 +179,7 @@ export class GazeTrackingService {
             this.isCalibrated.set(true);
             this.gazeState.set('TRACKING');
             this.smoothing.reset();
-            this.gazeBuffer = [];
+            this.metrics.clear();
             this.webgazer = webgazer;
 
             console.log('[GAZE] completeCalibration() — gazeFrameCount:', this.gazeFrameCount);
@@ -211,18 +210,18 @@ export class GazeTrackingService {
 
     /**
      * Devuelve y limpia el buffer de coordenadas recientes (para enviar con snapshots).
+     * DELEGADO A: GazeMetricsService (Fase 4)
      */
     flushGazeBuffer(): GazePoint[] {
-        const snapshot = [...this.gazeBuffer];
-        this.gazeBuffer = [];
-        return snapshot;
+        return this.metrics.flushBuffer();
     }
 
     /**
      * Obtiene el buffer actual sin limpiarlo (para lectura).
+     * DELEGADO A: GazeMetricsService (Fase 4)
      */
     getGazeBuffer(): GazePoint[] {
-        return [...this.gazeBuffer];
+        return this.metrics.getBuffer();
     }
 
     /**
@@ -237,6 +236,9 @@ export class GazeTrackingService {
         
         // FASE 3: Limpiar el servicio de smoothing
         this.smoothing.destroy();
+        
+        // FASE 4: Limpiar el servicio de métricas
+        this.metrics.destroy();
         
         try {
             if (this.webgazer) {
@@ -254,7 +256,7 @@ export class GazeTrackingService {
         this.isCalibrated.set(false);
         this.hasDeviation.set(false);
         this.lastPoint.set(null);
-        this.gazeBuffer = [];
+        this.metrics.clear();
         this.gazeFrameCount = 0;
         this.lastGazeLogTime = 0;
 
@@ -279,17 +281,15 @@ export class GazeTrackingService {
             const now = Date.now();
             if (now - this.lastGazeLogTime >= 3000) {
                 this.lastGazeLogTime = now;
-                this.logger('info', `👁️ Gaze: (${point.x}, ${point.y}) — frames: ${this.gazeFrameCount}, buffer: ${this.gazeBuffer.length}`);
+                const metrics = this.metrics.getMetrics();
+                this.logger('info', `👁️ Gaze: (${point.x}, ${point.y}) — frames: ${this.gazeFrameCount}, buffer: ${metrics.count}`);
             }
 
-            if (this.gazeBuffer.length === 0 ||
-                point.ts - this.gazeBuffer[this.gazeBuffer.length - 1].ts >= this.config.samplingIntervalMs) {
-                this.gazeBuffer.push(point);
-
-                // Mantener el buffer acotado
-                if (this.gazeBuffer.length > this.maxBufferSize) {
-                    this.gazeBuffer.shift();
-                }
+            // DELEGADO A: GazeMetricsService (Fase 4)
+            const buffer = this.metrics.getBuffer();
+            if (buffer.length === 0 ||
+                point.ts - buffer[buffer.length - 1].ts >= this.config.samplingIntervalMs) {
+                this.metrics.recordPoint(point);
             }
         } else if (this.gazeState() === 'CALIBRATING') {
             // Durante calibración, loguear cada 2 segundos para verificar que WebGazer funciona

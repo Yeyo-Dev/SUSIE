@@ -28,10 +28,10 @@ export class GazeMetricsService {
    * @param size - Cantidad máxima de puntos a acumular
    */
   setMaxBufferSize(size: number): void {
-    // TODO: Implement in Phase 4
-    // - Guardar nuevo tamaño
-    // - Recortar buffer si excede nuevo tamaño
-    throw new Error('Not implemented');
+    this.maxBufferSize = size;
+    if (this.gazeBuffer.length > size) {
+      this.gazeBuffer = this.gazeBuffer.slice(-size);
+    }
   }
 
   /**
@@ -41,10 +41,10 @@ export class GazeMetricsService {
    * @param point - GazePoint a registrar
    */
   recordPoint(point: GazePoint): void {
-    // TODO: Implement in Phase 4
-    // - Agregar punto al buffer
-    // - Si buffer > maxBufferSize, quitar el primero
-    throw new Error('Not implemented');
+    this.gazeBuffer.push(point);
+    if (this.gazeBuffer.length > this.maxBufferSize) {
+      this.gazeBuffer.shift();
+    }
   }
 
   /**
@@ -52,7 +52,7 @@ export class GazeMetricsService {
    * Útil para lectura de estado actual.
    */
   getBuffer(): GazePoint[] {
-    return [...this.gazeBuffer];
+    return this.gazeBuffer.map(p => ({ ...p }));
   }
 
   /**
@@ -62,7 +62,7 @@ export class GazeMetricsService {
    * @returns Array de todos los puntos acumulados
    */
   flushBuffer(): GazePoint[] {
-    const snapshot = [...this.gazeBuffer];
+    const snapshot = this.gazeBuffer.map(p => ({ ...p }));
     this.gazeBuffer = [];
     return snapshot;
   }
@@ -80,10 +80,30 @@ export class GazeMetricsService {
     avgX: number;
     avgY: number;
   } {
-    // TODO: Implement in Phase 4
-    // - Calcular min/max/avg de X e Y en el buffer
-    // - Retornar objeto con estadísticas
-    throw new Error('Not implemented');
+    if (this.gazeBuffer.length === 0) {
+      return {
+        count: 0,
+        minX: 0,
+        maxX: 0,
+        minY: 0,
+        maxY: 0,
+        avgX: 0,
+        avgY: 0,
+      };
+    }
+
+    const xs = this.gazeBuffer.map(p => p.x);
+    const ys = this.gazeBuffer.map(p => p.y);
+
+    return {
+      count: this.gazeBuffer.length,
+      minX: Math.min(...xs),
+      maxX: Math.max(...xs),
+      minY: Math.min(...ys),
+      maxY: Math.max(...ys),
+      avgX: xs.reduce((a, b) => a + b, 0) / xs.length,
+      avgY: ys.reduce((a, b) => a + b, 0) / ys.length,
+    };
   }
 
   /**
@@ -97,8 +117,6 @@ export class GazeMetricsService {
    * Limpia recursos del servicio.
    */
   destroy(): void {
-    // TODO: Implement in Phase 4
-    // - Limpiar buffer
-    throw new Error('Not implemented');
+    this.gazeBuffer = [];
   }
 }
