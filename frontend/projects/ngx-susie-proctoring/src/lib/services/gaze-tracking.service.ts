@@ -1,4 +1,4 @@
-import { Injectable, signal, NgZone } from '@angular/core';
+import { Injectable, signal, NgZone, DestroyRef, inject } from '@angular/core';
 
 /** Coordenada suavizada de gaze tracking */
 export interface GazePoint {
@@ -47,6 +47,44 @@ const DEFAULT_CONFIG: GazeConfig = {
     samplingIntervalMs: 1000,
 };
 
+/**
+ * Filtro de Kalman minimalista para suavizado predictivo unidimensional.
+ */
+class SimpleKalmanFilter {
+    private x: number = 0; // estado
+    private p: number = 1; // error de estimación
+    private initialized: boolean = false;
+
+    constructor(
+        private q: number, // varianza del proceso (ruido del modelo)
+        private r: number, // varianza de la medición (ruido del sensor)
+        private initialP: number = 1
+    ) { }
+
+    update(measurement: number): number {
+        if (!this.initialized) {
+            this.x = measurement;
+            this.p = this.initialP;
+            this.initialized = true;
+            return this.x;
+        }
+
+        // Predicción
+        this.p = this.p + this.q;
+
+        // Actualización / Ganancia
+        const k = this.p / (this.p + this.r);
+        this.x = this.x + k * (measurement - this.x);
+        this.p = (1 - k) * this.p;
+
+        return this.x;
+    }
+
+    reset() {
+        this.initialized = false;
+    }
+}
+
 @Injectable({ providedIn: 'root' })
 export class GazeTrackingService {
     /** Estado reactivo del servicio */
@@ -63,6 +101,18 @@ export class GazeTrackingService {
 
     /** Indica si WebGazer está en proceso de inicialización */
     readonly isInitializing = signal(false);
+
+    /** Indica si el rostro está detectado actualmente */
+    readonly isFaceDetected = signal(true);
+
+    /** Valor del contador de cuenta regresiva para pérdida de rostro */
+    readonly countdownValue = signal(10);
+
+    /** Si el overlay de cuenta regresiva debe ser visible */
+    readonly isCountdownVisible = signal(false);
+
+    private faceLossGraceTimer: any = null;
+    private countdownInterval: any = null;
 
     private config: GazeConfig = { ...DEFAULT_CONFIG };
     private logger: (type: 'info' | 'error' | 'success' | 'warn', msg: string, details?: any) => void = () => { };
@@ -87,6 +137,10 @@ export class GazeTrackingService {
     private gazeFrameCount = 0;
     private lastGazeLogTime = 0;
 
+    // Filtros de Kalman para suavizado predictivo
+    private kalmanX = new SimpleKalmanFilter(0.1, 0.4, 0.1);
+    private kalmanY = new SimpleKalmanFilter(0.1, 0.4, 0.1);
+
     // Observer para silenciar videos de WebGazer
     private muteObserver: MutationObserver | null = null;
     private muteRetryInterval: any = null;
@@ -107,21 +161,18 @@ export class GazeTrackingService {
     private confidenceSum = 0;
     private confidenceCount = 0;
 
-    // Detección de "sin rostro" durante tracking
-    private noFaceFrameCount = 0;
-    private maxNoFaceFrames = 100; // ~3 segundos a 30fps
-    private noFaceStartTime: number | null = null;
-    private noFaceAlertShown = false;
     private noFaceCallback?: () => void;
-    private readonly NO_FACE_TIMEOUT_MS = 10000; // 10 segundos
 
     // Detección de desviación - delay para evitar flapping
     private lastInBoundsTime: number | null = null;
     private readonly STABILITY_DELAY_MS = 500; // 500ms de delay antes de considerar estable
 
+    private destroyRef = inject(DestroyRef);
+
     constructor(private ngZone: NgZone) { 
         // Exponer para debugging en consola del navegador
         (window as any).gazeService = this;
+        this.destroyRef.onDestroy(() => this.stop());
     }
 
     /** Configura el servicio */
@@ -155,6 +206,9 @@ export class GazeTrackingService {
             console.log('[GAZE] 🎯 Iniciando calibración de gaze...');
             this.logger('info', '🎯 Iniciando calibración de gaze...');
             
+            // Inyectar estilos inmediatamente para prevenir parpadeo de cámara
+            this.injectGazeStyles();
+            
             this.webgazer = (window as any).webgazer;
 
             if (!this.webgazer) {
@@ -179,51 +233,7 @@ export class GazeTrackingService {
                 navigator.mediaDevices.getUserMedia = () => Promise.resolve(existingStream);
             }
 
-            // Definiciones de métodos para detección de "sin rostro"
-            // (declarados aquí para estar disponibles en el setGazeListener)
-            
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const handleNoFaceDetection = () => {
-                if (!this.noFaceStartTime) {
-                    this.noFaceStartTime = Date.now();
-                    this.noFaceAlertShown = false;
-                    console.log('[GAZE] ⚠️ Rostro no detectado - iniciando contador de 10s');
-                    this.logger('warn', '⚠️ Rostro no detectado - regresa a la cámara en 10 segundos');
-                }
-
-                const elapsed = Date.now() - (this.noFaceStartTime || 0);
-                const remaining = Math.max(0, Math.ceil((this.NO_FACE_TIMEOUT_MS - elapsed) / 1000));
-
-                if (elapsed >= 3000 && !this.noFaceAlertShown) {
-                    this.noFaceAlertShown = true;
-                    this.logger('error', `⚠️⚠️ ROSTRO NO DETECTADO - Tienes ${remaining}s para regresar`);
-                    if (this.noFaceCallback) {
-                        this.noFaceCallback();
-                    }
-                }
-
-                if (elapsed >= this.NO_FACE_TIMEOUT_MS) {
-                    console.log('[GAZE] ❌ INFRACCIÓN: Rostro no detectado por 10 segundos');
-                    this.logger('error', '❌ INFRACCIÓN: Rostro no detectado por 10 segundos');
-                    this.noFaceStartTime = null;
-                    this.noFaceAlertShown = false;
-                }
-            };
-
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const handleFaceDetected = () => {
-                // Solo resetear si pasaron al menos 500ms desde el último "sin rostro"
-                // Esto evita el flapping (reiniciar contador constantemente)
-                if (this.noFaceStartTime) {
-                    const elapsed = Date.now() - (this.noFaceStartTime || 0);
-                    if (elapsed >= 500) { // 500ms de stability delay
-                        console.log(`[GAZE] ✅ Rostro detectado nuevamente después de ${(elapsed/1000).toFixed(1)}s sin detección`);
-                        this.logger('success', '✅ Rostro detectado');
-                        this.noFaceStartTime = null;
-                        this.noFaceAlertShown = false;
-                    }
-                }
-            };
+            // La detección de rostro se maneja ahora via handleNoFaceDetection y handleFaceDetected
 
             this.webgazer
                 .setTracker('TFFacemesh')
@@ -236,7 +246,7 @@ export class GazeTrackingService {
                         // WebGazer llama con null cuando no detecta rostro
                         // Solo procesar durante TRACKING (no durante calibración)
                         if (this.gazeState() === 'TRACKING') {
-                            handleNoFaceDetection();
+                            this.handleNoFaceDetection();
                         }
                         
                         if (this.gazeFrameCount % 30 === 0) {
@@ -246,7 +256,7 @@ export class GazeTrackingService {
                     }
 
                     // Si hay datos de rostro, resetear el contador de "sin rostro"
-                    handleFaceDetected();
+                    this.handleFaceDetected();
 
                     if (this.gazeFrameCount <= 3) {
                         this.logger('success', `👁️ Dato de gaze #${this.gazeFrameCount} recibido de WebGazer`);
@@ -280,7 +290,7 @@ export class GazeTrackingService {
 
                     // WebGazer puede devolver confidence en data.confidence o data.estimation?.confidence
                     const confidence = data.confidence ?? data.estimation?.confidence ?? null;
-                    this.processRawGaze(data.x, data.y, confidence ?? undefined);
+                    this.processRawGaze(data.x, data.y, confidence ?? undefined, data);
                 });
 
             console.log('[GAZE] Llamando webgazer.begin()...');
@@ -299,21 +309,7 @@ export class GazeTrackingService {
                 this.webgazer.showVideoPreview(true).showPredictionPoints(true).showFaceOverlay(true);
                 console.log('[GAZE] Video y puntos de calibración activados');
 
-                // Aplicar estilos después de un delay para dar tiempo a que WebGazer cree los elementos
-                setTimeout(() => {
-                    const videoContainer = document.getElementById('webgazerVideoContainer');
-                    if (videoContainer) {
-                        videoContainer.style.opacity = '0.3';
-                        videoContainer.style.pointerEvents = 'none';
-                    }
-                    const videoFeed = document.getElementById('webgazerVideoFeed');
-                    if (videoFeed) {
-                        videoFeed.style.opacity = '0.3';
-                    }
-                    
-                    this.applyGreenFaceOverlay();
-                }, 100);
-
+                this.applyGreenFaceOverlay();
             } catch (e) {
                 console.warn('[GAZE] Error al configurar video preview:', e);
             }
@@ -523,45 +519,193 @@ export class GazeTrackingService {
     stop() {
         try {
             if (this.webgazer) {
+                // Detener tracks de cámara manualmente para asegurar que el LED se apague
+                const videoEl = document.getElementById('webgazerVideoFeed') as HTMLVideoElement;
+                if (videoEl && videoEl.srcObject instanceof MediaStream) {
+                    videoEl.srcObject.getTracks().forEach(track => track.stop());
+                } else if (this.webgazer.util?.getMediaStream) {
+                    const stream = this.webgazer.util.getMediaStream();
+                    if (stream) stream.getTracks().forEach((t: any) => t.stop());
+                }
+
                 this.webgazer.end();
                 this.webgazer = null;
             }
-        } catch {
-            // WebGazer puede fallar al detenerse si ya fue destruido
+        } catch (e) {
+            console.warn('[GAZE] Error al detener WebGazer:', e);
         }
 
+        // Limpieza manual de elementos persistentes del DOM
+        const elementsToPurge = [
+            'webgazerVideoContainer', 
+            'webgazerVideoFeed', 
+            'webgazerFaceOverlay', 
+            'webgazerGazeDot', 
+            'webgazerFaceFeedbackBox', 
+            'webgazerFaceAnnotations', 
+            'customGazeDot',
+            'webgazer-core-styles'
+        ];
+        
+        elementsToPurge.forEach(id => {
+            document.getElementById(id)?.remove();
+        });
+
+        this.cleanupInternalState();
+        this.logger('info', '🛑 Gaze Tracking detenido');
+    }
+
+    /**
+     * Limpia el estado interno, intervalos y observers.
+     */
+    private cleanupInternalState() {
         this.stopDeviationDetection();
         this.stopAggressiveMuting();
         this.stopDiagnosticLoop();
         this.stopManualPolling();
         
-        // Resetear contador de "sin rostro"
-        this.noFaceStartTime = null;
-        this.noFaceAlertShown = false;
-        
-        // Resetear timer de estabilidad de desviación
-        this.lastInBoundsTime = null;
-        
         this.gazeState.set('IDLE');
         this.isCalibrated.set(false);
         this.hasDeviation.set(false);
         this.lastPoint.set(null);
+
+        const ghostStyle = document.getElementById('webgazer-ghost-style');
+        if (ghostStyle) ghostStyle.remove();
+        this.isInitializing.set(false);
         this.xHistory = [];
         this.yHistory = [];
         this.gazeBuffer = [];
         this.gazeFrameCount = 0;
         this.lastGazeLogTime = 0;
+        this.resetFaceLossLogic();
+        this.lastInBoundsTime = null;
+    }
 
-        this.logger('info', '🛑 Gaze Tracking detenido');
+    /**
+     * Inyecta estilos globales preventivos para evitar el parpadeo de la cámara
+     * cuando WebGazer inyecta sus elementos en el DOM.
+     */
+    private injectGazeStyles() {
+        const styleId = 'webgazer-core-styles';
+        if (document.getElementById(styleId)) return;
+
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            #webgazerVideoContainer, 
+            #webgazerVideoFeed, 
+            #webgazerFaceOverlay, 
+            #webgazerFaceFeedbackBox, 
+            #webgazerFaceAnnotations {
+                opacity: 0.001 !important;
+                transition: opacity 0.3s ease !important;
+                pointer-events: none !important;
+                z-index: 9999 !important;
+                visibility: visible !important;
+                display: block !important;
+            }
+            #webgazerFaceOverlay, #webgazerFaceFeedbackBox { 
+                filter: hue-rotate(120deg) saturate(4) brightness(1.2) !important; 
+            }
+        `;
+        document.head.appendChild(style);
+        console.log('[GAZE] 🎨 Estilos preventivos inyectados (Ghost Mode)');
     }
 
     // ─── Internals ───────────────────────────────────────────
 
     /**
+     * Maneja la detección de "sin rostro" durante el tracking.
+     */
+    private handleNoFaceDetection() {
+        // Solo procesar si estamos en TRACKING y actualmente consideramos que hay rostro
+        if (this.gazeState() !== 'TRACKING' || !this.isFaceDetected()) return;
+        
+        // Si ya hay timers corriendo, no hacer nada
+        if (this.faceLossGraceTimer || this.countdownInterval) return;
+
+        console.log('[GAZE] ⚠️ Rostro no detectado - Iniciando periodo de gracia de 3s');
+        
+        this.ngZone.run(() => {
+            this.isFaceDetected.set(false);
+        });
+
+        // Iniciar periodo de gracia (3 segundos de silencio)
+        this.faceLossGraceTimer = setTimeout(() => {
+            this.ngZone.run(() => {
+                this.isCountdownVisible.set(true);
+                this.countdownValue.set(10); // Empezar countdown real tras los 3s de gracia
+            });
+
+            this.logger('warn', '⚠️ ROSTRO NO DETECTADO - Tienes 10 segundos para regresar');
+
+            // Iniciar intervalo de cuenta regresiva
+            this.countdownInterval = setInterval(() => {
+                this.ngZone.run(() => {
+                    const current = this.countdownValue();
+                    if (current > 0) {
+                        this.countdownValue.set(current - 1);
+                    } else {
+                        this.triggerFaceLossTimeout();
+                    }
+                });
+            }, 1000);
+        }, 3000);
+    }
+
+    /**
+     * Maneja la redetección del rostro.
+     */
+    private handleFaceDetected() {
+        // Si veníamos de una pérdida de rostro, resetear filtros para evitar "arrastre" de posición vieja
+        if (!this.isFaceDetected()) {
+            this.kalmanX.reset();
+            this.kalmanY.reset();
+        }
+
+        console.log('[GAZE] ✅ Rostro detectado nuevamente');
+        this.resetFaceLossLogic();
+    }
+
+    /**
+     * Resetea toda la lógica de pérdida de rostro.
+     */
+    private resetFaceLossLogic() {
+        if (this.faceLossGraceTimer) {
+            clearTimeout(this.faceLossGraceTimer);
+            this.faceLossGraceTimer = null;
+        }
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+
+        this.ngZone.run(() => {
+            this.isFaceDetected.set(true);
+            this.isCountdownVisible.set(false);
+            this.countdownValue.set(10);
+        });
+    }
+
+    /**
+     * Dispara la infracción por tiempo prolongado sin rostro.
+     */
+    private triggerFaceLossTimeout() {
+        console.log('[GAZE] ❌ INFRACCIÓN: Rostro no detectado por tiempo prolongado');
+        this.logger('error', '❌ INFRACCIÓN: Rostro no detectado por tiempo prolongado');
+        
+        if (this.noFaceCallback) {
+            this.noFaceCallback();
+        }
+        
+        this.resetFaceLossLogic();
+    }
+
+    /**
      * Procesa coordenadas brutas del gaze listener de WebGazer.
      * Escala a [-1, 1], suaviza y almacena.
      */
-    private processRawGaze(rawX: number, rawY: number, confidence?: number) {
+    private processRawGaze(rawX: number, rawY: number, confidence?: number, rawData?: any) {
         const width = window.innerWidth;
         const height = window.innerHeight;
 
@@ -582,9 +726,74 @@ export class GazeTrackingService {
             this.confidenceCount++;
         }
 
-        // Suavizar con ventana deslizante
-        this.xHistory.push(scaledX);
-        this.yHistory.push(scaledY);
+        // STRICT FACE CHECK: Si la confianza es muy baja (< 0.6), tratar como pérdida de rostro rápida
+        if (confidence != null && confidence < 0.6 && this.gazeState() === 'TRACKING') {
+            this.handleNoFaceDetection();
+            return;
+        }
+
+        // ORIENTATION CHECK (Yaw/Profile): Detectar si el usuario mira demasiado a los lados
+        if (rawData?.allPredictions?.[0]?.scaledMesh) {
+            const mesh = rawData.allPredictions[0].scaledMesh;
+            const nose = mesh[1]; // Nariz
+            const leftEdge = mesh[454]; // Borde izquierdo (sujeto)
+            const rightEdge = mesh[234]; // Borde derecho (sujeto)
+
+            if (nose && leftEdge && rightEdge) {
+                const x1 = leftEdge[0];
+                const x2 = rightEdge[0];
+                const minX = Math.min(x1, x2);
+                const maxX = Math.max(x1, x2);
+                const faceWidth = maxX - minX;
+
+                const forehead = mesh[10];
+                const chin = mesh[152];
+
+                if (faceWidth > 0) {
+                    // YAW (Horizontal): Posición relativa de la nariz (0 a 1)
+                    const noseRelativeX = (nose[0] - minX) / faceWidth;
+                    
+                    // Incrementamos sensibilidad de 0.20 a 0.22
+                    if ((noseRelativeX < 0.22 || noseRelativeX > 0.78) && this.gazeState() === 'TRACKING') {
+                        if (this.gazeFrameCount % 5 === 0) {
+                            console.warn(`[GAZE] 🚨 Perfil (Yaw) detectado! relX: ${noseRelativeX.toFixed(2)}`);
+                        }
+                        this.handleNoFaceDetection();
+                        return;
+                    }
+                }
+
+                if (forehead && chin) {
+                    const minY = Math.min(forehead[1], chin[1]);
+                    const maxY = Math.max(forehead[1], chin[1]);
+                    const faceHeight = maxY - minY;
+
+                    if (faceHeight > 0) {
+                        // PITCH (Vertical): Posición relativa de la nariz (0 a 1)
+                        const noseRelativeY = (nose[1] - minY) / faceHeight;
+
+                        // Mirar hacia abajo (noseRelativeY aumenta)
+                        // Mirar hacia arriba (noseRelativeY disminuye)
+                        // Umbrales sugeridos: < 0.25 (Arriba) o > 0.65 (Abajo)
+                        if ((noseRelativeY < 0.25 || noseRelativeY > 0.65) && this.gazeState() === 'TRACKING') {
+                            if (this.gazeFrameCount % 5 === 0) {
+                                console.warn(`[GAZE] 🚨 Perfil (Pitch) detectado! relY: ${noseRelativeY.toFixed(2)}`);
+                            }
+                            this.handleNoFaceDetection();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        // FILTRO DE KALMAN: Aplicar suavizado predictivo
+        const filteredX = this.kalmanX.update(scaledX);
+        const filteredY = this.kalmanY.update(scaledY);
+
+        // Suavizar con ventana deslizante (opcional, ahora secundario al Kalman)
+        this.xHistory.push(filteredX);
+        this.yHistory.push(filteredY);
 
         if (this.xHistory.length > this.config.smoothingWindow) {
             this.xHistory.shift();
@@ -900,7 +1109,7 @@ export class GazeTrackingService {
                             }
 
                             const confidence = prediction.confidence ?? prediction.estimation?.confidence ?? null;
-                            this.processRawGaze(prediction.x, prediction.y, confidence ?? undefined);
+                            this.processRawGaze(prediction.x, prediction.y, confidence ?? undefined, prediction);
                         } else if (this.gazeFrameCount % 50 === 0) {
                             console.log('[GAZE-POLL] prediction=null (no face)');
                         }
@@ -925,41 +1134,21 @@ export class GazeTrackingService {
         }
     }
 
-    /**
-     * Diagnóstico: verifica cada 2s que WebGazer sigue procesando frames.
-     * Logs directos a console.log para máxima visibilidad.
-     */
     private startDiagnosticLoop() {
         this.stopDiagnosticLoop();
-
         let lastCheckedFrameCount = this.gazeFrameCount;
 
         this.diagnosticInterval = setInterval(() => {
-            const wg = this.webgazer;
             const currentFrames = this.gazeFrameCount;
             const newFrames = currentFrames - lastCheckedFrameCount;
             lastCheckedFrameCount = currentFrames;
 
-            // Verificar video element
-            const videoEl = document.getElementById('webgazerVideoFeed') as HTMLVideoElement | null;
-            const videoStatus = videoEl ? {
-                paused: videoEl.paused,
-                readyState: videoEl.readyState,
-                videoWidth: videoEl.videoWidth,
-                videoHeight: videoEl.videoHeight,
-                srcObject: !!videoEl.srcObject,
-                muted: videoEl.muted,
-                currentTime: videoEl.currentTime?.toFixed(1),
-            } : 'NO ENCONTRADO';
-
-            // Silenciado el bloque gigante de diagnóstico
-            if (newFrames === 0) {
-                // Solo loguear este error de UI cada 10 segundos
+            if (newFrames === 0 && this.gazeState() === 'TRACKING') {
                 if (currentFrames % 5 === 0) {
                     this.logger('error', '⚠️ WebGazer no envía datos de gaze (pipeline detenido)');
                 }
             }
-        }, 10000); // Revisar cada 10s en vez de 2s para no saturar
+        }, 10000);
     }
 
     private stopDiagnosticLoop() {

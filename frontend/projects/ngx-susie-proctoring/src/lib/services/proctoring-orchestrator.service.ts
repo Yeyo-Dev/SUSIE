@@ -159,6 +159,8 @@ export class ProctoringOrchestratorService implements OnDestroy {
       config.onInactivityDetected
     );
 
+    this.gazeService.configure({}, undefined, undefined, () => this.handleFaceLossTimeout());
+
     this.setupEventListeners();
 
     // Exponer función global para debugging (solo desarrollo)
@@ -409,6 +411,14 @@ export class ProctoringOrchestratorService implements OnDestroy {
     });
   }
 
+  private handleFaceLossTimeout(): void {
+    this.handleViolation({
+      type: 'FACE_LOSS_TIMEOUT',
+      message: 'El rostro no fue detectado por un periodo superior al permitido',
+      timestamp: new Date().toISOString()
+    });
+  }
+
   handleViolation(violation: SecurityViolation): void {
     this.totalViolations.update(c => c + 1);
     this.log('error', `🚨 Violación: ${violation.type}`);
@@ -423,6 +433,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
       'RELOAD_ATTEMPT': 'RELOAD_ATTEMPT',
       'CLIPBOARD_ATTEMPT': 'CLIPBOARD_ATTEMPT',
       'GAZE_DEVIATION': 'GAZE_DEVIATION',
+      'FACE_LOSS_TIMEOUT': 'FACE_LOSS_TIMEOUT',
     };
 
     this.evidenceService.sendEvent({

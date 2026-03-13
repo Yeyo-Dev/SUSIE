@@ -32,6 +32,7 @@ import { GazeCalibrationComponent } from '@lib/components/gaze-calibration/gaze-
 import { ExamBriefingComponent } from '@lib/components/exam-briefing/exam-briefing.component';
 import { StepIndicatorComponent } from '@lib/components/step-indicator/step-indicator.component';
 import { PermissionPrepComponent } from '@lib/components/permission-prep/permission-prep.component';
+import { SusieFaceLossCountdownComponent } from '@lib/components/face-loss-countdown/face-loss-countdown.component';
 
 
 @Component({
@@ -47,7 +48,8 @@ import { PermissionPrepComponent } from '@lib/components/permission-prep/permiss
     GazeCalibrationComponent,
     ExamBriefingComponent,
     StepIndicatorComponent,
-    PermissionPrepComponent
+    PermissionPrepComponent,
+    SusieFaceLossCountdownComponent
   ],
 
   templateUrl: './susie-wrapper.component.html',

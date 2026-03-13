@@ -3,7 +3,7 @@
  * Se usa para notificar tanto al wrapper (debug panel) como a la app host (cancelar examen).
  */
 export interface SecurityViolation {
-  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST' | 'INSPECTION_ATTEMPT' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION';
+  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST' | 'INSPECTION_ATTEMPT' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION' | 'FACE_LOSS_TIMEOUT';
   message: string;
   timestamp: string;
 }
@@ -338,7 +338,7 @@ export interface EvidenceMetadata {
     /** Tipo interno de evidencia (alias: originalType o type). */
     type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'BROWSER_EVENT' | 'FOCUS_LOST';
     browser_focus: boolean;
-    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION';
+    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION' | 'FACE_LOSS_TIMEOUT';
     keyboard_events?: number;
     tab_switches?: number;
     gaze_history?: { x: number; y: number; ts: number }[];
