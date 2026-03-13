@@ -22,6 +22,24 @@ export interface GazeConfig {
     samplingIntervalMs: number;
 }
 
+/** Métricas de calibración para verificar efectividad */
+export interface GazeCalibrationMetrics {
+    /** Total de clicks de calibración registrados */
+    calibrationClicks: number;
+    /** Frames de gaze procesados durante calibración */
+    calibrationFrames: number;
+    /** Frames de gaze procesados durante tracking */
+    trackingFrames: number;
+    /** Si WebGazer detectó cara exitosamente */
+    faceDetected: boolean;
+    /** Promedio de confianza de predicción (si está disponible) */
+    avgConfidence: number | null;
+    /** Timestamp de inicio de calibración */
+    calibrationStartTime: number | null;
+    /** Timestamp de completado de calibración */
+    calibrationCompleteTime: number | null;
+}
+
 const DEFAULT_CONFIG: GazeConfig = {
     smoothingWindow: 10,
     deviationThreshold: 0.85,
@@ -47,7 +65,7 @@ export class GazeTrackingService {
     readonly isInitializing = signal(false);
 
     private config: GazeConfig = { ...DEFAULT_CONFIG };
-    private logger: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void = () => { };
+    private logger: (type: 'info' | 'error' | 'success' | 'warn', msg: string, details?: any) => void = () => { };
     private deviationCallback?: () => void;
 
     // Historial de suavizado
@@ -80,17 +98,43 @@ export class GazeTrackingService {
     private pollingRafId: number | null = null;
     private lastPollTime = 0;
 
-    constructor(private ngZone: NgZone) { }
+    // Métricas de calibración
+    private calibrationClicks = 0;
+    private calibrationFrames = 0;
+    private trackingFrames = 0;
+    private calibrationStartTime: number | null = null;
+    private calibrationCompleteTime: number | null = null;
+    private confidenceSum = 0;
+    private confidenceCount = 0;
+
+    // Detección de "sin rostro" durante tracking
+    private noFaceFrameCount = 0;
+    private maxNoFaceFrames = 100; // ~3 segundos a 30fps
+    private noFaceStartTime: number | null = null;
+    private noFaceAlertShown = false;
+    private noFaceCallback?: () => void;
+    private readonly NO_FACE_TIMEOUT_MS = 10000; // 10 segundos
+
+    // Detección de desviación - delay para evitar flapping
+    private lastInBoundsTime: number | null = null;
+    private readonly STABILITY_DELAY_MS = 500; // 500ms de delay antes de considerar estable
+
+    constructor(private ngZone: NgZone) { 
+        // Exponer para debugging en consola del navegador
+        (window as any).gazeService = this;
+    }
 
     /** Configura el servicio */
     configure(
         config: Partial<GazeConfig> = {},
-        logger?: (type: 'info' | 'error' | 'success', msg: string, details?: any) => void,
-        onDeviation?: () => void
+        logger?: (type: 'info' | 'error' | 'success' | 'warn', msg: string, details?: any) => void,
+        onDeviation?: () => void,
+        onNoFace?: () => void
     ) {
         this.config = { ...DEFAULT_CONFIG, ...config };
         if (logger) this.logger = logger;
         if (onDeviation) this.deviationCallback = onDeviation;
+        if (onNoFace) this.noFaceCallback = onNoFace;
     }
 
     /**
@@ -106,6 +150,11 @@ export class GazeTrackingService {
         try {
             this.isInitializing.set(true);
             this.gazeState.set('CALIBRATING');
+            this.resetCalibrationMetrics(); // Resetear métricas
+            
+            console.log('[GAZE] 🎯 Iniciando calibración de gaze...');
+            this.logger('info', '🎯 Iniciando calibración de gaze...');
+            
             this.webgazer = (window as any).webgazer;
 
             if (!this.webgazer) {
@@ -130,6 +179,52 @@ export class GazeTrackingService {
                 navigator.mediaDevices.getUserMedia = () => Promise.resolve(existingStream);
             }
 
+            // Definiciones de métodos para detección de "sin rostro"
+            // (declarados aquí para estar disponibles en el setGazeListener)
+            
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const handleNoFaceDetection = () => {
+                if (!this.noFaceStartTime) {
+                    this.noFaceStartTime = Date.now();
+                    this.noFaceAlertShown = false;
+                    console.log('[GAZE] ⚠️ Rostro no detectado - iniciando contador de 10s');
+                    this.logger('warn', '⚠️ Rostro no detectado - regresa a la cámara en 10 segundos');
+                }
+
+                const elapsed = Date.now() - (this.noFaceStartTime || 0);
+                const remaining = Math.max(0, Math.ceil((this.NO_FACE_TIMEOUT_MS - elapsed) / 1000));
+
+                if (elapsed >= 3000 && !this.noFaceAlertShown) {
+                    this.noFaceAlertShown = true;
+                    this.logger('error', `⚠️⚠️ ROSTRO NO DETECTADO - Tienes ${remaining}s para regresar`);
+                    if (this.noFaceCallback) {
+                        this.noFaceCallback();
+                    }
+                }
+
+                if (elapsed >= this.NO_FACE_TIMEOUT_MS) {
+                    console.log('[GAZE] ❌ INFRACCIÓN: Rostro no detectado por 10 segundos');
+                    this.logger('error', '❌ INFRACCIÓN: Rostro no detectado por 10 segundos');
+                    this.noFaceStartTime = null;
+                    this.noFaceAlertShown = false;
+                }
+            };
+
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const handleFaceDetected = () => {
+                // Solo resetear si pasaron al menos 500ms desde el último "sin rostro"
+                // Esto evita el flapping (reiniciar contador constantemente)
+                if (this.noFaceStartTime) {
+                    const elapsed = Date.now() - (this.noFaceStartTime || 0);
+                    if (elapsed >= 500) { // 500ms de stability delay
+                        console.log(`[GAZE] ✅ Rostro detectado nuevamente después de ${(elapsed/1000).toFixed(1)}s sin detección`);
+                        this.logger('success', '✅ Rostro detectado');
+                        this.noFaceStartTime = null;
+                        this.noFaceAlertShown = false;
+                    }
+                }
+            };
+
             this.webgazer
                 .setTracker('TFFacemesh')
                 .setRegression('ridge')
@@ -139,11 +234,19 @@ export class GazeTrackingService {
 
                     if (!data) {
                         // WebGazer llama con null cuando no detecta rostro
+                        // Solo procesar durante TRACKING (no durante calibración)
+                        if (this.gazeState() === 'TRACKING') {
+                            handleNoFaceDetection();
+                        }
+                        
                         if (this.gazeFrameCount % 30 === 0) {
                             console.log(`[GAZE] Frame #${this.gazeFrameCount} — data=null (no face detected)`);
                         }
                         return;
                     }
+
+                    // Si hay datos de rostro, resetear el contador de "sin rostro"
+                    handleFaceDetected();
 
                     if (this.gazeFrameCount <= 3) {
                         this.logger('success', `👁️ Dato de gaze #${this.gazeFrameCount} recibido de WebGazer`);
@@ -175,7 +278,9 @@ export class GazeTrackingService {
                     customDot.style.left = `${data.x}px`;
                     customDot.style.top = `${data.y}px`;
 
-                    this.processRawGaze(data.x, data.y);
+                    // WebGazer puede devolver confidence en data.confidence o data.estimation?.confidence
+                    const confidence = data.confidence ?? data.estimation?.confidence ?? null;
+                    this.processRawGaze(data.x, data.y, confidence ?? undefined);
                 });
 
             console.log('[GAZE] Llamando webgazer.begin()...');
@@ -187,22 +292,26 @@ export class GazeTrackingService {
             this.logger('info', '✅ WebGazer.begin() completado');
             console.log('[GAZE] ✅ webgazer.begin() completado exitosamente');
 
-            // Mostrar video pero hacerlo transparente para ver los puntos de calibración
+            // DURANTE CALIBRACIÓN: video semi-transparente para que el usuario vea los puntos de calibración
+            // IMPORTANTE: debe ser visible para que WebGazer procese frames
             try {
+                console.log('[GAZE] Configurando video preview...');
                 this.webgazer.showVideoPreview(true).showPredictionPoints(true).showFaceOverlay(true);
                 console.log('[GAZE] Video y puntos de calibración activados');
 
-                // Hacer el video transparente via CSS
+                // Aplicar estilos después de un delay para dar tiempo a que WebGazer cree los elementos
                 setTimeout(() => {
                     const videoContainer = document.getElementById('webgazerVideoContainer');
                     if (videoContainer) {
-                        videoContainer.style.opacity = '0';
+                        videoContainer.style.opacity = '0.3';
                         videoContainer.style.pointerEvents = 'none';
                     }
                     const videoFeed = document.getElementById('webgazerVideoFeed');
                     if (videoFeed) {
-                        videoFeed.style.opacity = '0';
+                        videoFeed.style.opacity = '0.3';
                     }
+                    
+                    this.applyGreenFaceOverlay();
                 }, 100);
 
             } catch (e) {
@@ -229,9 +338,52 @@ export class GazeTrackingService {
      */
     recordCalibrationClick(screenX: number, screenY: number) {
         if (!this.webgazer) return;
+        
+        // Contabilizamos el click
+        this.calibrationClicks++;
+        
         // WebGazer registra automáticamente los clics como datos de entrenamiento
-        // Solo necesitamos loguearlo para feedback
-        this.logger('info', `📍 Punto de calibración registrado en (${screenX}, ${screenY})`);
+        // Feedback claro al usuario
+        const progress = this.calibrationClicks >= 9 ? '✅' : this.calibrationClicks >= 5 ? '🔄' : '⏳';
+        const msg = `${progress} Click #${this.calibrationClicks} registrado en (${Math.round(screenX)}, ${Math.round(screenY)}) — WebGazer entrenando...`;
+        this.logger('success', msg);
+        console.log('[GAZE]', msg);
+    }
+
+    /**
+     * Retorna las métricas actuales de calibración y tracking.
+     */
+    getCalibrationMetrics(): GazeCalibrationMetrics {
+        const avgConfidence = this.confidenceCount > 0 
+            ? this.confidenceSum / this.confidenceCount 
+            : null;
+            
+        const duration = this.calibrationCompleteTime && this.calibrationStartTime
+            ? this.calibrationCompleteTime - this.calibrationStartTime
+            : null;
+
+        return {
+            calibrationClicks: this.calibrationClicks,
+            calibrationFrames: this.calibrationFrames,
+            trackingFrames: this.trackingFrames,
+            faceDetected: this.gazeFrameCount > 0,
+            avgConfidence,
+            calibrationStartTime: this.calibrationStartTime,
+            calibrationCompleteTime: this.calibrationCompleteTime,
+        };
+    }
+
+    /**
+     * Resetea las métricas de calibración.
+     */
+    private resetCalibrationMetrics() {
+        this.calibrationClicks = 0;
+        this.calibrationFrames = 0;
+        this.trackingFrames = 0;
+        this.calibrationStartTime = Date.now();
+        this.calibrationCompleteTime = null;
+        this.confidenceSum = 0;
+        this.confidenceCount = 0;
     }
 
     /**
@@ -243,8 +395,23 @@ export class GazeTrackingService {
         this.xHistory = [];
         this.yHistory = [];
         this.gazeBuffer = [];
+        this.calibrationCompleteTime = Date.now();
 
-        console.log('[GAZE] completeCalibration() — gazeFrameCount:', this.gazeFrameCount);
+        // Log de métricas de calibración
+        const metrics = this.getCalibrationMetrics();
+        const duration = metrics.calibrationCompleteTime && metrics.calibrationStartTime
+            ? ((metrics.calibrationCompleteTime - metrics.calibrationStartTime) / 1000).toFixed(1)
+            : 'N/A';
+            
+        const quality = metrics.calibrationFrames >= 100 ? '🟢 Excelente' 
+            : metrics.calibrationFrames >= 50 ? '🟡 Bueno'
+            : metrics.calibrationFrames >= 20 ? '🟠 Regular'
+            : '🔴 Insuficiente';
+            
+        this.logger('success', `📊 CALIBRACIÓN COMPLETA | Clicks: ${metrics.calibrationClicks} | Frames: ${metrics.calibrationFrames} | Duración: ${duration}s | ${quality}`);
+        console.log(`[GAZE] 📊 CALIBRACIÓN COMPLETA | Clicks: ${metrics.calibrationClicks} | Frames: ${metrics.calibrationFrames} | Duración: ${duration}s | ${quality}`);
+
+        console.log('[GAZE] completeCalibration() — Métricas:', metrics);
 
         if (this.webgazer) {
             // Intentar resume() por si WebGazer auto-pausó su loop
@@ -257,43 +424,73 @@ export class GazeTrackingService {
                 console.warn('[GAZE] webgazer.resume() falló:', e);
             }
 
-            // Durante el examen: mostrar video en corner para que detecte rostro
-            // IMPORTANTE: NO moverlo fuera de pantalla porque el navegador deja de procesarlo
+            // DURANTE EL EXAMEN: video casi invisible (opacity 0.001) pero activo para WebGazer
+            // IMPORTANTE: NO usar opacity: 0 porque el navegador deja de procesarlo
             const wgContainer = document.getElementById('webgazerVideoContainer');
+            const videoFeed = document.getElementById('webgazerVideoFeed') as HTMLVideoElement;
+            
             if (wgContainer) {
-                wgContainer.style.opacity = '1';
+                // Actualizar el estilo existente
+                wgContainer.style.opacity = '0.001';
                 wgContainer.style.visibility = 'visible';
                 wgContainer.style.display = 'block';
                 wgContainer.style.position = 'fixed';
                 wgContainer.style.zIndex = '9999';
                 wgContainer.style.pointerEvents = 'none';
 
-                // Corner inferior derecho - pequeño
+                // Corner inferior derecho
                 wgContainer.style.width = '160px';
                 wgContainer.style.height = '120px';
                 wgContainer.style.bottom = '10px';
                 wgContainer.style.right = '10px';
                 wgContainer.style.top = 'auto';
                 wgContainer.style.left = 'auto';
+                
+                console.log('[GAZE] Video configurado (opacity: 0.001) durante examen');
+            }
+            
+            if (videoFeed) {
+                videoFeed.style.opacity = '0.001';
+                if (videoFeed.paused) {
+                    videoFeed.play().catch(e => console.warn('[GAZE] Error al hacer play:', e));
+                }
+                console.log('[GAZE] Video feed estado:', videoFeed.paused ? 'paused' : 'playing');
+            }
+            
+            // Re-activar video preview de WebGazer para asegurar que procese
+            try {
+                this.webgazer.showVideo(true);
+                console.log('[GAZE] showVideo(true) llamado');
+            } catch (e) {
+                console.warn('[GAZE] showVideo falló:', e);
             }
 
-            // Ocultar el gaze dot durante el tracking
+            // Mostrar el gaze dot durante el tracking para verificar precisión
+            // Si la calibración funciona bien, el punto debería seguir tu mirada
             const gazeDot = document.getElementById('webgazerGazeDot');
             if (gazeDot) {
-                gazeDot.style.display = 'none';
+                gazeDot.style.display = 'block';
+                gazeDot.style.width = '20px';
+                gazeDot.style.height = '20px';
+                gazeDot.style.background = 'rgba(0, 255, 0, 0.8)'; // Verde brillante
+                gazeDot.style.border = '2px solid white';
+                gazeDot.style.borderRadius = '50%';
+                gazeDot.style.zIndex = '99999';
+                console.log('[GAZE] 🎯 Punto de predicción visible (verde)');
             }
 
-            // Ocultar face overlay durante tracking
+            // Mantener face overlay pero con color verde
             try {
-                this.webgazer.showFaceOverlay(false);
+                this.webgazer.showFaceOverlay(true);
+                // Aplicar color verde después
+                setTimeout(() => this.applyGreenFaceOverlay(), 500);
             } catch (e) {
                 // ignore
             }
         }
 
-        // Iniciar polling manual de predicciones
-        // No depende de setGazeListener — llama directamente a getCurrentPrediction()
-        this.startManualPolling();
+        // El polling manual NO es necesario - el gaze listener ya proporciona datos
+        // this.startManualPolling();
 
         // Iniciar chequeo de desviación periódico
         this.startDeviationDetection();
@@ -337,6 +534,14 @@ export class GazeTrackingService {
         this.stopAggressiveMuting();
         this.stopDiagnosticLoop();
         this.stopManualPolling();
+        
+        // Resetear contador de "sin rostro"
+        this.noFaceStartTime = null;
+        this.noFaceAlertShown = false;
+        
+        // Resetear timer de estabilidad de desviación
+        this.lastInBoundsTime = null;
+        
         this.gazeState.set('IDLE');
         this.isCalibrated.set(false);
         this.hasDeviation.set(false);
@@ -356,13 +561,26 @@ export class GazeTrackingService {
      * Procesa coordenadas brutas del gaze listener de WebGazer.
      * Escala a [-1, 1], suaviza y almacena.
      */
-    private processRawGaze(rawX: number, rawY: number) {
+    private processRawGaze(rawX: number, rawY: number, confidence?: number) {
         const width = window.innerWidth;
         const height = window.innerHeight;
 
         // Escalar a [-1, 1] donde (0,0) es el centro
         const scaledX = (rawX / width) * 2 - 1;
         const scaledY = (rawY / height) * 2 - 1;
+
+        // Contabilizar frames según el estado
+        if (this.gazeState() === 'CALIBRATING') {
+            this.calibrationFrames++;
+        } else if (this.gazeState() === 'TRACKING') {
+            this.trackingFrames++;
+        }
+        
+        // Guardar confianza si está disponible
+        if (confidence != null) {
+            this.confidenceSum += confidence;
+            this.confidenceCount++;
+        }
 
         // Suavizar con ventana deslizante
         this.xHistory.push(scaledX);
@@ -428,28 +646,51 @@ export class GazeTrackingService {
                 Math.abs(point.y) > this.config.deviationThreshold;
 
             if (isOutOfBounds) {
+                // Resetear el timer de "dentro" cuando sale
+                this.lastInBoundsTime = null;
+                
                 if (!this.deviationStartTime) {
                     this.deviationStartTime = Date.now();
+                    console.log('[GAZE] ⚠️ Mirada fuera de pantalla - iniciando contador');
                 }
 
                 const elapsed = (Date.now() - this.deviationStartTime) / 1000;
 
+                // Log cada segundo mientras esté fuera
+                if (Math.floor(elapsed) !== Math.floor(elapsed - 1)) {
+                    const remaining = Math.max(0, Math.ceil(this.config.deviationToleranceSeconds - elapsed));
+                    console.log(`[GAZE] ⚠️ Fuera de pantalla: ${elapsed.toFixed(1)}s (se activa alerta en ${remaining}s)`);
+                }
+
                 if (elapsed >= this.config.deviationToleranceSeconds && !this.hasDeviation()) {
                     this.ngZone.run(() => {
                         this.hasDeviation.set(true);
-                        this.logger('error', `🚨 GAZE_DEVIATION: Mirada fuera de pantalla por ${elapsed.toFixed(1)}s`);
+                        const msg = `🚨 GAZE_DEVIATION: Mirada fuera de pantalla por ${elapsed.toFixed(1)}s`;
+                        this.logger('error', msg);
+                        console.log('[GAZE]', msg);
                         this.deviationCallback?.();
                     });
                 }
             } else {
-                // Regresó al área segura
+                // Regresó al área segura - aplicar delay de estabilidad
                 if (this.deviationStartTime) {
-                    this.deviationStartTime = null;
-                    if (this.hasDeviation()) {
-                        this.ngZone.run(() => {
-                            this.hasDeviation.set(false);
-                            this.logger('info', '👁️ Mirada regresó al área de pantalla');
-                        });
+                    // Solo resetear si estuvo dentro por al menos 500ms
+                    if (!this.lastInBoundsTime) {
+                        this.lastInBoundsTime = Date.now();
+                    } else {
+                        const inBoundsElapsed = Date.now() - this.lastInBoundsTime;
+                        if (inBoundsElapsed >= this.STABILITY_DELAY_MS) {
+                            this.deviationStartTime = null;
+                            this.lastInBoundsTime = null;
+                            if (this.hasDeviation()) {
+                                this.ngZone.run(() => {
+                                    this.hasDeviation.set(false);
+                                    const msg = '👁️ Mirada regresó al área de pantalla';
+                                    this.logger('info', msg);
+                                    console.log('[GAZE]', msg);
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -504,6 +745,51 @@ export class GazeTrackingService {
                 }
             }
         });
+    }
+
+    /**
+     * Aplica color verde al face overlay de WebGazer.
+     */
+    private applyGreenFaceOverlay() {
+        // WebGazer crea un canvas con el face overlay
+        // Buscar el canvas y aplicar estilo verde
+        const applyStyle = () => {
+            const canvas = document.querySelector('#webgazerFaceOverlay') as HTMLCanvasElement;
+            if (canvas) {
+                // El overlay usa drawImage, necesitamos injectar CSS para el color
+                const styleId = 'webgazer-green-overlay';
+                if (!document.getElementById(styleId)) {
+                    const style = document.createElement('style');
+                    style.id = styleId;
+                    style.textContent = `
+                        #webgazerFaceOverlay, #webgazerFaceFeedbackBox, 
+                        #webgazerFaceAnnotations, canvas[style*="face"] {
+                            filter: drop-shadow(0 0 8px #00ff00) hue-rotate(120deg) saturate(4) brightness(1.2) !important;
+                        }
+                        .webgazer-face-overlay {
+                            filter: drop-shadow(0 0 8px #00ff00) hue-rotate(120deg) saturate(4) !important;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                    console.log('[GAZE] 🎨 Máscara verde aplicada');
+                    
+                    // También agregar estilo directamente al canvas
+                    const style2 = document.createElement('style');
+                    style2.textContent = `
+                        canvas { 
+                            filter: hue-rotate(120deg) saturate(4) !important;
+                        }
+                    `;
+                    document.head.appendChild(style2);
+                }
+            }
+        };
+
+        // Intentar inmediatamente y luego retry
+        applyStyle();
+        setTimeout(applyStyle, 500);
+        setTimeout(applyStyle, 1000);
+        setTimeout(applyStyle, 2000);
     }
 
     /**
@@ -613,7 +899,8 @@ export class GazeTrackingService {
                                 console.log(`[GAZE-POLL] Frame #${this.gazeFrameCount} → x:${prediction.x.toFixed(2)}, y:${prediction.y.toFixed(2)}`);
                             }
 
-                            this.processRawGaze(prediction.x, prediction.y);
+                            const confidence = prediction.confidence ?? prediction.estimation?.confidence ?? null;
+                            this.processRawGaze(prediction.x, prediction.y, confidence ?? undefined);
                         } else if (this.gazeFrameCount % 50 === 0) {
                             console.log('[GAZE-POLL] prediction=null (no face)');
                         }
