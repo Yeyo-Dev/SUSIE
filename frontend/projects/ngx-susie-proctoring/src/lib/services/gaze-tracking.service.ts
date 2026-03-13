@@ -42,7 +42,7 @@ export interface GazeCalibrationMetrics {
 
 const DEFAULT_CONFIG: GazeConfig = {
     smoothingWindow: 10,
-    deviationThreshold: 0.85,
+    deviationThreshold: 0.82, // Bajamos de 0.85 a 0.82 para mayor sensibilidad lateral
     deviationToleranceSeconds: 5,
     samplingIntervalMs: 1000,
 };
@@ -732,12 +732,14 @@ export class GazeTrackingService {
             return;
         }
 
-        // ORIENTATION CHECK (Yaw/Profile): Detectar si el usuario mira demasiado a los lados
+        // ORIENTATION CHECK (Yaw/Profile): Detectar si el usuario mira demasiado a los lados o arriba/abajo
         if (rawData?.allPredictions?.[0]?.scaledMesh) {
             const mesh = rawData.allPredictions[0].scaledMesh;
             const nose = mesh[1]; // Nariz
             const leftEdge = mesh[454]; // Borde izquierdo (sujeto)
             const rightEdge = mesh[234]; // Borde derecho (sujeto)
+            const forehead = mesh[10]; // Frente
+            const chin = mesh[152]; // Mentón
 
             if (nose && leftEdge && rightEdge) {
                 const x1 = leftEdge[0];
@@ -746,15 +748,12 @@ export class GazeTrackingService {
                 const maxX = Math.max(x1, x2);
                 const faceWidth = maxX - minX;
 
-                const forehead = mesh[10];
-                const chin = mesh[152];
-
                 if (faceWidth > 0) {
                     // YAW (Horizontal): Posición relativa de la nariz (0 a 1)
                     const noseRelativeX = (nose[0] - minX) / faceWidth;
                     
-                    // Incrementamos sensibilidad de 0.20 a 0.22
-                    if ((noseRelativeX < 0.22 || noseRelativeX > 0.78) && this.gazeState() === 'TRACKING') {
+                    // Incrementamos sensibilidad de 0.20 a 0.23 (más estricto hacia la izquierda/derecha)
+                    if ((noseRelativeX < 0.23 || noseRelativeX > 0.77) && this.gazeState() === 'TRACKING') {
                         if (this.gazeFrameCount % 5 === 0) {
                             console.warn(`[GAZE] 🚨 Perfil (Yaw) detectado! relX: ${noseRelativeX.toFixed(2)}`);
                         }
@@ -762,26 +761,24 @@ export class GazeTrackingService {
                         return;
                     }
                 }
+            }
 
-                if (forehead && chin) {
-                    const minY = Math.min(forehead[1], chin[1]);
-                    const maxY = Math.max(forehead[1], chin[1]);
-                    const faceHeight = maxY - minY;
+            if (nose && forehead && chin) {
+                const minY = Math.min(forehead[1], chin[1]);
+                const maxY = Math.max(forehead[1], chin[1]);
+                const faceHeight = maxY - minY;
 
-                    if (faceHeight > 0) {
-                        // PITCH (Vertical): Posición relativa de la nariz (0 a 1)
-                        const noseRelativeY = (nose[1] - minY) / faceHeight;
+                if (faceHeight > 0) {
+                    // PITCH (Vertical): Posición relativa de la nariz (0 a 1)
+                    const noseRelativeY = (nose[1] - minY) / faceHeight;
 
-                        // Mirar hacia abajo (noseRelativeY aumenta)
-                        // Mirar hacia arriba (noseRelativeY disminuye)
-                        // Umbrales sugeridos: < 0.25 (Arriba) o > 0.65 (Abajo)
-                        if ((noseRelativeY < 0.25 || noseRelativeY > 0.65) && this.gazeState() === 'TRACKING') {
-                            if (this.gazeFrameCount % 5 === 0) {
-                                console.warn(`[GAZE] 🚨 Perfil (Pitch) detectado! relY: ${noseRelativeY.toFixed(2)}`);
-                            }
-                            this.handleNoFaceDetection();
-                            return;
+                    // Mirar hacia abajo (noseRelativeY aumenta) — Umbral más estricto (0.64) para detectar mirada a teclado/celular
+                    if ((noseRelativeY < 0.25 || noseRelativeY > 0.64) && this.gazeState() === 'TRACKING') {
+                        if (this.gazeFrameCount % 5 === 0) {
+                            console.warn(`[GAZE] 🚨 Perfil (Pitch) detectado! relY: ${noseRelativeY.toFixed(2)}`);
                         }
+                        this.handleNoFaceDetection();
+                        return;
                     }
                 }
             }
