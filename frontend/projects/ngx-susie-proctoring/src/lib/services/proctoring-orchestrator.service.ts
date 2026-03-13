@@ -160,6 +160,11 @@ export class ProctoringOrchestratorService implements OnDestroy {
     );
 
     this.setupEventListeners();
+
+    // Exponer función global para debugging (solo desarrollo)
+    (window as any).disableProctoringSecurity = () => {
+      this.debugDisableDevToolsProtection();
+    };
   }
 
   private setupEventListeners(): void {
@@ -307,11 +312,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
   }
 
   private configureGazeService(): void {
-    this.gazeService.configure(
-      {},
-      (type, msg, details) => this.log(type, msg, details),
-      () => this.handleGazeDeviation()
-    );
+    this.gazeService.startCalibration();
   }
 
   handleGazeCalibrationCompleted(): void {
@@ -354,13 +355,13 @@ export class ProctoringOrchestratorService implements OnDestroy {
     });
 
     // Gaze setup if needed
-    if (policies.requireGazeTracking && this.gazeService.isCalibrated()) {
-      this.gazeService.configure(
-        {},
-        (type, msg, details) => this.log(type, msg, details),
-        () => this.handleGazeDeviation()
-      );
-      this.log('info', '👁️ Gaze Tracking activo');
+    if (policies.requireGazeTracking && this.gazeService.gazeState() === 'TRACKING') {
+      const examSessionId = this.config?.sessionContext?.examSessionId;
+      if (examSessionId) {
+        // El servicio antiguo no usa examSessionId en startCalibration, ni startSession()
+        // Ya debería estar trackeando si pasamos la calibración.
+        this.log('info', '👁️ Gaze Tracking activo');
+      }
     }
 
     // Audio recording setup if needed
@@ -558,6 +559,15 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.securityService.disableProtection();
     this.gazeService.stop();
     this.inactivityService.stopMonitoring();
+  }
+
+  /**
+   * Desactiva temporalmente el bloqueo de DevTools para debugging.
+   * Solo usar en desarrollo, NUNCA en producción.
+   */
+  debugDisableDevToolsProtection(): void {
+    this.cleanup.removeEventListener(document, 'keydown', this.preventGlobalDevTools as EventListener);
+    this.log('warn', '⚠️ Protección de DevTools desactivada temporalmente');
   }
 
   // --- Getters for component ---

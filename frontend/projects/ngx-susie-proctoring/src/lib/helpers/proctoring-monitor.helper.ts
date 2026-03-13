@@ -1,6 +1,6 @@
 import { ElementRef } from '@angular/core';
 import { EvidenceService } from '@lib/services/evidence.service';
-import { GazeTrackingService, GazePoint } from '@lib/services/gaze-tracking.service';
+import { GazeTrackingService } from '@lib/services/gaze-tracking.service';
 import { MediaService } from '@lib/services/media.service';
 import { IntervalHandle, LoggerFn, MediaStreamSource } from '@lib/models/contracts';
 
@@ -85,7 +85,8 @@ export class ProctoringMonitorHelper {
     canvas.toBlob(blob => {
       if (!blob) return;
 
-      const gazeHistory = this.gazeService.isCalibrated()
+      const state = this.gazeService.gazeState();
+      const gazeHistory = state === 'TRACKING'
         ? this.gazeService.flushGazeBuffer()
         : undefined;
 
@@ -108,9 +109,9 @@ export class ProctoringMonitorHelper {
     this.stopGazeLoop();
 
     this.gazeInterval = setInterval(() => {
-      const recentPoints = this.gazeService.flushGazeBuffer();
-      if (recentPoints && recentPoints.length > 0) {
-        const mappedPoints = recentPoints.map((p: GazePoint) => ({ x: p.x, y: p.y }));
+      const recentEvents = this.gazeService.flushGazeBuffer();
+      if (recentEvents && recentEvents.length > 0) {
+        const mappedPoints = recentEvents.map((p: any) => ({ x: p.x, y: p.y }));
         this.evidenceService.sendGazeData(mappedPoints);
       }
     }, 5000);

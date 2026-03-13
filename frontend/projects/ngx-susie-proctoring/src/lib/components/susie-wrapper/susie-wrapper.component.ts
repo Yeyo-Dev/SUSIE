@@ -136,7 +136,7 @@ export class SusieWrapperComponent {
     }
 
     // Start gaze if calibrated
-    if (policies.requireGazeTracking && this.orchestrator.getGazeService().isCalibrated()) {
+    if (policies.requireGazeTracking && this.orchestrator.getGazeService().gazeState() === 'TRACKING') {
       this.monitorHelper.startGazeLoop();
     }
   }

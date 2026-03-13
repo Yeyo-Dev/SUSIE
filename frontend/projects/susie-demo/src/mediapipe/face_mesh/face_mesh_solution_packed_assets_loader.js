@@ -77,13 +77,13 @@
         }
         xhr.onload = function(event) {
           if (xhr.status == 200 || xhr.status == 304 || xhr.status == 206 || (xhr.status == 0 && xhr.response)) { // file URLs can return 0
-            var packageData = xhr.response;
+            console.log("XHR LOADED: ", xhr.status, xhr.responseURL); var packageData = xhr.response;
             callback(packageData);
           } else {
-            throw new Error(xhr.statusText + " : " + xhr.responseURL);
+            console.error("XHR ERROR: ", xhr.statusText, xhr.responseURL); throw new Error(xhr.statusText + " : " + xhr.responseURL);
           }
         };
-        xhr.send(null);
+        console.log("SENDING XHR TO: ", packageName); xhr.send(null);
       };
 
       function handleError(error) {
