@@ -15,5 +15,5 @@ export * from './lib/components/step-indicator/step-indicator.component';
 export * from './lib/components/exam-briefing/exam-briefing.component';
 
 // Gaze Tracking Services
-export * from './lib/services/gaze-tracking.service';
+export * from './lib/services/gaze';
 export * from './lib/components/gaze-calibration/gaze-calibration.component';

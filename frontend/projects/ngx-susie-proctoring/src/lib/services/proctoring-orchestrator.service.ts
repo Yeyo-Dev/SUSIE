@@ -5,7 +5,7 @@ import { EvidenceService } from './evidence.service';
 import { SecurityService } from './security.service';
 import { NetworkMonitorService } from './network-monitor.service';
 import { InactivityService } from './inactivity.service';
-import { GazeTrackingService } from './gaze-tracking.service';
+import { GazeTrackingService } from './gaze';
 import { WebSocketFeedbackService } from './websocket-feedback.service';
 import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 

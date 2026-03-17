@@ -1,6 +1,6 @@
 import { ElementRef } from '@angular/core';
 import { EvidenceService } from '@lib/services/evidence.service';
-import { GazeTrackingService } from '@lib/services/gaze-tracking.service';
+import { GazeTrackingService } from '@lib/services/gaze';
 import { MediaService } from '@lib/services/media.service';
 import { IntervalHandle, LoggerFn, MediaStreamSource } from '@lib/models/contracts';
 

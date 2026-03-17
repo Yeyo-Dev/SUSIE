@@ -1,6 +1,6 @@
 import { Component, inject, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { GazeTrackingService } from '../../services/gaze-tracking.service';
+import { GazeTrackingService } from '../../services/gaze';
 
 /**
  * GazeDeviationAlert - Muestra alertas cuando hay desviación de mirada
