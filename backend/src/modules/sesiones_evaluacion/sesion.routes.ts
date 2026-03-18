@@ -8,5 +8,5 @@ export async function sesionEvaluacionRoutes(fastify: FastifyInstance) {
     fastify.post('/', controller.IniciarSesionEvaluacionHandler);
 
     //Ruta para finalizar una sesión de evaluación, se espera el id_sesion como parámetro en la URL.
-    fastify.post('/finalizar/:id_sesion', controller.FinalizarSesionEvaluacionHandler);
+    fastify.patch('/finalizar/:id_sesion', controller.FinalizarSesionEvaluacionHandler);
 }
