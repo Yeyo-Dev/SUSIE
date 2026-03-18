@@ -30,11 +30,11 @@ export class ConsumerService {
 
         } catch (error) {
           if (error instanceof SyntaxError) {
-            this.app.log.error(`⚠️ Mensaje ignorado en ${queueName}: No es un JSON válido.`);
+            this.app.log.error(`Mensaje ignorado en ${queueName}: No es un JSON valido.`);
             // Rechazamos el mensaje basura para que RabbitMQ lo borre y no se atasque
             channel.reject(msg, false);
           } else {
-            this.app.log.error(error, `❌ Error procesando mensaje de ${queueName}`);
+            this.app.log.error(error, `Error procesando mensaje de ${queueName}`);
             // Si fue un error de BD, tal vez sí queremos reencolarlo (true)
             // channel.reject(msg, true); 
           }

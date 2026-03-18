@@ -30,12 +30,12 @@ async function rabbitMQConnection(fastify: FastifyInstance) {
       await channel.assertQueue('q_audios', { durable: true });
       await channel.assertQueue('q_gaze_tracking', { durable: true });
       //Crear la Cola de Infracciones
-      await channel.assertQueue('q_infracciones',{ durable: true });
+      await channel.assertQueue('q_infracciones', { durable: true });
 
       //Crear las Reglas de Distribución (Bindings)
       // Todo mensaje con etiqueta 'stream.snapshot' irá a la cola de imágenes
       await channel.bindQueue('q_snapshots', EXCHANGE_NAME, 'stream.snapshot');
-      
+
       // Todo mensaje con etiqueta 'stream.audio' irá a la cola de sonidos
       await channel.bindQueue('q_audios', EXCHANGE_NAME, 'stream.audio');
 

@@ -1,51 +1,54 @@
 // src/utils/ws.manager.ts
-import { WebSocket } from 'ws';
+import type { WebSocket } from "@fastify/websocket";
 
 export class WebSocketManager {
     // Usamos un Map donde la LLAVE es el id_sesion y el VALOR es un Set de conexiones.
     // Usamos un Set por si el reclutador tiene la misma sesión abierta en dos pestañas.
-    private clients: Map<string, Set<WebSocket>> = new Map();
+    private clientes_conectados: Map<string, Set<WebSocket>> = new Map();
 
-    // 1. Registrar un nuevo cliente
-    addClient(sesion_id: string, socket: WebSocket) {
-        if (!this.clients.has(sesion_id)) {
-            this.clients.set(sesion_id, new Set());
+    // Registrar un nuevo cliente
+    addCliente(sesion_id: string, socket: WebSocket) {
+        if (!this.clientes_conectados.has(sesion_id)) {//si no existe la sesion se crea
+            this.clientes_conectados.set(sesion_id, new Set());
         }
-        this.clients.get(sesion_id)!.add(socket);
+        this.clientes_conectados.get(sesion_id)!.add(socket);
 
         // Cuando el cliente cierre la pestaña, lo borramos de la lista
         socket.on('close', () => {
-            this.removeClient(sesion_id, socket);
+            this.removeCliente(sesion_id, socket);
         });
     }
 
-    // 2. Eliminar un cliente desconectado
-    removeClient(sesion_id: string, socket: WebSocket) {
-        const sessionClients = this.clients.get(sesion_id);
-        if (sessionClients) {
-            sessionClients.delete(socket);
+    // Eliminar un cliente desconectado
+    removeCliente(sesion_id: string, socket: WebSocket) {
+        const session_clientes = this.clientes_conectados.get(sesion_id);
+        if (session_clientes) {
+            session_clientes.delete(socket);
             // Si ya no hay nadie viendo esa sesión, borramos la llave para ahorrar memoria
-            if (sessionClients.size === 0) {
-                this.clients.delete(sesion_id);
+            if (session_clientes.size === 0) {
+                this.clientes_conectados.delete(sesion_id);
             }
         }
     }
 
-    // 3. Enviar mensaje SOLO a los de una sesión
-    broadcastToSession(sesion_id: string, message: object) {
-        const sessionClients = this.clients.get(sesion_id);
-        
-        if (sessionClients) {
-            const messageString = JSON.stringify(message); // WebSockets solo envían texto
-            
-            for (const socket of sessionClients) {
-                if (socket.readyState === WebSocket.OPEN) {
-                    socket.send(messageString);
+    // Enviar mensaje solo a los de una sesion
+    enviarMensajeASesion(sesion_id: string, message: object) {
+        const session_clientes = this.clientes_conectados.get(sesion_id);
+
+        if (session_clientes) {
+            const messageString = JSON.stringify(message); // WebSockets solo envia texto
+
+            for (const socket of session_clientes) {//Itera sobre todos los clientes conectados a la sesion
+                if (socket.readyState === WebSocket.OPEN) {//Si el cliente esta conectado
+                    socket.send(messageString);//Envía el mensaje
                 }
             }
+        }
+        else {
+            console.log(`No hay clientes conectados para la sesión: ${sesion_id}`);
         }
     }
 }
 
-// Exportamos una única instancia (Singleton) para usarla en todo el proyecto
+// Exportamos una única instancia para usarla en todo el proyecto
 export const wsManager = new WebSocketManager();

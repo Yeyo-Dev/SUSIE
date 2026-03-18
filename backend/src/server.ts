@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import rabbitMQConnector from './config/rabbitmq';
+import { wsManager } from './utils/ws.manager';
 //import redisPlugin from './config/redis';
 import { ProducerService } from './broker/producer.service';
 import { ConsumerService } from './broker/consumer.service';
@@ -14,7 +15,9 @@ import {audioRoutes} from './modules/monitoreo/audios/audio.routes';
 import {gazeRoutes} from './modules/monitoreo/gaze_tracking/gaze.routes';
 import {eventosRoutes} from './modules/monitoreo/eventos/eventosroutes';
 import { infraccionRoutes } from './modules/monitoreo/infracciones/infraccion.routes';
+import { infraccionWebsocketRoutes } from './modules/monitoreo/infracciones/infraccion.websocket';
 import websocket from '@fastify/websocket';
+import { setupInfraccionesConsumer } from './broker/consumers/infracciones.consumer';
 
 export let broker: ProducerService; //Variable global para acceder al broker
 
@@ -53,6 +56,8 @@ export const buildServer = (): FastifyInstance => {
     server.register(eventosRoutes, { prefix: prefixApi + '/monitoreo/eventos' });
     //RUTAS PARA INFRACCIONES
     server.register(infraccionRoutes, { prefix: prefixApi + '/monitoreo/infracciones' });
+    //WEBSOCKETS
+    server.register(infraccionWebsocketRoutes, { prefix: prefixApi + '/monitoreo/infracciones/ws' });
 
     server.ready().then(() => {
         broker = new ProducerService(server); //Inicializamos el broker
@@ -61,9 +66,7 @@ export const buildServer = (): FastifyInstance => {
         const consumer = new ConsumerService(server); //Inicializamos el consumer
         server.log.info('ConsumerService inicializado y listo para usar.');
 
-        consumer.listen('q_infracciones', async (data) => {//Escuchamos la cola de infracciones
-            console.log('Nuevo mensaje en la cola q_infracciones:', data);
-        });
+        setupInfraccionesConsumer(server, consumer);//Configuramos el consumidor de infracciones
     });
 
     server.get(prefixApi, async (request, reply) => {
