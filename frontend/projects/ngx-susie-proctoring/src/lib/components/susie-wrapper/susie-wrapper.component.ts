@@ -8,7 +8,9 @@ import {
   ChangeDetectorRef,
   ViewChild,
   ElementRef,
-  DestroyRef
+  DestroyRef,
+  signal,
+  computed
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
@@ -18,9 +20,15 @@ import {
   ConsentResult,
   LoggerFn
 } from '@lib/models/contracts';
-import { ProctoringOrchestratorService, ProctoringState } from '@lib/services/proctoring-orchestrator.service';
+import { ProctoringOrchestratorService, ProctoringState, RecoveryState } from '@lib/services/proctoring-orchestrator.service';
 import { ProctoringMonitorHelper } from '@lib/helpers/proctoring-monitor.helper';
 import { EvidenceQueueService } from '@lib/services/evidence-queue.service';
+import { SessionStorageService } from '@lib/services/session-storage.service';
+import {
+  PersistedSessionState,
+  isSessionRecoverable,
+  calculateRemainingTime
+} from '@lib/models/session-storage.interface';
 
 // Child components
 import { CameraPipComponent } from '@lib/components/camera-pip/camera-pip.component';
@@ -67,14 +75,36 @@ export class SusieWrapperComponent {
   // --- Services ---
   private readonly orchestrator = inject(ProctoringOrchestratorService);
   private readonly evidenceQueueService = inject(EvidenceQueueService);
+  private readonly sessionStorage = inject(SessionStorageService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
   // --- View Child ---
   @ViewChild('snapshotVideo') snapshotVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('examEngine') examEngine!: ExamEngineComponent;
 
   // --- Monitor Helper ---
   private monitorHelper: ProctoringMonitorHelper | null = null;
+
+  // --- Recovery State ---
+  showRecoveryModal = signal(false);
+  recoveryState = signal<PersistedSessionState | null>(null);
+
+  // --- Computed for recovery dialog ---
+  recoverySummary = computed(() => {
+    const state = this.recoveryState();
+    if (!state) return null;
+    
+    const cfg = this.config();
+    const answeredCount = Object.keys(state.answers).length;
+    const remainingSeconds = calculateRemainingTime(state, cfg.sessionContext.durationMinutes);
+    
+    return {
+      answeredCount,
+      remainingMinutes: Math.floor(remainingSeconds / 60),
+      remainingSeconds: remainingSeconds % 60,
+    };
+  });
 
   // --- Exposed Signals (delegated to orchestrator) ---
   readonly state = this.orchestrator.state;
@@ -100,6 +130,9 @@ export class SusieWrapperComponent {
 
   // Debug
   readonly logs = this.orchestrator.logs;
+
+  // --- Private ---
+  private beforeUnloadHandler = this.handleBeforeUnload.bind(this);
 
   constructor() {
     // Forward state changes to parent
@@ -144,7 +177,36 @@ export class SusieWrapperComponent {
   }
 
   async ngOnInit() {
-    // Initialize orchestrator with config and callbacks
+    // Configurar logger de persistencia
+    this.sessionStorage.setLogger((type, msg, details) => this.log(type, msg, details));
+    
+    if (!SessionStorageService.isAvailable()) {
+      this.log('warn', '⚠️ IndexedDB no disponible — recuperación deshabilitada');
+    }
+    
+    const cfg = this.config();
+    const sessionId = cfg.sessionContext.examSessionId;
+    
+    // Check for recoverable session BEFORE initializing orchestrator
+    if (SessionStorageService.isAvailable()) {
+      const existingSession = await this.sessionStorage.loadState(sessionId);
+      
+      if (existingSession && isSessionRecoverable(existingSession, sessionId, cfg.sessionContext.durationMinutes)) {
+        this.recoveryState.set(existingSession);
+        this.showRecoveryModal.set(true);
+        return; // Wait for user decision
+      } else if (existingSession) {
+        // Stale/expired session — clear silently
+        await this.sessionStorage.clearState(existingSession.examSessionId);
+        this.log('info', '🗑️ Sesión stale limpiada');
+      }
+    }
+    
+    // No recovery needed — proceed with normal init
+    await this.initializeFresh();
+  }
+
+  private async initializeFresh(): Promise<void> {
     this.orchestrator.initialize(this.config(), {
       onStateChange: (state) => {
         // State changes handled via signal
@@ -153,7 +215,7 @@ export class SusieWrapperComponent {
         this.config().onSecurityViolation?.(violation);
       },
       onExamFinished: (result) => {
-        this.config().onExamFinished?.(result);
+        this.handleExamFinished(result);
       },
       onLog: (type, msg, details) => {
         this.log(type, msg, details);
@@ -173,9 +235,111 @@ export class SusieWrapperComponent {
     });
 
     await this.orchestrator.initializeFlow();
+    
+    // Setup persistence effect
+    this.setupPersistenceEffect();
+  }
+
+  private async initializeWithRecovery(state: PersistedSessionState): Promise<void> {
+    const cfg = this.config();
+    
+    // Initialize orchestrator with recovered state
+    const recoveryState: RecoveryState = {
+      proctoringState: state.proctoringState,
+      totalViolations: state.totalViolations,
+      tabSwitchCount: state.tabSwitchCount,
+      remoteSessionId: state.remoteSessionId,
+    };
+    
+    this.orchestrator.initialize(cfg, {
+      onStateChange: (s) => {},
+      onViolation: (v) => { cfg.onSecurityViolation?.(v); },
+      onExamFinished: (r) => { this.handleExamFinished(r); },
+      onLog: (type, msg, details) => { this.log(type, msg, details); },
+      onBiometricValidationRequired: async (photo, userId) => {
+        return await this.orchestrator.getEvidenceService().validateBiometric(photo, userId);
+      },
+      onSessionStarted: (sessionId) => {},
+      onInactivityWarning: () => {},
+      onNetworkStatusChange: (isOnline) => {}
+    }, recoveryState);
+
+    await this.orchestrator.initializeFlow();
+    
+    // Setup persistence effect
+    this.setupPersistenceEffect();
+  }
+
+  // --- Recovery Handlers ---
+
+  async handleRecoveryContinue(): Promise<void> {
+    this.showRecoveryModal.set(false);
+    const state = this.recoveryState();
+    if (!state) return;
+    
+    await this.initializeWithRecovery(state);
+  }
+
+  async handleRecoveryStartFresh(): Promise<void> {
+    this.showRecoveryModal.set(false);
+    const state = this.recoveryState();
+    if (state) {
+      await this.sessionStorage.clearState(state.examSessionId);
+    }
+    await this.initializeFresh();
+  }
+
+  // --- Persistence Effect ---
+
+  private setupPersistenceEffect(): void {
+    // Only persist when in MONITORING state
+    effect(() => {
+      const currentState = this.state();
+      if (currentState !== 'MONITORING') return;
+      
+      const sessionId = this.config().sessionContext.examSessionId;
+      
+      // Build state object
+      const examState = this.examEngine?.extractState(sessionId);
+      const proctoringState = this.orchestrator.extractState();
+      
+      if (examState && proctoringState) {
+        const state: PersistedSessionState = {
+          ...examState,
+          ...proctoringState,
+          examSessionId: sessionId,
+          examId: this.config().sessionContext.examId,
+          examStartedAt: examState.examStartedAt,
+        } as PersistedSessionState;
+        
+        this.sessionStorage.saveState(state);
+      }
+    }, { allowSignalWrites: true });
+    
+    // beforeunload handler for immediate save on tab close
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
+  }
+
+  private handleBeforeUnload(): void {
+    const sessionId = this.config().sessionContext.examSessionId;
+    const examState = this.examEngine?.extractState(sessionId);
+    const proctoringState = this.orchestrator.extractState();
+    
+    if (examState && proctoringState) {
+      const state: PersistedSessionState = {
+        ...examState,
+        ...proctoringState,
+        examSessionId: sessionId,
+        examId: this.config().sessionContext.examId,
+      } as PersistedSessionState;
+      
+      // Synchronous save attempt (best effort)
+      this.sessionStorage.saveState(state);
+    }
   }
 
   ngOnDestroy() {
+    window.removeEventListener('beforeunload', this.beforeUnloadHandler);
     this.monitorHelper?.destroy();
     this.orchestrator.destroy();
   }
@@ -215,6 +379,10 @@ export class SusieWrapperComponent {
   }
 
   handleExamFinished(result: ExamResult) {
+    // Clear session state on completion
+    const sessionId = this.config().sessionContext.examSessionId;
+    this.sessionStorage.clearState(sessionId);
+    
     this.orchestrator.handleExamFinished(result);
   }
 

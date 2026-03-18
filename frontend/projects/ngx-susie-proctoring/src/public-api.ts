@@ -3,9 +3,12 @@
  */
 
 export * from './lib/models/contracts';
+export * from './lib/models/session-storage.interface';
 export * from './lib/services/media.service';
 export * from './lib/services/evidence.service';
 export * from './lib/services/evidence-queue.service';
+export * from './lib/services/session-storage.service';
+export * from './lib/services/proctoring-orchestrator.service';
 export * from './lib/components/consent-dialog/consent-dialog.component';
 export * from './lib/components/susie-wrapper/susie-wrapper.component';
 export * from './lib/components/camera-pip/camera-pip.component';

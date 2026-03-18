@@ -4,6 +4,33 @@
         <video #snapshotVideo autoplay playsinline muted
             style="position: absolute; opacity: 0; pointer-events: none; height: 1px; width: 1px;"></video>
     </div>
+    
+    <!-- RECOVERY DIALOG -->
+    @if (showRecoveryModal()) {
+    <div class="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
+        <div class="recovery-dialog">
+            <h2 id="recovery-title">¿Continuar donde dejaste?</h2>
+            @if (recoverySummary()) {
+            <p class="recovery-message">
+                Se encontró una sesión previa con:
+            </p>
+            <ul class="recovery-details">
+                <li>📄 <strong>{{ recoverySummary()!.answeredCount }}</strong> respuestas guardadas</li>
+                <li>⏱️ Tiempo restante: <strong>{{ recoverySummary()!.remainingMinutes }}:{{ recoverySummary()!.remainingSeconds | number:'2.0-0' }}</strong></li>
+            </ul>
+            }
+            <div class="recovery-actions">
+                <button class="btn-primary" (click)="handleRecoveryContinue()">
+                    Continuar donde dejaste
+                </button>
+                <button class="btn-secondary" (click)="handleRecoveryStartFresh()">
+                    Empezar de nuevo
+                </button>
+            </div>
+        </div>
+    </div>
+    }
+    
     <!-- PANEL DE DEBUG (Solo si debugMode=true y no estamos en calibración visual) -->
     @if (config().debugMode && state() !== 'GAZE_CALIBRATION') {
     <div class="debug-panel">

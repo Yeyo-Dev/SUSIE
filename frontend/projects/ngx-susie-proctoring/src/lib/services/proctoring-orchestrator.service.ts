@@ -21,6 +21,23 @@ export type ProctoringState =
   | 'MONITORING';
 
 /**
+ * Estado de proctoring recuperable desde persistencia.
+ * Se usa para restaurar la sesión después de un crash del navegador.
+ */
+export interface RecoveryState {
+  /** Posición actual en la máquina de estados */
+  proctoringState: ProctoringState;
+  /** Contador total de violaciones de seguridad */
+  totalViolations: number;
+  /** Contador de cambios de pestaña/tab */
+  tabSwitchCount: number;
+  /** ID de sesión remota asignado por el backend */
+  remoteSessionId: string | null;
+  /** Datos de calibración de gaze tracking (opcional) */
+  gazeCalibrationData?: unknown;
+}
+
+/**
  * Interfaz de callbacks que el orchestrator emite al componente.
  * Separa la lógica de negocio de la presentación.
  */
@@ -144,7 +161,12 @@ export class ProctoringOrchestratorService implements OnDestroy {
 
   // --- Initialization ---
 
-  initialize(config: SusieConfig, callbacks: OrchestratorCallbacks): void {
+  /**
+   * Inicializa el orchestrator con la configuración y callbacks.
+   * Opcionalmente puede recibir un estado de recuperación para restaurar
+   * una sesión previa después de un crash del navegador.
+   */
+  initialize(config: SusieConfig, callbacks: OrchestratorCallbacks, recoveryState?: RecoveryState): void {
     this.config = config;
     this.callbacks = callbacks;
 
@@ -163,9 +185,49 @@ export class ProctoringOrchestratorService implements OnDestroy {
 
     this.setupEventListeners();
 
+    // Restore state if provided (session recovery)
+    if (recoveryState) {
+      this.restoreFromRecovery(recoveryState);
+    }
+
     // Exponer función global para debugging (solo desarrollo)
     (window as any).disableProctoringSecurity = () => {
       this.debugDisableDevToolsProtection();
+    };
+  }
+
+  /**
+   * Restaura el estado desde una sesión persistida.
+   * Se salta los pasos de calibración/biometría si el estado es MONITORING.
+   */
+  private restoreFromRecovery(state: RecoveryState): void {
+    this.log('info', '🔄 Restaurando sesión desde estado persistido');
+    
+    // Restaurar contadores de violaciones
+    this.totalViolations.set(state.totalViolations);
+    this.tabSwitchCount.set(state.tabSwitchCount);
+    
+    // Restaurar ID de sesión remota
+    if (state.remoteSessionId) {
+      this.resolvedSessionId.set(state.remoteSessionId);
+    }
+    
+    // Restaurar estado de la máquina de estados
+    this.state.set(state.proctoringState);
+    
+    this.log('success', `✅ Sesión restaurada: estado=${state.proctoringState}, violaciones=${state.totalViolations}`);
+  }
+
+  /**
+   * Extrae el estado actual del proctoring para persistencia.
+   * Se usa para guardar el estado periódicamente.
+   */
+  extractState(): RecoveryState {
+    return {
+      proctoringState: this.state(),
+      totalViolations: this.totalViolations(),
+      tabSwitchCount: this.tabSwitchCount(),
+      remoteSessionId: this.resolvedSessionId(),
     };
   }
 
@@ -202,6 +264,14 @@ export class ProctoringOrchestratorService implements OnDestroy {
 
   async initializeFlow(): Promise<void> {
     if (!this.config) return;
+    
+    // Si ya estamos en MONITORING (recovery), saltar directamente al monitoreo
+    if (this.state() === 'MONITORING') {
+      this.log('info', '⚡ Recuperando sesión directamente a MONITORING');
+      await this.resumeMonitoringFromRecovery();
+      return;
+    }
+    
     const policies = this.config.securityPolicies;
 
     const needsCamera = Boolean(policies.requireCamera || policies.requireBiometrics);
@@ -212,6 +282,59 @@ export class ProctoringOrchestratorService implements OnDestroy {
     }
 
     this.advanceAfterPermissions();
+  }
+
+  /**
+   * Reanuda el monitoreo desde una sesión recuperada.
+   * No crea una nueva sesión en el backend (ya existe remoteSessionId).
+   */
+  private async resumeMonitoringFromRecovery(): Promise<void> {
+    if (!this.config) return;
+    const policies = this.config.securityPolicies;
+
+    // Reactivate protections
+    if (policies.requireFullscreen) {
+      this.securityService.enterFullscreen();
+    }
+
+    this.securityService.enableProtection(policies, (violation) => {
+      this.handleViolation(violation);
+    });
+
+    // Gaze setup if needed
+    if (policies.requireGazeTracking && this.gazeService.gazeState() === 'TRACKING') {
+      this.log('info', '👁️ Gaze Tracking reactivado desde sesión recuperada');
+    }
+
+    // Audio recording setup if needed
+    if (policies.requireMicrophone) {
+      const audioStream = this.mediaService.getAudioStream();
+      if (audioStream) {
+        this.evidenceService.startAudioRecording(audioStream, {
+          chunkIntervalSeconds: 15,
+          bitrate: 32000
+        });
+        this.log('info', '🎙️ Grabación de audio reactivada');
+      }
+    }
+
+    // Inactivity
+    this.inactivityService.startMonitoring();
+
+    // Visibility handler for fullscreen recovery
+    if (policies.requireFullscreen) {
+      this.cleanup.addEventListener(document, 'visibilitychange', this.visibilityReturnHandler);
+    }
+
+    // WebSocket feedback
+    const apiUrl = this.config.apiUrl || '';
+    const wsUrl = apiUrl.replace(/^http/, 'ws');
+    const sessionId = this.resolvedSessionId() || this.config.sessionContext?.examSessionId || '';
+    if (wsUrl && sessionId) {
+      this.feedbackService.connect(wsUrl, sessionId);
+    }
+
+    this.log('success', '✅ Monitoreo reactivado desde sesión recuperada');
   }
 
   handlePermissionPrepared(): void {

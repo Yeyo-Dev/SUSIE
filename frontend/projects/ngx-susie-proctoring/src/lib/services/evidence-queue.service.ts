@@ -26,8 +26,9 @@ export interface QueuedEvidence {
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const DB_NAME = 'susie_evidence_queue';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // v2: added session_state store
 const STORE_NAME = 'pending';
+const SESSION_STATE_STORE = 'session_state'; // Compartido con SessionStorageService
 
 // ── Service ──────────────────────────────────────────────────────────────────
 
@@ -68,12 +69,25 @@ export class EvidenceQueueService implements OnDestroy {
 
         try {
             this.db = await openDB(DB_NAME, DB_VERSION, {
-                upgrade(db) {
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME, {
-                            keyPath: 'id',
-                            autoIncrement: true,
-                        });
+                upgrade(db, oldVersion) {
+                    // v1: Create pending store for evidence queue
+                    if (oldVersion < 1) {
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, {
+                                keyPath: 'id',
+                                autoIncrement: true,
+                            });
+                        }
+                    }
+                    
+                    // v2: Add session_state store for session recovery
+                    if (oldVersion < 2) {
+                        if (!db.objectStoreNames.contains(SESSION_STATE_STORE)) {
+                            const sessionStore = db.createObjectStore(SESSION_STATE_STORE, {
+                                keyPath: 'examSessionId',
+                            });
+                            sessionStore.createIndex('persistedAt', 'persistedAt');
+                        }
                     }
                 },
             });

@@ -1,6 +1,11 @@
 import { Component, ChangeDetectionStrategy, input, output, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common'; // Importante para KeyValuePipe, DatePipe, etc.
 import { SusieConfig, SusieQuestion, ExamResult } from '@lib/models/contracts';
+import { 
+    PersistedSessionState, 
+    SESSION_STATE_VERSION,
+    calculateRemainingTime 
+} from '@lib/models/session-storage.interface';
 
 /**
  * Motor de Examen de SUSIE.
@@ -35,6 +40,9 @@ export class ExamEngineComponent {
 
     /** Tiempo restante en segundos. */
     timerSeconds = signal(0);
+
+    /** Timestamp ISO de cuando inició el timer (para persistencia y recovery). */
+    startedAt = signal<string | null>(null);
 
     /** Intervalo del timer. */
     private timerInterval: ReturnType<typeof setInterval> | undefined;
@@ -87,6 +95,8 @@ export class ExamEngineComponent {
     }
 
     private startTimer(durationSec: number) {
+        // Guardar timestamp de inicio para recovery
+        this.startedAt.set(new Date().toISOString());
         this.timerSeconds.set(durationSec);
         clearInterval(this.timerInterval);
 
@@ -181,5 +191,68 @@ export class ExamEngineComponent {
             answers: this.answers(),
             completedAt: new Date().toISOString(),
         });
+    }
+
+    // --- Recovery API ---
+
+    /**
+     * Restaura el estado del examen desde una sesión persistida.
+     * Usa el timestamp de inicio para calcular el tiempo restante real.
+     */
+    restoreState(state: PersistedSessionState, durationMinutes: number): void {
+        // Restaurar respuestas
+        this.answers.set(state.answers);
+        
+        // Restaurar índice de pregunta actual
+        this.currentIndex.set(state.currentQuestionIndex);
+        
+        // Restaurar timestamp de inicio
+        this.startedAt.set(state.examStartedAt);
+        
+        // Calcular tiempo restante real basado en elapsed time
+        const remaining = calculateRemainingTime(state, durationMinutes);
+        
+        if (remaining > 0) {
+            this.timerSeconds.set(remaining);
+            this.startTimerFromRecovery(remaining);
+        } else {
+            // Tiempo expirado mientras la pestaña estuvo cerrada
+            this.timerSeconds.set(0);
+            this.autoSubmit();
+        }
+    }
+
+    /**
+     * Inicia el timer desde una recuperación (sin sobrescribir startedAt).
+     */
+    private startTimerFromRecovery(durationSec: number): void {
+        this.timerSeconds.set(durationSec);
+        clearInterval(this.timerInterval);
+
+        this.timerInterval = setInterval(() => {
+            const current = this.timerSeconds();
+            if (current <= 0) {
+                this.autoSubmit();
+                return;
+            }
+            this.timerSeconds.set(current - 1);
+            this.checkTimerWarnings(current - 1);
+        }, 1000);
+    }
+
+    /**
+     * Extrae el estado actual para persistencia.
+     * Retorna un objeto parcial que debe combinarse con el estado del orchestrator.
+     */
+    extractState(examSessionId: string): Omit<PersistedSessionState, 'examId' | 'proctoringState' | 'totalViolations' | 'tabSwitchCount' | 'remoteSessionId' | 'gazeCalibrationData'> {
+        return {
+            examSessionId,
+            answers: this.answers(),
+            currentQuestionIndex: this.currentIndex(),
+            timerSecondsRemaining: this.timerSeconds(),
+            examStartedAt: this.startedAt() ?? new Date().toISOString(),
+            persistedAt: new Date().toISOString(),
+            version: SESSION_STATE_VERSION,
+        };
     }
 }
