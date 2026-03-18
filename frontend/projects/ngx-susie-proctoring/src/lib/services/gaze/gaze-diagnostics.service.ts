@@ -26,9 +26,18 @@ export class GazeDiagnosticsService {
         this.stop();
 
         let lastCheckedFrameCount = getFrameCount();
+        // If initial frame count is null/undefined, default to 0
+        if (lastCheckedFrameCount == null) {
+            lastCheckedFrameCount = 0;
+        }
 
         this.diagnosticInterval = setInterval(() => {
             const currentFrames = getFrameCount();
+            // Skip check if frame count is not available
+            if (currentFrames == null) {
+                return;
+            }
+
             const newFrames = currentFrames - lastCheckedFrameCount;
             lastCheckedFrameCount = currentFrames;
 
