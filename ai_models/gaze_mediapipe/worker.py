@@ -7,12 +7,16 @@ NO conoce RabbitMQ ni colas — eso es trabajo de main.py.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 
 from analyzer import analyze_gaze_buffer
 from soft_evidence import normalizar_gaze
 
 logger = logging.getLogger("GazeTrackingWorker")
+
+# ── Configurable via variable de entorno (default: 15 frames ≈ 1.5s a 10fps) ──
+GAZE_MIN_BUFFER_SIZE = int(os.environ.get('GAZE_MIN_BUFFER_SIZE', '15'))
 
 
 def procesar_gaze(user_id: str, sesion_id: str, buffer_coordenadas: list) -> dict | None:
@@ -30,7 +34,7 @@ def procesar_gaze(user_id: str, sesion_id: str, buffer_coordenadas: list) -> dic
         o None si los datos son insuficientes o irrecuperables.
     """
     # 1. Validar datos suficientes
-    if not buffer_coordenadas or len(buffer_coordenadas) < 15:
+    if not buffer_coordenadas or len(buffer_coordenadas) < GAZE_MIN_BUFFER_SIZE:
         logger.info(f"Buffer muy corto para {user_id}, ignorando...")
         return None
 

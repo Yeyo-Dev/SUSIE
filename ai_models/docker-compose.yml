@@ -1,0 +1,181 @@
+# ==============================================================
+# SUSIE — AI Workers: Docker Compose
+# ==============================================================
+# Levanta SOLO los contenedores de IA y sus dependencias (Redis, RabbitMQ).
+#
+# Uso:
+#   docker compose up -d                   # Levantar todo
+#   docker compose up -d yolo-worker       # Solo YOLO
+#   docker compose up -d redis rabbitmq    # Solo infra
+#   docker compose logs -f whisper-worker  # Ver logs
+#
+# Requiere:  .env con las variables (copiar de .env.example)
+# ==============================================================
+
+services:
+  # ── Infraestructura ────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: susie-ai-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ai-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: susie-ai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai-network
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Workers de IA ──────────────────────────────────────────
+
+  # YOLOv8 Nano (~6MB modelo) + ultralytics + torch runtime + OpenCV
+  # RAM real: ~2-3 GB en inferencia
+  yolo-worker:
+    build:
+      context: .
+      dockerfile: vision_yolo/Dockerfile
+    container_name: susie-yolo
+    restart: on-failure
+    environment:
+      RABBITMQ_HOST: susie-ai-rabbitmq
+      YOLO_CONF_THRESHOLD: ${YOLO_CONF_THRESHOLD:-0.45}
+      REDIS_HOST: susie-ai-redis
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_EVIDENCE_TTL: ${REDIS_EVIDENCE_TTL:-86400}
+      INFRACTION_QUEUE_THRESHOLD: ${INFRACTION_QUEUE_THRESHOLD:-0.5}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          memory: 1G
+    networks:
+      - ai-network
+
+  # faster-whisper (CTranslate2 int8) + torch (CPU) + SentenceTransformer (MiniLM-L12)
+  # ⚠️ Worker MÁS PESADO — carga 2 modelos en memoria
+  # RAM real: ~3-4 GB en inferencia
+  whisper-worker:
+    build:
+      context: .
+      dockerfile: audio_whisper/Dockerfile
+    container_name: susie-whisper
+    restart: on-failure
+    environment:
+      RABBITMQ_HOST: susie-ai-rabbitmq
+      AUDIO_SILENCE_THRESHOLD_DB: ${AUDIO_SILENCE_THRESHOLD_DB:--45}
+      AUDIO_SOFTMAX_TEMPERATURE: ${AUDIO_SOFTMAX_TEMPERATURE:-1.5}
+      AUDIO_SEMANTIC_THRESHOLD: ${AUDIO_SEMANTIC_THRESHOLD:-0.55}
+      REDIS_HOST: susie-ai-redis
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_EVIDENCE_TTL: ${REDIS_EVIDENCE_TTL:-86400}
+      INFRACTION_QUEUE_THRESHOLD: ${INFRACTION_QUEUE_THRESHOLD:-0.5}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    networks:
+      - ai-network
+
+  # scikit-learn (DBSCAN + IsolationForest) + numpy — MUY liviano
+  # RAM real: ~300-500 MB
+  gaze-worker:
+    build:
+      context: .
+      dockerfile: gaze_mediapipe/Dockerfile
+    container_name: susie-gaze
+    restart: on-failure
+    environment:
+      RABBITMQ_HOST: susie-ai-rabbitmq
+      GAZE_MIN_BUFFER_SIZE: ${GAZE_MIN_BUFFER_SIZE:-15}
+      REDIS_HOST: susie-ai-redis
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_EVIDENCE_TTL: ${REDIS_EVIDENCE_TTL:-86400}
+      INFRACTION_QUEUE_THRESHOLD: ${INFRACTION_QUEUE_THRESHOLD:-0.5}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 256M
+    networks:
+      - ai-network
+
+  # ── API Biométrica (REST) ──────────────────────────────────
+  # face_recognition (dlib HOG) + OpenCV — embedding 128 dims
+  # RAM real: ~1-2 GB
+  deepface-api:
+    build:
+      context: ./biometric_deepface
+      dockerfile: Dockerfile
+    container_name: susie-deepface
+    restart: on-failure
+    ports:
+      - "8001:8000"
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          memory: 512M
+    networks:
+      - ai-network
+
+networks:
+  ai-network:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+  redis_data:

@@ -1,13 +1,15 @@
 from ultralytics import YOLO
 import cv2
 import numpy as np
+import os
 
 print("⏳ Cargando modelo YOLOv8 Nano...")
 # Usamos el modelo nano (n) pre-entrenado. Se descarga solo la primera vez.
 model = YOLO('yolov8n.pt')  
 # Ajustamos confianza. 0.4 evita detectar "fantasmas" pero detecta celulares claros.
-CONF_THRESHOLD = 0.45 
-print("✅ Modelo YOLO cargado.")
+# Configurable via variable de entorno YOLO_CONF_THRESHOLD (default: 0.45)
+CONF_THRESHOLD = float(os.environ.get('YOLO_CONF_THRESHOLD', '0.45'))
+print(f"✅ Modelo YOLO cargado. (CONF_THRESHOLD={CONF_THRESHOLD})")
 
 # Mapeo de IDs de COCO que nos interesan
 CLASS_PERSON = 0

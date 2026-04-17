@@ -75,6 +75,7 @@ def procesar_frame(user_id: str, sesion_id: str, url_storage: str) -> dict | Non
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "user_id": user_id,
         "sesion_id": sesion_id,
+        "url_storage": url_storage,
         "source": "yolo_vision",
         "evidence_type": "soft",
         "soft_evidence": distribucion,

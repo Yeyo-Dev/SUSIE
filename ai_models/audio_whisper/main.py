@@ -9,6 +9,7 @@ Flujo:  q_audios (entrada) → worker.procesar_audio() → q_infracciones (salid
 
 import json
 import logging
+import sys
 import time
 import pika
 import os
@@ -16,7 +17,11 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
 
+# Agregar directorio padre al path para importar módulo compartido
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from worker import procesar_audio
+from evidence_store import guardar_en_redis, calcular_nivel_infraccion, debe_encolar
 
 # --- LOGGER ESTRUCTURADO ---
 class JSONFormatter(logging.Formatter):
@@ -65,8 +70,17 @@ def on_message(ch, method, properties, body):
         evento = procesar_audio(user_id, sesion_id, url_storage)
 
         if evento:
-            publicar_evidencia(ch, evento)
-            logger.info("Evidencia suave publicada", extra={"payload": evento})
+            # 1. SIEMPRE guardar en Redis (historial completo)
+            guardar_en_redis(evento)
+            logger.info("Evidencia guardada en Redis", extra={"payload": evento})
+
+            # 2. Solo encolar si el nivel de infracción es medio/alto
+            nivel = calcular_nivel_infraccion(evento["source"], evento["soft_evidence"])
+            if debe_encolar(nivel):
+                publicar_evidencia(ch, evento)
+                logger.info(f"Infracción media/alta (nivel={nivel:.2f}) → publicada en q_infracciones")
+            else:
+                logger.info(f"Nivel bajo ({nivel:.2f}) → solo Redis, no se encola")
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
 

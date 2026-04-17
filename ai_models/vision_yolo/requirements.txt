@@ -3,3 +3,4 @@ opencv-python-headless
 requests
 redis
 pika
+python-dotenv

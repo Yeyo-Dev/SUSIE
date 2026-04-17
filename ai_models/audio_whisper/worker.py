@@ -7,6 +7,7 @@ NO conoce RabbitMQ ni colas — eso es trabajo de main.py.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 
 import audiocleaner as audio_cleaner
@@ -14,6 +15,10 @@ import transcriber
 from analyzer_semantic import analyzer_service
 from soft_evidence import normalizar_audio
 import requests
+
+# ── Umbrales configurables via variables de entorno ──────────────────
+SILENCE_THRESHOLD_DB = float(os.environ.get('AUDIO_SILENCE_THRESHOLD_DB', '-45'))
+SOFTMAX_TEMPERATURE = float(os.environ.get('AUDIO_SOFTMAX_TEMPERATURE', '1.5'))
 
 logger = logging.getLogger("AudioWorker")
 
@@ -54,7 +59,7 @@ def procesar_audio(user_id: str, sesion_id: str, url_storage: str) -> dict | Non
         return None
 
     # 3. Detectar silencio (umbral: -45dB RMS)
-    silencio = audio_cleaner.es_silencio(audio_np, umbral_db=-45)
+    silencio = audio_cleaner.es_silencio(audio_np, umbral_db=SILENCE_THRESHOLD_DB)
 
     if silencio:
         # ── Caso Silencio ───────────────────────────────────────────
@@ -65,6 +70,7 @@ def procesar_audio(user_id: str, sesion_id: str, url_storage: str) -> dict | Non
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "user_id": user_id,
             "sesion_id": sesion_id,
+            "url_storage": url_storage,
             "source": "audio_nlp",
             "evidence_type": "soft",
             "soft_evidence": distribucion,
@@ -97,13 +103,14 @@ def procesar_audio(user_id: str, sesion_id: str, url_storage: str) -> dict | Non
             es_silencio=False,
             score_trampa=analisis["raw_score_trampa"],
             score_domestico=analisis["raw_score_domestico"],
-            temperatura=1.5,
+            temperatura=SOFTMAX_TEMPERATURE,
         )
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "user_id": user_id,
         "sesion_id": sesion_id,
+        "url_storage": url_storage,
         "source": "audio_nlp",
         "evidence_type": "soft",
         "soft_evidence": distribucion,

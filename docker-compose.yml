@@ -53,14 +53,23 @@ services:
 
   # whisper-worker:
   #   build:
-  #     context: ./ai_models/audio_whisper
-  #     dockerfile: Dockerfile
+  #     context: ./ai_models
+  #     dockerfile: audio_whisper/Dockerfile
   #   container_name: susie-whisper
   #   restart: on-failure
   #   environment:
   #     RABBITMQ_HOST: susie-rabbitmq
+  #     AUDIO_SILENCE_THRESHOLD_DB: -45
+  #     AUDIO_SOFTMAX_TEMPERATURE: 1.5
+  #     AUDIO_SEMANTIC_THRESHOLD: 0.55
+  #     REDIS_HOST: susie-redis
+  #     REDIS_PORT: 6379
+  #     REDIS_DB: 0
+  #     REDIS_EVIDENCE_TTL: 86400
+  #     INFRACTION_QUEUE_THRESHOLD: 0.5
   #   depends_on:
   #     - rabbitmq
+  #     - redis
   #   deploy:
   #     resources:
   #       limits:
@@ -71,14 +80,21 @@ services:
 
   # gaze-worker:
   #   build:
-  #     context: ./ai_models/gaze_mediapipe
-  #     dockerfile: Dockerfile
+  #     context: ./ai_models
+  #     dockerfile: gaze_mediapipe/Dockerfile
   #   container_name: susie-gaze
   #   restart: on-failure
   #   environment:
   #     RABBITMQ_HOST: susie-rabbitmq
+  #     GAZE_MIN_BUFFER_SIZE: 15
+  #     REDIS_HOST: susie-redis
+  #     REDIS_PORT: 6379
+  #     REDIS_DB: 0
+  #     REDIS_EVIDENCE_TTL: 86400
+  #     INFRACTION_QUEUE_THRESHOLD: 0.5
   #   depends_on:
   #     - rabbitmq
+  #     - redis
   #   deploy:
   #     resources:
   #       limits:
@@ -89,14 +105,21 @@ services:
 
   # yolo-worker:
   #   build:
-  #     context: ./ai_models/vision_yolo
-  #     dockerfile: Dockerfile
+  #     context: ./ai_models
+  #     dockerfile: vision_yolo/Dockerfile
   #   container_name: susie-yolo
   #   restart: on-failure
   #   environment:
   #     RABBITMQ_HOST: susie-rabbitmq
+  #     YOLO_CONF_THRESHOLD: 0.45
+  #     REDIS_HOST: susie-redis
+  #     REDIS_PORT: 6379
+  #     REDIS_DB: 0
+  #     REDIS_EVIDENCE_TTL: 86400
+  #     INFRACTION_QUEUE_THRESHOLD: 0.5
   #   depends_on:
   #     - rabbitmq
+  #     - redis
   #   deploy:
   #     resources:
   #       limits:

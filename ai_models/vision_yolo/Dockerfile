@@ -7,14 +7,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY vision_yolo/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt --timeout=1000
 
-COPY . .
+# Copiar módulo compartido (evidence_store.py)
+COPY evidence_store.py /app/evidence_store.py
+
+# Copiar código del worker
+COPY vision_yolo/ .
 
 RUN python3 -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
-
-# Como es un worker que solo escucha colas, ya no necesita exponer puertos
-# EXPOSE 8003 (Puedes borrar esta línea)
 
 CMD ["python", "main.py"]

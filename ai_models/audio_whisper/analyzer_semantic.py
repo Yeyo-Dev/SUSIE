@@ -60,8 +60,9 @@ class SemanticAnalyzer:
         max_score_domestico = torch.max(scores_domestico).item()
 
         # 4. Lógica de Decisión
-        # Umbral: 0.4 suele ser bueno. 1.0 es idéntico. 0.0 es nada que ver.
-        UMBRAL_ALERTA = 0.55 
+        # Umbral configurable via AUDIO_SEMANTIC_THRESHOLD (default: 0.55)
+        # 1.0 = idéntico, 0.0 = nada que ver
+        UMBRAL_ALERTA = float(os.environ.get('AUDIO_SEMANTIC_THRESHOLD', '0.55'))
 
         resultado = {
             "text": texto_alumno,
