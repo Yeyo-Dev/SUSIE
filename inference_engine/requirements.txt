@@ -1,15 +1,6 @@
-
-# Computer Vision & Biometrics
-ultralytics       # YOLOv26
-mediapipe         # Gaze Tracking
-deepface          # Biometric Analysis
-opencv-python     # Image Processing
-
-# Audio Analysis
-faster-whisper    # Audio Analysis
-
-# Inference Engine
-pgmpy             # Naive Bayes Network
-
-# Cloud Integration
-azure-storage-blob
+pika>=1.3.0
+redis>=5.0.0
+psycopg2-binary>=2.9.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+azure-storage-blob>=12.19.0

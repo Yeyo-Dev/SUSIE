@@ -4,9 +4,14 @@ evidence_store.py — Persistencia Redis + Filtrado de Infracciones
 Módulo compartido por todos los AI Workers.
 
 Responsabilidades:
-  1. Guardar TODA la soft evidence en Redis (historial completo).
+  1. Guardar TODA la soft evidence en Redis usando RPUSH (lista por sesión).
   2. Calcular el nivel de infracción a partir de la distribución.
   3. Decidir si el evento se publica en q_infracciones (solo medio/alto).
+
+Patrón de almacenamiento:
+  Key:    logs:{sesion_id}:{user_id}
+  Tipo:   LIST (RPUSH para append, LRANGE para leer todo)
+  TTL:    REDIS_EVIDENCE_TTL segundos (default 24h, se renueva en cada RPUSH)
 
 Variables de entorno:
   REDIS_HOST                  — Host de Redis (default: localhost)
@@ -62,10 +67,14 @@ _ESTADOS_NORMALES = {
 
 def guardar_en_redis(evento: dict) -> bool:
     """
-    Guarda un evento de soft evidence en Redis.
+    Guarda un evento de soft evidence en Redis usando RPUSH.
 
-    Key:  evidence:{source}:{sesion_id}:{user_id}:{timestamp}
-    TTL:  REDIS_EVIDENCE_TTL segundos (default 24h).
+    Key:  logs:{sesion_id}:{user_id}  (LIST — append al final)
+    TTL:  Se renueva en cada inserción a REDIS_EVIDENCE_TTL segundos.
+
+    Los workers de IA comparten esta misma lista con los eventos
+    del navegador (browser_events) que el backend inserta.
+    El Motor de Inferencia lee toda la lista con LRANGE al cierre de sesión.
 
     Args:
         evento: Dict con la soft evidence completa del worker.
@@ -75,14 +84,16 @@ def guardar_en_redis(evento: dict) -> bool:
     """
     try:
         r = _get_redis()
-        key = (
-            f"evidence:{evento['source']}"
-            f":{evento['sesion_id']}"
-            f":{evento['user_id']}"
-            f":{evento['timestamp']}"
-        )
-        r.setex(key, REDIS_EVIDENCE_TTL, json.dumps(evento))
-        logger.debug(f"Redis SET {key} (TTL={REDIS_EVIDENCE_TTL}s)")
+        key = f"logs:{evento['sesion_id']}:{evento['user_id']}"
+
+        # RPUSH agrega al final de la lista (orden cronológico)
+        r.rpush(key, json.dumps(evento))
+
+        # Renovar TTL en cada inserción para que la lista no expire
+        # durante un examen largo
+        r.expire(key, REDIS_EVIDENCE_TTL)
+
+        logger.debug(f"Redis RPUSH {key} (TTL={REDIS_EVIDENCE_TTL}s)")
         return True
     except Exception as e:
         logger.error(f"Error guardando en Redis: {e}")

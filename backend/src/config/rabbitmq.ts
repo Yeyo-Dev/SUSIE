@@ -20,23 +20,33 @@ async function rabbitMQConnection(fastify: FastifyInstance) {
     if (!channel) return;
 
     try {
-      fastify.log.info('Configurando colas en RabbitMQ...');
+      fastify.log.info('Configurando topología RabbitMQ...');
 
-      //Crear el Exchange
+      // ── Exchange principal (topic) ─────────────────────────
       await channel.assertExchange(EXCHANGE_NAME, 'topic', { durable: true });
 
-      //Crear las 2 Colas
+      // ── Colas de entrada a Workers IA ──────────────────────
       await channel.assertQueue('q_snapshots', { durable: true });
       await channel.assertQueue('q_audios', { durable: true });
+      await channel.assertQueue('q_gaze', { durable: true });
 
-      //Crear las Reglas de Distribución (Bindings)
-      // Todo mensaje con etiqueta 'stream.snapshot' irá a la cola de imágenes
+      // ── Colas de salida de Workers IA ──────────────────────
+      // q_infracciones: resultados en tiempo real (workers → backend → WebSocket)
+      await channel.assertQueue('q_infracciones', { durable: true });
+
+      // ── Cola para el Motor de Inferencia ───────────────────
+      // q_evidencia: batch al cierre de sesión (backend → inference engine)
+      await channel.assertQueue('q_evidencia', { durable: true });
+
+      // ── Bindings: routing keys → colas ─────────────────────
       await channel.bindQueue('q_snapshots', EXCHANGE_NAME, 'stream.snapshot');
-      
-      // Todo mensaje con etiqueta 'stream.audio' irá a la cola de sonidos
       await channel.bindQueue('q_audios', EXCHANGE_NAME, 'stream.audio');
+      await channel.bindQueue('q_gaze', EXCHANGE_NAME, 'stream.gaze');
 
-      fastify.log.info('RabbitMQ listo: Colas q_snapshots y q_audios configuradas.');
+      fastify.log.info(
+        'RabbitMQ listo: Colas configuradas — ' +
+        'q_snapshots, q_audios, q_gaze, q_infracciones, q_evidencia'
+      );
 
     } catch (error) {
       fastify.log.error(error, 'Error configurando RabbitMQ');
@@ -44,4 +54,4 @@ async function rabbitMQConnection(fastify: FastifyInstance) {
   });
 }
 
-export default fp(rabbitMQConnection);//exportamos como plugin para usarlo en toda la aplicacion
+export default fp(rabbitMQConnection);

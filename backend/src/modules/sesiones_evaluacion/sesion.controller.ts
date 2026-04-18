@@ -23,8 +23,14 @@ export class SesionEvaluacionController{
 
     FinalizarSesionEvaluacionHandler = async (req: FastifyRequest, reply: FastifyReply) => {
         try {
-            const { id_sesion } = req.params as { id_sesion: string };// Aseguramos que el id_sesion se convierta a bigint antes de pasarlo al servicio
-            const sesionFinalizada = await this.sesionEvaluacionService.finalizarSesionEvaluacion(BigInt(id_sesion));
+            const { id_sesion } = req.params as { id_sesion: string };
+            const body = req.body as { user_id?: string } | undefined;
+            const userId = body?.user_id || undefined;
+
+            const sesionFinalizada = await this.sesionEvaluacionService.finalizarSesionEvaluacion(
+                BigInt(id_sesion),
+                userId
+            );
             reply.status(200).send(sesionFinalizada);
         } catch (error) {
             console.error('Error al finalizar la sesión de evaluación:', error);
