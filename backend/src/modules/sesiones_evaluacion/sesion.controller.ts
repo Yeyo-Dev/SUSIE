@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { SesionEvaluacionService } from "./sesion.service";
 import { CreateSesionEvaluacionDTO } from "./sesion.interface";
 
-export class SesionEvaluacionController{
+export class SesionEvaluacionController {
     private sesionEvaluacionService: SesionEvaluacionService;
 
     constructor() {
