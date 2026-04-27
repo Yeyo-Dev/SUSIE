@@ -10,7 +10,7 @@ export class EvaluacionService {
                 include: {
                     usuario: true, // Traemos al candidato
                     examen: true,  // Traemos los datos del examen
-                    configuracion_examen: true // ✅ Traemos la configuración asociada
+                    configuracion_examen: true // Traemos la configuración asociada
                 }
             });
 
