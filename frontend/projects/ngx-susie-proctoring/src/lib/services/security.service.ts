@@ -33,7 +33,7 @@ export class SecurityService {
         }
 
         if (policies.preventInspection) {
-            // Polling approach to catch devtools opened via browser UI (menu)
+            // Enfoque de polling para detectar devtools abierto vía UI del navegador (menú)
             this.devToolsInterval = this.cleanup.setInterval(() => this.checkDevtoolsSize(), 5000);
         }
 
@@ -93,7 +93,7 @@ export class SecurityService {
     };
 
     private handleBlur = () => {
-        // Enforce blur detection to catch virtual desktop switching
+        // Forzar detección de blur para capturar cambio de escritorio virtual
         this.reportViolation('FOCUS_LOST', 'La ventana del navegador perdió el foco o el usuario cambió de escritorio');
     };
 
@@ -104,7 +104,7 @@ export class SecurityService {
 
     private checkDevtoolsSize = () => {
         const threshold = 160;
-        // The difference gets huge if devtools opens (docked horizontally or vertically)
+        // La diferencia se hace grande si devtools se abre (acoplado horizontal o verticalmente)
         const widthDiff = window.outerWidth - window.innerWidth;
         const heightDiff = window.outerHeight - window.innerHeight;
 
@@ -120,7 +120,7 @@ export class SecurityService {
 
     private preventReload = (event: BeforeUnloadEvent) => {
         event.preventDefault();
-        event.returnValue = ''; // Standard for Chrome
+        event.returnValue = ''; // Estándar para Chrome
         this.reportViolation('RELOAD_ATTEMPT', 'Intento de recargar la página');
     };
 
@@ -131,7 +131,7 @@ export class SecurityService {
 
     private preventSelection = (e: Event) => {
         e.preventDefault();
-        // Silent violation or log it
+        // Violación silenciosa o registrarla
         // this.reportViolation('SELECTION_ATTEMPT', 'Intento de seleccionar texto');
     };
 

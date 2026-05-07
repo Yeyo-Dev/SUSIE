@@ -15,6 +15,9 @@ import {
   IntervalHandle,
   MediaStreamSource,
   SnapshotCaptureParams,
+  SecurityViolation,
+  BackendBiometricaResponse,
+  GazeTrackingPayload,
 } from './contracts';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,7 +33,7 @@ testLoggerFn('info', 'Test message');
 testLoggerFn('error', 'Error message', new Error('Test error'));
 testLoggerFn('success', 'Success message', { code: 200 });
 
-// ❌ Esto NO debe compilar (type incorrecto)
+// ❌ Esto NO debe compilar (tipo incorrecto)
 // @ts-expect-error - 'invalid' no es un tipo válido
 testLoggerFn('invalid', 'Test', {});
 
@@ -169,4 +172,76 @@ const snapshot: SnapshotCaptureParams = {
   ],
 };
 
-console.log('✅ All type tests passed at compile time');
+// ═══════════════════════════════════════════════════════════════════════════
+// TEST 11: SecurityViolation - NETWORK_TIMEOUT type
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ✅ Debe compilar - NETWORK_TIMEOUT es un tipo válido
+const networkTimeoutViolation: SecurityViolation = {
+  type: 'NETWORK_TIMEOUT',
+  message: 'No se pudo restablecer la conexión después de 30 segundos.',
+  timestamp: new Date().toISOString(),
+};
+
+// ✅ Debe compilar - todos los tipos existentes siguen funcionando
+const tabSwitchViolation: SecurityViolation = {
+  type: 'TAB_SWITCH',
+  message: 'User switched tabs',
+  timestamp: new Date().toISOString(),
+};
+
+// ❌ Esto NO debe compilar (tipo incorrecto)
+// @ts-expect-error - 'INVALID_TYPE' no es un tipo válido de SecurityViolation
+const invalidViolation: SecurityViolation = {
+  type: 'INVALID_TYPE' as any,
+  message: 'Test',
+  timestamp: new Date().toISOString(),
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEST 12: BackendBiometricaResponse — estructura { status, message, data }
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ✅ Debe compilar — respuesta de éxito
+const biometricSuccess: BackendBiometricaResponse = {
+  status: 'success',
+  message: 'Verificación completada',
+  data: { match_score: 0.92, verified: true },
+};
+
+// ✅ Debe compilar — respuesta de error
+const biometricError: BackendBiometricaResponse = {
+  status: 'error',
+  message: 'No se detectó rostro',
+};
+
+// ✅ Debe compilar — status puede ser 'success' o 'error'
+const bStatus: string = biometricSuccess.status;
+const bMsg: string = biometricError.message;
+
+// ❌ Esto NO debe compilar (status inválido)
+// @ts-expect-error - 'invalid' no es un tipo válido de status
+const invalidBiometric: BackendBiometricaResponse = {
+  status: 'invalid',
+  message: 'Test',
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEST 13: GazeTrackingPayload — estructura { sesion_id, timestamp, gaze_points }
+// ═══════════════════════════════════════════════════════════════════════════
+
+const gazePayload: GazeTrackingPayload = {
+  sesion_id: 42,
+  timestamp: new Date().toISOString(),
+  gaze_points: [
+    { x: 0.5, y: 0.3, ts: Date.now() },
+    { x: 0.6, y: 0.4, ts: Date.now() + 1000 },
+  ],
+};
+
+// ✅ Debe compilar
+const gazeSesionId: number = gazePayload.sesion_id;
+const gazeTimestamp: string = gazePayload.timestamp;
+const gazePointsLen: number = gazePayload.gaze_points.length;
+
+console.log('✅ Todos los tests de tipos pasaron en tiempo de compilación');

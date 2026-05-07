@@ -1,8 +1,10 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 import { Component, signal, NO_ERRORS_SCHEMA } from '@angular/core';
 import { SusieWrapperComponent } from './susie-wrapper.component';
 import { ProctoringOrchestratorService, ProctoringState } from '@lib/services/proctoring-orchestrator.service';
 import { EvidenceQueueService } from '@lib/services/evidence-queue.service';
+import { SessionStorageService } from '@lib/services/session-storage.service';
+import { PersistedSessionState } from '@lib/models/session-storage.interface';
 
 // ── Stubs de sub-componentes (evitar renderizado profundo) ──
 @Component({ selector: 'susie-consent-dialog', standalone: true, template: '' })
@@ -116,13 +118,48 @@ function createMockEvidenceQueueService(): any {
     };
 }
 
+// ── Mock del SessionStorageService ──
+function createMockSessionStorageService(): jasmine.SpyObj<SessionStorageService> {
+    return jasmine.createSpyObj<SessionStorageService>('SessionStorageService', [
+        'init',
+        'hasSession',
+        'loadState',
+        'saveState',
+        'clearState',
+        'setLogger',
+    ], {
+        lastSaved: signal(null),
+    });
+}
+
+// ── Helper: Create test persisted state ──
+function createTestPersistedState(overrides: Partial<PersistedSessionState> = {}): PersistedSessionState {
+    return {
+        examSessionId: 'sess-1',
+        examId: 'ex-1',
+        answers: { 1: 'A', 2: 'B', 3: 'C' },
+        currentQuestionIndex: 2,
+        timerSecondsRemaining: 1800,
+        examStartedAt: new Date(Date.now() - 600000).toISOString(), // 10min ago
+        proctoringState: 'MONITORING',
+        totalViolations: 0,
+        tabSwitchCount: 0,
+        remoteSessionId: 'remote-123',
+        persistedAt: new Date().toISOString(),
+        version: 1,
+        ...overrides,
+    };
+}
+
 describe('SusieWrapperComponent', () => {
     let component: SusieWrapperComponent;
     let fixture: ComponentFixture<SusieWrapperComponent>;
     let mockOrchestrator: any;
+    let mockSessionStorage: jasmine.SpyObj<SessionStorageService>;
 
     beforeEach(async () => {
         mockOrchestrator = createMockOrchestrator();
+        mockSessionStorage = createMockSessionStorageService();
 
         await TestBed.configureTestingModule({
             imports: [SusieWrapperComponent],
@@ -144,6 +181,7 @@ describe('SusieWrapperComponent', () => {
                     providers: [
                         { provide: ProctoringOrchestratorService, useValue: mockOrchestrator },
                         { provide: EvidenceQueueService, useValue: createMockEvidenceQueueService() },
+                        { provide: SessionStorageService, useValue: mockSessionStorage },
                     ],
                 },
             })
@@ -432,5 +470,223 @@ describe('SusieWrapperComponent', () => {
             
             expect(mockOrchestrator.destroy).toHaveBeenCalled();
         });
+    });
+
+    //═══════════════════════════════════════════════════╗
+    // REQ-SW-001 & REQ-SW-002: Session Recovery Flow
+    // ═══════════════════════════════════════════════════
+
+    describe('Session Recovery Flow', () => {
+        it('debe mostrar el diálogo de recuperación cuando existe una sesión persistida', fakeAsync(async () => {
+            const persistedState = createTestPersistedState();
+            mockSessionStorage.loadState.and.resolveTo(persistedState);
+
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+            tick();
+
+            // El diálogo de recuperación debe ser visible
+            expect(component.showRecoveryModal()).toBe(true);
+            expect(component.recoveryState()).toEqual(persistedState);
+        }));
+
+        it('NO debe mostrar diálogo si no hay sesión persistida', fakeAsync(async () => {
+            mockSessionStorage.loadState.and.resolveTo(null);
+
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+            tick();
+
+            expect(component.showRecoveryModal()).toBe(false);
+            expect(component.recoveryState()).toBeNull();
+        }));
+
+        it('debe limpiar sesión stale cuando examSessionId no coincide', fakeAsync(async () => {
+            // Sesión persistida con ID diferente
+            const staleState = createTestPersistedState({ examSessionId: 'old-session-id' });
+            mockSessionStorage.loadState.and.resolveTo(staleState);
+            mockSessionStorage.clearState.and.resolveTo();
+
+            fixture.componentRef.setInput('config', buildConfig({ sessionContext: { examSessionId: 'new-session-id' } as any }));
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+            tick();
+
+            // Debe limpiar la sesión stale
+            expect(mockSessionStorage.clearState).toHaveBeenCalledWith('old-session-id');
+            // NO debe mostrar diálogo
+            expect(component.showRecoveryModal()).toBe(false);
+        }));
+
+        it('NO debe mostrar diálogo si el tiempo del examen ha expirado', fakeAsync(async () => {
+            // Sesión que comenzó hace más tiempo que la duración del examen
+            const expiredState = createTestPersistedState({
+                examStartedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+            });
+            mockSessionStorage.loadState.and.resolveTo(expiredState);
+
+            fixture.componentRef.setInput('config', buildConfig({ sessionContext: { durationMinutes: 30 } as any }));
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+            tick();
+
+            // Sesión expirada = limpiar y no mostrar diálogo
+            expect(mockSessionStorage.clearState).toHaveBeenCalled();
+            expect(component.showRecoveryModal()).toBe(false);
+        }));
+
+        it('debe continuar con sesión recuperada cuando el usuario elige "Continuar"', fakeAsync(async () => {
+            const persistedState = createTestPersistedState({ proctoringState: 'MONITORING' });
+            mockSessionStorage.loadState.and.resolveTo(persistedState);
+            mockOrchestrator.extractState.and.returnValue({
+                proctoringState: 'MONITORING',
+                totalViolations: 0,
+                tabSwitchCount: 0,
+                remoteSessionId: 'remote-123',
+            });
+
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+            tick();
+
+            // Simular elección del usuario: Continuar
+            await component.handleRecoveryContinue();
+            tick();
+
+            // Debe inicializar con recuperación
+            expect(mockOrchestrator.initialize).toHaveBeenCalled();
+            expect(component.showRecoveryModal()).toBe(false);
+        }));
+
+        it('debe iniciar sesión nueva cuando el usuario elige "Empezar de nuevo"', fakeAsync(async () => {
+            const persistedState = createTestPersistedState();
+            mockSessionStorage.loadState.and.resolveTo(persistedState);
+            mockSessionStorage.clearState.and.resolveTo();
+
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+            tick();
+
+            // Simular elección del usuario: Empezar de nuevo
+            await component.handleRecoveryStartFresh();
+            tick();
+
+            // Debe limpiar sesión y iniciar fresh
+            expect(mockSessionStorage.clearState).toHaveBeenCalledWith('sess-1');
+            expect(mockOrchestrator.initialize).toHaveBeenCalled();
+            expect(component.showRecoveryModal()).toBe(false);
+        }));
+
+        it('debe mostrar resumen de recuperación correcto', fakeAsync(async () => {
+            const persistedState = createTestPersistedState({
+                answers: { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E' },
+                examStartedAt: new Date(Date.now() -1200000).toISOString(), // 20 min ago
+            });
+            mockSessionStorage.loadState.and.resolveTo(persistedState);
+
+            fixture.componentRef.setInput('config', buildConfig({ sessionContext: { durationMinutes: 30 } as any }));
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+            tick();
+
+            expect(component.showRecoveryModal()).toBe(true);
+
+            // Verificar computed recoverySummary
+            const summary = component.recoverySummary();
+            expect(summary).toBeTruthy();
+            expect(summary!.answeredCount).toBe(5);
+            //30min - 20min = 10min remaining (approximately)
+            expect(summary!.remainingMinutes).toBeGreaterThanOrEqual(9);
+        }));
+
+        it('debe llamar clearState al finalizar el examen', fakeAsync(async () => {
+            mockSessionStorage.clearState.and.resolveTo();
+
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+
+            // Simular finalización del examen
+            component.handleExamFinished({ answers: { 1: 'A' }, completedAt: new Date().toISOString() });
+            tick();
+
+            expect(mockSessionStorage.clearState).toHaveBeenCalledWith('sess-1');
+        }));
+    });
+
+    // ═══════════════════════════════════════════════════
+    // Rolling Coverage: Recovery Signals
+    // ═══════════════════════════════════════════════════
+
+    describe('Recovery Signals', () => {
+        it('recoverySummary debe ser null cuando no hay recoveryState', fakeAsync(() => {
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+
+            component.recoveryState.set(null);
+
+            expect(component.recoverySummary()).toBeNull();
+            discardPeriodicTasks();
+        }));
+
+        it('recoverySummary debe calcular minutos y respuestas correctamente', fakeAsync(() => {
+            fixture.componentRef.setInput('config', buildConfig({ sessionContext: { durationMinutes: 60 } as any }));
+            fixture.detectChanges();
+
+            component.recoveryState.set(createTestPersistedState({
+                answers: { 1: 'A', 2: 'B', 3: 'C' },
+                examStartedAt: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
+            }));
+
+            const summary = component.recoverySummary();
+            expect(summary).toBeTruthy();
+            expect(summary!.answeredCount).toBe(3);
+            //60min - 30min = 30min remaining
+            expect(summary!.remainingMinutes).toBeGreaterThanOrEqual(29);
+
+            discardPeriodicTasks();
+        }));
+    });
+
+    // ═══════════════════════════════════════════════════
+    // IndexedDB Availability
+    // ═══════════════════════════════════════════════════
+
+    describe('IndexedDB Availability', () => {
+        it('debe funcionar incluso si IndexedDB no está disponible (modo privado)', fakeAsync(async () => {
+            // El componente verifica SessionStorageService.isAvailable() antes de cargar
+            // Si retorna false, no intenta cargar sesión y continúa con flujo normal
+            mockSessionStorage.loadState.and.resolveTo(null);
+
+            fixture.componentRef.setInput('config', buildConfig());
+            fixture.detectChanges();
+            tick();
+
+            await fixture.whenStable();
+
+            // El componente debe inicializarse normalmente sin mostrar diálogo de recuperación
+            expect(component.showRecoveryModal()).toBe(false);
+            discardPeriodicTasks();
+        }));
     });
 });

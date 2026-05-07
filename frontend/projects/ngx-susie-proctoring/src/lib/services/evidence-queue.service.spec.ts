@@ -33,7 +33,6 @@ describe('EvidenceQueueService', () => {
         });
 
         service = TestBed.inject(EvidenceQueueService);
-        service.setAuthToken('test-token-123');
     });
 
     afterEach(async () => {
@@ -154,22 +153,6 @@ describe('EvidenceQueueService', () => {
             expect(callArgs.args[1]?.body instanceof FormData).toBe(true);
         });
 
-        it('debe incluir Authorization header con Bearer token al reintentar', async () => {
-            await service.init();
-
-            await service.enqueueJson('http://api/test', { hello: 'world' });
-
-            const fetchSpy = spyOn(globalThis, 'fetch').and.resolveTo(
-                new Response(null, { status: 200 })
-            );
-
-            isOnlineSignal.set(true);
-            TestBed.flushEffects();
-            await new Promise(r => setTimeout(r, 200));
-
-            const headers = fetchSpy.calls.first().args[1]?.headers as Record<string, string>;
-            expect(headers['Authorization']).toBe('Bearer test-token-123');
-        });
     });
 
     // ══════════════════════════════════════════════════════════════

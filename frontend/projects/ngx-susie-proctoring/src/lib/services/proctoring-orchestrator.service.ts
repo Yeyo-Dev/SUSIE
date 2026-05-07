@@ -5,7 +5,7 @@ import { EvidenceService } from './evidence.service';
 import { SecurityService } from './security.service';
 import { NetworkMonitorService } from './network-monitor.service';
 import { InactivityService } from './inactivity.service';
-import { GazeTrackingService } from './gaze-tracking.service';
+import { GazeTrackingService } from './gaze';
 import { WebSocketFeedbackService } from './websocket-feedback.service';
 import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 
@@ -19,6 +19,23 @@ export type ProctoringState =
   | 'GAZE_CALIBRATION' 
   | 'EXAM_BRIEFING' 
   | 'MONITORING';
+
+/**
+ * Estado de proctoring recuperable desde persistencia.
+ * Se usa para restaurar la sesión después de un crash del navegador.
+ */
+export interface RecoveryState {
+  /** Posición actual en la máquina de estados */
+  proctoringState: ProctoringState;
+  /** Contador total de violaciones de seguridad */
+  totalViolations: number;
+  /** Contador de cambios de pestaña/tab */
+  tabSwitchCount: number;
+  /** ID de sesión remota asignado por el backend */
+  remoteSessionId: string | null;
+  /** Datos de calibración de gaze tracking (opcional) */
+  gazeCalibrationData?: unknown;
+}
 
 /**
  * Interfaz de callbacks que el orchestrator emite al componente.
@@ -54,10 +71,10 @@ export class ProctoringOrchestratorService implements OnDestroy {
   private readonly feedbackService = inject(WebSocketFeedbackService);
   private readonly cleanup = inject(DestroyRefUtility);
 
-  // --- State Signals ---
+  // --- Signals de Estado ---
   readonly state = signal<ProctoringState>('CHECKING_PERMISSIONS');
   
-  // Exposed signals for template
+  // Signals expuestos para el template
   readonly mediaStream = this.mediaService.stream;
   readonly mediaError = this.mediaService.error;
   readonly isOnline = this.networkService.isOnline;
@@ -65,30 +82,41 @@ export class ProctoringOrchestratorService implements OnDestroy {
   readonly inactivityWarning = this.inactivityService.showWarning;
 
   constructor() {
-    // Effect: network monitoring
+    // Effect: monitoreo de red
     effect(() => {
       if (!this.isOnline()) {
-        this.log('error', '⚠️ Conexión perdida - Modo offline activado');
+        this.log('error', '⚠️ Conexión perdida - Iniciando protocolo de reconexión');
         this.callbacks?.onNetworkStatusChange(false);
       } else {
         this.log('success', '✅ Conexión estable');
         this.callbacks?.onNetworkStatusChange(true);
       }
     }, { allowSignalWrites: true });
+
+    // Si pasan los 30s sin poder reconectar, consideramos violación de red crítica
+    this.networkService.onCriticalDisconnectTimeout = () => {
+      if (this.state() === 'MONITORING') {
+        this.handleViolation({
+          type: 'NETWORK_TIMEOUT',
+          message: 'No se pudo restablecer la conexión después de 30 segundos.',
+          timestamp: new Date().toISOString()
+        });
+      }
+    };
   }
 
-  // Metrics
+  // Métricas
   readonly tabSwitchCount = signal(0);
   readonly totalViolations = signal(0);
   readonly biometricSnapshotsCount = signal(0);
   readonly monitoringSnapshotsCount = signal(0);
 
-  // Resolution
+  // Resolución
   readonly resolvedSessionId = signal<string | null>(null);
   readonly needsFullscreenReturn = signal(false);
   readonly needsFocusReturn = signal(false);
 
-  // Biometric state
+  // Estado biométrico
   readonly biometricValidating = signal(false);
   readonly biometricError = signal<string | null>(null);
   readonly biometricSuccess = signal(false);
@@ -96,11 +124,11 @@ export class ProctoringOrchestratorService implements OnDestroy {
   // Debug
   readonly logs = signal<{ time: string; type: 'info' | 'error' | 'success' | 'warn'; msg: string; details?: Record<string, unknown> }[]>([]);
 
-  // Config (set on init)
+  // Configuración (establecida al iniciar)
   private config: SusieConfig | null = null;
   private callbacks: OrchestratorCallbacks | null = null;
 
-  // Private
+  // Privados
   private visibilityReturnHandler = this.onVisibilityReturn.bind(this);
   private preventGlobalContextMenu = this.handlePreventContextMenu.bind(this);
   private preventGlobalDevTools = this.handlePreventDevTools.bind(this);
@@ -142,15 +170,20 @@ export class ProctoringOrchestratorService implements OnDestroy {
     return Math.max(0, max - this.tabSwitchCount());
   });
 
-  // --- Initialization ---
+  // --- Inicialización ---
 
-  initialize(config: SusieConfig, callbacks: OrchestratorCallbacks): void {
+  /**
+   * Inicializa el orchestrator con la configuración y callbacks.
+   * Opcionalmente puede recibir un estado de recuperación para restaurar
+   * una sesión previa después de un crash del navegador.
+   */
+  initialize(config: SusieConfig, callbacks: OrchestratorCallbacks, recoveryState?: RecoveryState): void {
     this.config = config;
     this.callbacks = callbacks;
 
     this.log('info', '🚀 ProctoringOrchestrator inicializado');
 
-    // Configure services synchronously
+    // Configurar servicios sincrónicamente
     this.evidenceService.configure(config.apiUrl, config.authToken, config.sessionContext);
     this.evidenceService.setLogger((type, msg, details) => this.log(type, msg, details));
     this.securityService.setLogger((type, msg, details) => this.log(type, msg, details));
@@ -163,9 +196,49 @@ export class ProctoringOrchestratorService implements OnDestroy {
 
     this.setupEventListeners();
 
+    // Restaurar estado si se proporciona (recuperación de sesión)
+    if (recoveryState) {
+      this.restoreFromRecovery(recoveryState);
+    }
+
     // Exponer función global para debugging (solo desarrollo)
     (window as any).disableProctoringSecurity = () => {
       this.debugDisableDevToolsProtection();
+    };
+  }
+
+  /**
+   * Restaura el estado desde una sesión persistida.
+   * Se salta los pasos de calibración/biometría si el estado es MONITORING.
+   */
+  private restoreFromRecovery(state: RecoveryState): void {
+    this.log('info', '🔄 Restaurando sesión desde estado persistido');
+    
+    // Restaurar contadores de violaciones
+    this.totalViolations.set(state.totalViolations);
+    this.tabSwitchCount.set(state.tabSwitchCount);
+    
+    // Restaurar ID de sesión remota
+    if (state.remoteSessionId) {
+      this.resolvedSessionId.set(state.remoteSessionId);
+    }
+    
+    // Restaurar estado de la máquina de estados
+    this.state.set(state.proctoringState);
+    
+    this.log('success', `✅ Sesión restaurada: estado=${state.proctoringState}, violaciones=${state.totalViolations}`);
+  }
+
+  /**
+   * Extrae el estado actual del proctoring para persistencia.
+   * Se usa para guardar el estado periódicamente.
+   */
+  extractState(): RecoveryState {
+    return {
+      proctoringState: this.state(),
+      totalViolations: this.totalViolations(),
+      tabSwitchCount: this.tabSwitchCount(),
+      remoteSessionId: this.resolvedSessionId(),
     };
   }
 
@@ -198,10 +271,18 @@ export class ProctoringOrchestratorService implements OnDestroy {
     }
   }
 
-  // --- Flow Control ---
+  // --- Control del Flujo ---
 
   async initializeFlow(): Promise<void> {
     if (!this.config) return;
+    
+    // Si ya estamos en MONITORING (recovery), saltar directamente al monitoreo
+    if (this.state() === 'MONITORING') {
+      this.log('info', '⚡ Recuperando sesión directamente a MONITORING');
+      await this.resumeMonitoringFromRecovery();
+      return;
+    }
+    
     const policies = this.config.securityPolicies;
 
     const needsCamera = Boolean(policies.requireCamera || policies.requireBiometrics);
@@ -212,6 +293,59 @@ export class ProctoringOrchestratorService implements OnDestroy {
     }
 
     this.advanceAfterPermissions();
+  }
+
+  /**
+   * Reanuda el monitoreo desde una sesión recuperada.
+   * No crea una nueva sesión en el backend (ya existe remoteSessionId).
+   */
+  private async resumeMonitoringFromRecovery(): Promise<void> {
+    if (!this.config) return;
+    const policies = this.config.securityPolicies;
+
+    // Reactivar protecciones
+    if (policies.requireFullscreen) {
+      this.securityService.enterFullscreen();
+    }
+
+    this.securityService.enableProtection(policies, (violation) => {
+      this.handleViolation(violation);
+    });
+
+    // Configuración de gaze si es necesario
+    if (policies.requireGazeTracking && this.gazeService.gazeState() === 'TRACKING') {
+      this.log('info', '👁️ Gaze Tracking reactivado desde sesión recuperada');
+    }
+
+    // Configuración de grabación de audio si es necesario
+    if (policies.requireMicrophone) {
+      const audioStream = this.mediaService.getAudioStream();
+      if (audioStream) {
+        this.evidenceService.startAudioRecording(audioStream, {
+          chunkIntervalSeconds: 15,
+          bitrate: 32000
+        });
+        this.log('info', '🎙️ Grabación de audio reactivada');
+      }
+    }
+
+    // Inactividad
+    this.inactivityService.startMonitoring();
+
+    // Handler de visibilidad para recuperación de fullscreen
+    if (policies.requireFullscreen) {
+      this.cleanup.addEventListener(document, 'visibilitychange', this.visibilityReturnHandler);
+    }
+
+    // Feedback por WebSocket
+    const apiUrl = this.config.apiUrl || '';
+    const wsUrl = apiUrl.replace(/^http/, 'ws');
+    const sessionId = this.resolvedSessionId() || this.config.sessionContext?.examSessionId || '';
+    if (wsUrl && sessionId) {
+      this.feedbackService.connect(wsUrl, sessionId);
+    }
+
+    this.log('success', '✅ Monitoreo reactivado desde sesión recuperada');
   }
 
   handlePermissionPrepared(): void {
@@ -262,7 +396,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
 
     const userId = this.config.sessionContext?.userId || 'anonymous';
     
-    // Use callback for validation (allows component to handle UI while service does the work)
+    // Usar callback para validación (permite al componente manejar UI mientras el servicio hace el trabajo)
     const isValid = await this.callbacks?.onBiometricValidationRequired(event.photo, userId) ?? false;
 
     this.biometricValidating.set(false);
@@ -332,7 +466,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.startMonitoring();
   }
 
-  // --- Monitoring Phase ---
+  // --- Fase de Monitoreo ---
 
   private async startMonitoring(): Promise<void> {
     if (!this.config) return;
@@ -340,14 +474,14 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.setState('MONITORING');
     const policies = this.config.securityPolicies;
 
-    // Start session with backend FIRST to obtain realSessionId
+    // Iniciar sesión con el backend PRIMERO para obtener realSessionId
     const realSessionId = await this.evidenceService.startSession();
     if (realSessionId) {
       this.resolvedSessionId.set(realSessionId);
       this.callbacks?.onSessionStarted(realSessionId);
     }
 
-    // Activate protections
+    // Activar protecciones
     if (policies.requireFullscreen) {
       this.securityService.enterFullscreen();
     }
@@ -356,7 +490,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
       this.handleViolation(violation);
     });
 
-    // Gaze setup if needed
+    // Configuración de gaze si es necesario
     if (policies.requireGazeTracking && this.gazeService.gazeState() === 'TRACKING') {
       const examSessionId = this.config?.sessionContext?.examSessionId;
       if (examSessionId) {
@@ -366,7 +500,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
       }
     }
 
-    // Audio recording setup if needed
+    // Configuración de grabación de audio si es necesario
     this.log('info', `🔎 Políticas de supervisión al iniciar monitoreo`, policies);
     
     if (policies.requireMicrophone) {
@@ -384,15 +518,15 @@ export class ProctoringOrchestratorService implements OnDestroy {
       this.log('info', '🔕 La política "requireMicrophone" es FALSA (Audio no configurado en backend)');
     }
 
-    // Inactivity
+    // Inactividad
     this.inactivityService.startMonitoring();
 
-    // Visibility handler for fullscreen recovery
+    // Handler de visibilidad para recuperación de fullscreen
     if (policies.requireFullscreen) {
       this.cleanup.addEventListener(document, 'visibilitychange', this.visibilityReturnHandler);
     }
 
-    // WebSocket feedback
+    // Feedback por WebSocket
     const apiUrl = this.config.apiUrl || '';
     const wsUrl = apiUrl.replace(/^http/, 'ws');
     const sessionId = realSessionId || this.config.sessionContext?.examSessionId || '';
@@ -423,7 +557,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.totalViolations.update(c => c + 1);
     this.log('error', `🚨 Violación: ${violation.type}`);
 
-    // Map to backend trigger
+    // Mapear al trigger del backend
     const triggerMap: Record<string, string> = {
       'TAB_SWITCH': 'TAB_SWITCH',
       'FULLSCREEN_EXIT': 'FULLSCREEN_EXIT',
@@ -434,6 +568,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
       'CLIPBOARD_ATTEMPT': 'CLIPBOARD_ATTEMPT',
       'GAZE_DEVIATION': 'GAZE_DEVIATION',
       'FACE_LOSS_TIMEOUT': 'FACE_LOSS_TIMEOUT',
+      'NETWORK_TIMEOUT': 'NETWORK_TIMEOUT',
     };
 
     this.evidenceService.sendEvent({
@@ -442,7 +577,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
       browser_focus: document.hasFocus()
     } as any);
 
-    // Tab switch logic
+    // Lógica de cambio de pestaña
     if (violation.type === 'TAB_SWITCH' || violation.type === 'FOCUS_LOST') {
       const count = this.tabSwitchCount() + 1;
       this.tabSwitchCount.set(count);
@@ -486,7 +621,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.log('success', '✅ Foco restaurado');
   }
 
-  // --- Exam Completion ---
+  // --- Finalización del Examen ---
 
   handleExamFinished(result: ExamResult): void {
     this.log('success', '🏁 Examen finalizado');
@@ -547,7 +682,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.callbacks?.onLog(type, msg, details);
   }
 
-  // --- Cleanup ---
+  // --- Limpieza ---
 
   ngOnDestroy(): void {
     this.destroy();
@@ -581,7 +716,7 @@ export class ProctoringOrchestratorService implements OnDestroy {
     this.log('warn', '⚠️ Protección de DevTools desactivada temporalmente');
   }
 
-  // --- Getters for component ---
+  // --- Getters para el componente ---
 
   getMediaService(): MediaService { return this.mediaService; }
   getEvidenceService(): EvidenceService { return this.evidenceService; }

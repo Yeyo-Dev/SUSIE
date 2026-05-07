@@ -11,7 +11,7 @@ describe('EvidenceService (integración con cola offline)', () => {
     beforeEach(() => {
         // Crear spy del EvidenceQueueService
         queueService = jasmine.createSpyObj('EvidenceQueueService', [
-            'init', 'setLogger', 'setAuthToken',
+            'init', 'setLogger',
             'enqueueMultipart', 'enqueueJson',
         ]);
         queueService.init.and.resolveTo();
@@ -44,7 +44,6 @@ describe('EvidenceService (integración con cola offline)', () => {
 
     describe('configure()', () => {
         it('debe inicializar el EvidenceQueueService', () => {
-            expect(queueService.setAuthToken).toHaveBeenCalledWith('jwt-test-token');
             expect(queueService.init).toHaveBeenCalled();
         });
     });

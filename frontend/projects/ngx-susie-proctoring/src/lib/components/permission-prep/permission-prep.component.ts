@@ -82,7 +82,7 @@ export class PermissionPrepComponent {
         videoEl.srcObject = stream;
         videoEl.muted = true;
         videoEl.play().catch(() => {
-          // Ignore autoplay errors
+          // Ignorar errores de autoplay
         });
       }
     }, { allowSignalWrites: true });

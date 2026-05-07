@@ -11,7 +11,7 @@
     color: var(--color-text-primary);
 }
 
-/* ── Header ── */
+/* ── Encabezado ── */
 .app-header {
     position: relative;
     z-index: 10;
@@ -89,7 +89,7 @@
     text-transform: uppercase;
 }
 
-/* ── Session badge ── */
+/* ── Insignia de sesión ── */
 .header-meta {
     display: flex;
     align-items: center;
@@ -131,7 +131,7 @@
     }
 }
 
-/* ── Susie Wrapper ── */
+/* ── Contenedor de Susie ── */
 susie-wrapper {
     flex: 1;
     min-height: 0;
@@ -140,7 +140,7 @@ susie-wrapper {
 }
 
 /* ══════════════════════════════════════════
-   Loading Screen
+   Pantalla de Carga
    ══════════════════════════════════════════ */
 .loading-screen {
     flex: 1;
@@ -153,7 +153,7 @@ susie-wrapper {
     overflow: hidden;
 }
 
-/* Animated background orbs */
+/* Orbes de fondo animados */
 .loading-screen::before {
     content: '';
     position: absolute;
@@ -211,7 +211,7 @@ susie-wrapper {
     }
 }
 
-/* ── Animated Logo ── */
+/* ── Logo animado ── */
 .loading-logo {
     position: relative;
     width: 96px;
@@ -276,7 +276,7 @@ susie-wrapper {
     margin: 0 0 var(--space-8);
 }
 
-/* ── Progress Stepper ── */
+/* ── Indicador de progreso ── */
 .loading-steps {
     display: flex;
     flex-direction: column;
@@ -374,7 +374,7 @@ susie-wrapper {
     }
 }
 
-/* ── Troubleshoot Box ── */
+/* ── Caja de solución de problemas ── */
 .troubleshoot-box {
     background: var(--color-surface-alt);
     border: 1px solid var(--color-border);
@@ -408,7 +408,7 @@ susie-wrapper {
     line-height: 1.5;
 }
 
-/* ── Error Actions ── */
+/* ── Acciones de error ── */
 .error-actions {
     display: flex;
     flex-direction: column;
@@ -446,7 +446,7 @@ susie-wrapper {
     overflow: hidden;
 }
 
-/* Decorative bg dots */
+/* Puntos decorativos de fondo */
 .result-screen::before {
     content: '';
     position: absolute;
@@ -498,7 +498,7 @@ susie-wrapper {
     }
 }
 
-/* ── Icon Ring ── */
+/* ── Anillo de ícono ── */
 .result-icon-ring {
     width: 88px;
     height: 88px;
@@ -535,7 +535,7 @@ susie-wrapper {
     box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.08), 0 0 0 12px rgba(220, 38, 38, 0.04);
 }
 
-/* ── Result Badge ── */
+/* ── Insignia de resultado ── */
 .result-badge {
     display: inline-block;
     padding: 0.25rem 0.875rem;
@@ -573,7 +573,7 @@ susie-wrapper {
     font-size: 0.9375rem;
 }
 
-/* ── Stats Grid ── */
+/* ── Grilla de estadísticas ── */
 .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -615,7 +615,7 @@ susie-wrapper {
     letter-spacing: 0.04em;
 }
 
-/* ── Error Detail ── */
+/* ── Detalle de error ── */
 .error-detail {
     display: flex;
     align-items: center;
@@ -635,7 +635,7 @@ susie-wrapper {
     flex-shrink: 0;
 }
 
-/* ── Buttons ── */
+/* ── Botones ── */
 .btn {
     display: inline-flex;
     justify-content: center;

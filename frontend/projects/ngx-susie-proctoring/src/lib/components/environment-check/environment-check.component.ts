@@ -32,7 +32,7 @@ export class EnvironmentCheckComponent implements OnInit {
   steps = input<StepInfo[]>([]);
   checkCompleted = output<{ passed: boolean }>();
 
-  // Checks
+  // Verificaciones
   checks = signal<SystemCheck[]>([
     { id: 'browser', icon: '🌐', label: 'Navegador compatible', status: 'idle', message: 'Pendiente...', optional: false },
     { id: 'camera', icon: '📷', label: 'Cámara web', status: 'idle', message: 'Pendiente...', optional: false },
@@ -54,29 +54,29 @@ export class EnvironmentCheckComponent implements OnInit {
     this.isChecking.set(true);
     this.hasErrors.set(false);
 
-    // Updates based on policies (if available, otherwise assume all required)
+    // Actualizaciones según políticas (si están disponibles, si no, asumir todas requeridas)
     const pol = this.policies() || { requireCamera: true, requireMicrophone: true };
 
     this.updateCheck('camera', { optional: !pol.requireCamera, message: pol.requireCamera ? 'Esperando...' : 'Opcional' });
     this.updateCheck('microphone', { optional: !pol.requireMicrophone, message: pol.requireMicrophone ? 'Esperando...' : 'Opcional' });
 
-    // 1. Browser
+    // 1. Navegador
     await this.checkBrowser();
 
-    // 2. Camera
+    // 2. Cámara
     if (pol.requireCamera) await this.checkMedia('camera', true, false);
     else this.markSkipped('camera', 'No requerida para este examen.');
 
-    // 3. Microphone
+    // 3. Micrófono
     if (pol.requireMicrophone) await this.checkMedia('microphone', false, true);
     else this.markSkipped('microphone', 'No requerido para este examen.');
 
-    // 4. Network
+    // 4. Red
     await this.checkNetwork();
 
     this.isChecking.set(false);
 
-    // Check global success
+    // Verificar éxito global
     const failed = this.checks().some(c => !c.optional && c.status === 'error');
     this.hasErrors.set(failed);
   }
@@ -84,7 +84,7 @@ export class EnvironmentCheckComponent implements OnInit {
   private async checkBrowser() {
     this.setStatus('browser', 'checking', 'Verificando compatibilidad...');
     await this.wait(600);
-    // Simple check: is WebRTC supported?
+    // Verificación simple: ¿WebRTC está soportado?
     if (navigator.mediaDevices) {
       this.setStatus('browser', 'success', 'Compatible');
     } else {
@@ -96,7 +96,7 @@ export class EnvironmentCheckComponent implements OnInit {
     this.setStatus(type, 'checking', `Detectando dispositivo...`);
     await this.wait(800);
 
-    // Check if we already have the stream from MediaService
+    // Verificar si ya tenemos el stream de MediaService
     const currentStream = this.mediaService.stream();
 
     if (currentStream) {
@@ -109,7 +109,7 @@ export class EnvironmentCheckComponent implements OnInit {
       }
     }
 
-    // Try to get it if missing (redundancy)
+    // Intentar obtenerlo si falta (redundancia)
     try {
       if (!currentStream) {
         this.setStatus(type, 'error', 'No se ha concedido permiso');

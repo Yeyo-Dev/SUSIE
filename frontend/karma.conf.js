@@ -1,4 +1,4 @@
-// Karma configuration file
+// Archivo de configuración de Karma
 module.exports = function (config) {
   config.set({
     basePath: '',
@@ -10,12 +10,12 @@ module.exports = function (config) {
     ],
     client: {
       jasmine: {
-        // You can add configuration options for Jasmine here
+        // Puedes agregar opciones de configuración para Jasmine aquí
       },
-      clearContext: false // leave Jasmine Spec Runner output visible in browser
+      clearContext: false // deja la salida de Jasmine Spec Runner visible en el navegador
     },
     jasmineHtmlReporter: {
-      suppressAll: true // removes the duplicated traces
+      suppressAll: true // elimina las trazas duplicadas
     },
     coverageReporter: {
       dir: require('path').join(__dirname, './coverage/ngx-susie-proctoring'),

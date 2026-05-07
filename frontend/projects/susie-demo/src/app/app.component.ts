@@ -11,11 +11,17 @@ import {
   SecurityViolation,
   ConsentResult,
 } from 'ngx-susie-proctoring';
+import { SUSIE_API_URL, EVALUACION_ID } from './core/config.tokens';
 
 /**
  * Componente principal del Examen SUSIE.
  *
  * Carga la configuración desde el backend real vía ExamConfigService.
+ * 
+ * El token de autenticación se obtiene de:
+ * 1. URL parameter: ?token=xyz
+ * 2. sessionStorage (si ya se guardó previamente)
+ * 3. Placeholder dev (solo en development)
  */
 @Component({
   selector: 'app-root',
@@ -40,7 +46,11 @@ export class AppComponent implements OnInit {
   /** Estado interno del wrapper SUSIE (para ocultar el topbar durante el onboarding) */
   wrapperState = signal<string>('CHECKING_PERMISSIONS');
 
+  /** URL base del API (derivada de SUSIE_API_URL o URL param) */
+  apiUrl = signal<string>('');
 
+  /** Token de autenticación (derivada de URL param, sessionStorage, o dev fallback) */
+  authToken = signal<string>('');
 
   /** Paso actual de carga (1-5) */
   loadingStep = signal(0);
@@ -57,13 +67,58 @@ export class AppComponent implements OnInit {
   /** Lista de preguntas */
   questions = signal<SusieQuestion[]>([]);
 
-  // --- Configuración de conexión ---
-  private readonly API_URL = 'http://localhost:8000/susie/api/v1';
-  private readonly EVALUACION_ID = '1';
-  private readonly AUTH_TOKEN = 'demo-token';
+  // Configuración inyectada a través de environments
+  private readonly API_URL = inject(SUSIE_API_URL);
+  private readonly EVALUACION_ID = inject(EVALUACION_ID);
 
   async ngOnInit() {
+    // Resolver token y apiUrl antes de cargar config
+    this.resolveAuthAndApi();
+    
     await this.loadConfigFromBackend();
+  }
+
+  /**
+   * Resuelve el token de autenticación y la URL del API desde:
+   * 1. URL parameters (?token=xyz&apiUrl=...)
+   * 2. sessionStorage (si ya fue guardado)
+   * 3. DI defaults (SUSIE_API_URL del environment)
+   * 4. Dev fallback (solo en desarrollo)
+   */
+  private resolveAuthAndApi(): void {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 1. Token desde URL param
+    const tokenFromUrl = urlParams.get('token');
+    if (tokenFromUrl) {
+      this.authToken.set(tokenFromUrl);
+      sessionStorage.setItem('susie_auth_token', tokenFromUrl);
+    }
+    
+    // 2. Token desde sessionStorage
+    const tokenFromSession = sessionStorage.getItem('susie_auth_token');
+    if (!tokenFromUrl && tokenFromSession) {
+      this.authToken.set(tokenFromSession);
+    }
+    
+    // 3. Dev fallback (solo en desarrollo, sin token hardcodeado)
+    if (!this.authToken() && !this.isProduction()) {
+      // Placeholder vacío para desarrollo - el backend debe validar
+      // En desarrollo sin token, las peticiones fallarán con 401
+      console.warn('⚠️ SUSIE: Sin token de autenticación. Proporciona ?token=xyz en la URL');
+    }
+    
+    // 4. ApiUrl: prioridad URL param > DI default
+    const apiUrlFromUrl = urlParams.get('apiUrl');
+    if (apiUrlFromUrl) {
+      this.apiUrl.set(apiUrlFromUrl);
+    } else {
+      this.apiUrl.set(this.API_URL);
+    }
+  }
+
+  private isProduction(): boolean {
+    return false; // TODO: usar environment.production cuando esté disponible
   }
 
   /** Pausa reactiva para que Angular pueda repintar la UI entre pasos. */
@@ -80,7 +135,7 @@ export class AppComponent implements OnInit {
       // Paso 1: Conectando
       this.loadingStep.set(1);
       this.loadingMessage.set('Conectando con el servidor SUSIE...');
-      this.configService.setBaseUrl(this.API_URL);
+      this.configService.setBaseUrl(this.apiUrl());
       await this.delay(400);
 
       // Paso 2: Cargando configuración (llamada real al backend)
@@ -92,8 +147,8 @@ export class AppComponent implements OnInit {
       this.loadingStep.set(3);
       this.loadingMessage.set('Preparando preguntas...');
       // Inyectar token y URL del API
-      backendConfig.susieApiUrl = this.API_URL;
-      backendConfig.authToken = this.AUTH_TOKEN;
+      backendConfig.susieApiUrl = this.apiUrl();
+      backendConfig.authToken = this.authToken();
       await this.delay(350);
 
       // Paso 4: Configurando supervisión
@@ -120,19 +175,17 @@ export class AppComponent implements OnInit {
     this.loadConfigFromBackend();
   }
 
-
-
   private buildSusieConfig(source: ChaindrencialesExamConfig) {
     const config = mapToSusieConfig(
       source,
       {
         onSecurityViolation: (violation: SecurityViolation) => this.cancelExam(violation.message),
         onExamFinished: (result: ExamResult) => this.handleExamFinished(result),
-        onConsentResult: (result: ConsentResult) => console.log('📋 Resultado del consentimiento:', result),
-        onEnvironmentCheckResult: (result: { passed: boolean }) => console.log('🔍 Resultado de verificación de entorno:', result),
-        onInactivityDetected: () => console.log('⏸️ Inactividad detectada — usuario confirmó presencia'),
+        onConsentResult: (result: ConsentResult) => { /* TODO: manejar resultado del consentimiento */ },
+        onEnvironmentCheckResult: (result: { passed: boolean }) => { /* TODO: manejar resultado de entorno */ },
+        onInactivityDetected: () => { /* TODO: manejar inactividad */ },
       },
-      { debugMode: true }
+      { debugMode: false } // TODO: Cambiar a !environment.production en producción
     );
 
     this.examConfig.set(config);

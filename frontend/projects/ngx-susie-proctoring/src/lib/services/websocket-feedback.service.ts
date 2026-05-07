@@ -2,13 +2,47 @@ import { Injectable, signal, inject } from '@angular/core';
 import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 import { LoggerFn, IntervalHandle } from '@lib/models/contracts';
 
+// ── Wire format: lo que el backend REALMENTE envía por WebSocket ──
+
+/** Tipos de infracción que el backend puede enviar en el payload. */
+type BackendInfraccionTipoWs = 'CAMBIO_DE_PESTAÑA' | 'USO_DE_TELEFONO' | 'OTRO';
+
+/** Mensaje de conexión exitosa: { tipo: 'CONECTADO_WS', mensaje: '...' } */
+interface BackendWsConectado {
+    tipo: 'CONECTADO_WS';
+    mensaje: string;
+}
+
+/** Alerta de infracción: { tipo: 'ALERTA_INFRACCION', payload: {...} } */
+interface BackendWsAlerta {
+    tipo: 'ALERTA_INFRACCION';
+    payload: {
+        sesion_id?: number;
+        minuto_infraccion?: string;
+        tipo_infraccion?: BackendInfraccionTipoWs;
+        detalles_infraccion?: string;
+        url_azure_evidencia?: string | null;
+    };
+}
+
+/** Union de todos los mensajes posibles del backend vía WS. */
+type BackendWsMessage = BackendWsConectado | BackendWsAlerta;
+
+// ── UI format: lo que los componentes consumen vía currentAlert ──
+
 /**
- * Estructura del payload JSON que el backend envía a través del WebSocket.
+ * Alerta transformada para la UI.
+ * Los componentes leen `type` para elegir estilo y `msg` para mostrar texto.
  */
 export interface AIAlertPayload {
+    /** Severidad visual: WARNING, CRITICAL, INFO */
     type: 'WARNING' | 'CRITICAL' | 'INFO';
+    /** Mensaje descriptivo para mostrar al usuario */
     msg: string;
+    /** Timestamp ISO del evento (opcional) */
     timestamp?: string;
+    /** Datos adicionales opcionales del payload original */
+    payload?: Record<string, unknown>;
 }
 
 /**
@@ -43,9 +77,10 @@ export class WebSocketFeedbackService {
     }
 
     /**
-     * Abre la conexión WebSocket hacia el endpoint de feedback del backend.
+     * Abre la conexión WebSocket hacia el endpoint de infracciones del backend.
      * @param wsUrl URL base del WebSocket (ej. ws://localhost:3000)
      * @param sessionId ID de la sesión de examen para suscribirse
+     * Endpoint: /monitoreo/infracciones/ws/:id_sesion
      */
     connect(wsUrl: string, sessionId: string) {
         if (this.socket) {
@@ -56,7 +91,8 @@ export class WebSocketFeedbackService {
         this.intentionalClose = false;
         this.reconnectAttempts = 0;
 
-        const url = `${wsUrl}/monitoreo/feedback?session_id=${encodeURIComponent(sessionId)}`;
+        // WS path: /monitoreo/infracciones/ws/:id_sesion
+        const url = `${wsUrl}/monitoreo/infracciones/ws/${encodeURIComponent(sessionId)}`;
         this.logger('info', `📡 Conectando WebSocket de feedback: ${url}`);
 
         this.initSocket(url);
@@ -111,15 +147,49 @@ export class WebSocketFeedbackService {
 
     private handleMessage(data: string) {
         try {
-            const payload: AIAlertPayload = JSON.parse(data);
+            const raw: BackendWsMessage = JSON.parse(data);
 
-            if (payload && payload.msg) {
-                this.logger('info', `⚠️ Alerta de IA recibida: [${payload.type}] ${payload.msg}`);
-                this.showAlert(payload);
+            // Mensaje de conexión exitosa → solo log, no se muestra al usuario
+            if (raw.tipo === 'CONECTADO_WS') {
+                this.logger('success', `🔌 WS conectado: ${raw.mensaje}`);
+                return;
             }
+
+            // Alerta de infracción → transformar a formato UI
+            if (raw.tipo === 'ALERTA_INFRACCION' && raw.payload) {
+                const alert = this.mapBackendAlertToUI(raw.payload);
+                this.logger('info', `⚠️ Alerta de IA recibida: [${alert.type}] ${alert.msg}`);
+                this.showAlert(alert);
+                return;
+            }
+
+            // Mensaje desconocido — ignorar silenciosamente
+            this.logger('info', `ℹ️ Mensaje WS no reconocido (tipo: ${(raw as any).tipo})`);
         } catch {
             this.logger('error', '❌ Mensaje de feedback no es JSON válido', data);
         }
+    }
+
+    /**
+     * Transforma el payload de infracción del backend al formato AIAlertPayload para la UI.
+     * Mapea tipo_infraccion → severidad visual y detalles_infraccion → mensaje.
+     */
+    private mapBackendAlertToUI(payload: BackendWsAlerta['payload']): AIAlertPayload {
+        // Mapear severidad: USO_DE_TELEFONO es crítico, el resto es warning
+        const severityMap: Record<string, AIAlertPayload['type']> = {
+            'USO_DE_TELEFONO': 'CRITICAL',
+            'CAMBIO_DE_PESTAÑA': 'WARNING',
+            'OTRO': 'WARNING',
+        };
+
+        const tipo = payload.tipo_infraccion ?? 'OTRO';
+
+        return {
+            type: severityMap[tipo] ?? 'WARNING',
+            msg: payload.detalles_infraccion ?? `Infracción detectada: ${tipo}`,
+            timestamp: new Date().toISOString(),
+            payload: payload as unknown as Record<string, unknown>,
+        };
     }
 
     private showAlert(payload: AIAlertPayload) {

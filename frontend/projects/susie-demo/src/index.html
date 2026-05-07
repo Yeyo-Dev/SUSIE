@@ -17,8 +17,9 @@
 <body>
   <app-root></app-root>
   <script>
-    // === DIAGNÓSTICO WEBGAZER ===
-    // Esperar a que webgazer cargue y exponer métodos
+    // === DIAGNÓSTICO WEBGAZER (DESHABILITADO) ===
+    // Para habilitar en desarrollo, descomentar el bloque completo
+    /*
     (function () {
       function checkWebGazer() {
         if (window.webgazer) {
@@ -29,13 +30,9 @@
           }
           console.log('[WG-DIAG] ✅ webgazer cargado. Métodos disponibles:', methods.join(', '));
           console.log('[WG-DIAG] webgazer object:', wg);
-
-          // Exponer función de test global
           window._testGaze = function () {
             console.log('[WG-DIAG] --- TEST MANUAL ---');
             console.log('[WG-DIAG] webgazer ref:', !!window.webgazer);
-
-            // Probar cada método conocido
             var testMethods = ['getCurrentPrediction', 'predict', 'pause', 'resume',
               'isReady', 'getTracker', 'getRegression', 'getStoredPoints',
               'showVideoPreview', 'showPredictionPoints', 'showFaceFeedbackBox',
@@ -43,8 +40,6 @@
             testMethods.forEach(function (m) {
               console.log('[WG-DIAG]  ' + m + ':', typeof wg[m]);
             });
-
-            // Intentar getCurrentPrediction
             if (typeof wg.getCurrentPrediction === 'function') {
               var result = wg.getCurrentPrediction();
               console.log('[WG-DIAG] getCurrentPrediction() result:', result);
@@ -56,8 +51,6 @@
                 });
               }
             }
-
-            // Intentar predict
             if (typeof wg.predict === 'function') {
               try {
                 var pred = wg.predict();
@@ -67,7 +60,6 @@
               }
             }
           };
-
           console.log('[WG-DIAG] 💡 Escribe _testGaze() en la consola para diagnosticar');
         } else {
           setTimeout(checkWebGazer, 500);
@@ -75,6 +67,7 @@
       }
       setTimeout(checkWebGazer, 1000);
     })();
+    */
   </script>
 </body>
 

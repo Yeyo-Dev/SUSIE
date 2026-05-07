@@ -8,7 +8,9 @@ import {
   ChangeDetectorRef,
   ViewChild,
   ElementRef,
-  DestroyRef
+  DestroyRef,
+  signal,
+  computed
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
@@ -18,11 +20,18 @@ import {
   ConsentResult,
   LoggerFn
 } from '@lib/models/contracts';
-import { ProctoringOrchestratorService, ProctoringState } from '@lib/services/proctoring-orchestrator.service';
+import { ProctoringOrchestratorService, ProctoringState, RecoveryState } from '@lib/services/proctoring-orchestrator.service';
 import { ProctoringMonitorHelper } from '@lib/helpers/proctoring-monitor.helper';
 import { EvidenceQueueService } from '@lib/services/evidence-queue.service';
+import { SessionStorageService } from '@lib/services/session-storage.service';
+import { AuthTokenService } from '@lib/services/auth-token.service';
+import {
+  PersistedSessionState,
+  isSessionRecoverable,
+  calculateRemainingTime
+} from '@lib/models/session-storage.interface';
 
-// Child components
+// Componentes hijos
 import { CameraPipComponent } from '@lib/components/camera-pip/camera-pip.component';
 import { ConsentDialogComponent } from '@lib/components/consent-dialog/consent-dialog.component';
 import { EnvironmentCheckComponent } from '@lib/components/environment-check/environment-check.component';
@@ -60,23 +69,52 @@ export class SusieWrapperComponent {
   // --- Inputs ---
   readonly config = input.required<SusieConfig>();
   readonly questions = input<SusieQuestion[]>([]);
+  
+  /** URL base del API (opcional, sobrescribe config.apiUrl) */
+  readonly apiUrl = input<string>('');
+  
+  /** Token de autenticación (opcional, sobrescribe config.authToken) */
+  readonly token = input<string>('');
 
   // --- Outputs ---
   readonly stateChange = output<ProctoringState>();
 
-  // --- Services ---
+  // --- Servicios ---
   private readonly orchestrator = inject(ProctoringOrchestratorService);
   private readonly evidenceQueueService = inject(EvidenceQueueService);
+  private readonly sessionStorage = inject(SessionStorageService);
+  private readonly tokenService = inject(AuthTokenService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
 
-  // --- View Child ---
+  // --- ViewChild ---
   @ViewChild('snapshotVideo') snapshotVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('examEngine') examEngine!: ExamEngineComponent;
 
-  // --- Monitor Helper ---
+  // --- Helper de Monitoreo ---
   private monitorHelper: ProctoringMonitorHelper | null = null;
 
-  // --- Exposed Signals (delegated to orchestrator) ---
+  // --- Estado de Recuperación ---
+  showRecoveryModal = signal(false);
+  recoveryState = signal<PersistedSessionState | null>(null);
+
+  // --- Computados para diálogo de recuperación ---
+  recoverySummary = computed(() => {
+    const state = this.recoveryState();
+    if (!state) return null;
+    
+    const cfg = this.config();
+    const answeredCount = Object.keys(state.answers).length;
+    const remainingSeconds = calculateRemainingTime(state, cfg.sessionContext.durationMinutes);
+    
+    return {
+      answeredCount,
+      remainingMinutes: Math.floor(remainingSeconds / 60),
+      remainingSeconds: remainingSeconds % 60,
+    };
+  });
+
+  // --- Signals expuestos (delegados al orchestrator) ---
   readonly state = this.orchestrator.state;
   readonly stepsWithStatus = this.orchestrator.stepsWithStatus;
   readonly mediaStream = this.orchestrator.mediaStream;
@@ -85,7 +123,7 @@ export class SusieWrapperComponent {
   readonly aiAlert = this.orchestrator.aiAlert;
   readonly inactivityWarning = this.orchestrator.inactivityWarning;
   
-  // Evidence queue
+  // Cola de evidencias
   readonly pendingEvidencesCount = this.evidenceQueueService.pendingCount;
   
   readonly tabSwitchCount = this.orchestrator.tabSwitchCount;
@@ -93,7 +131,7 @@ export class SusieWrapperComponent {
   readonly needsFullscreenReturn = this.orchestrator.needsFullscreenReturn;
   readonly needsFocusReturn = this.orchestrator.needsFocusReturn;
   
-  // Biometric state
+  // Estado biométrico
   readonly biometricValidating = this.orchestrator.biometricValidating;
   readonly biometricError = this.orchestrator.biometricError;
   readonly biometricSuccess = this.orchestrator.biometricSuccess;
@@ -101,13 +139,16 @@ export class SusieWrapperComponent {
   // Debug
   readonly logs = this.orchestrator.logs;
 
+  // --- Privado ---
+  private beforeUnloadHandler = this.handleBeforeUnload.bind(this);
+
   constructor() {
-    // Forward state changes to parent
+    // Reenviar cambios de estado al padre
     effect(() => {
       this.stateChange.emit(this.state());
     });
 
-    // Configure monitor helper when state becomes MONITORING
+    // Configurar helper de monitoreo cuando el estado es MONITORING
     effect(() => {
       const currentState = this.state();
       if (currentState === 'MONITORING' && !this.monitorHelper) {
@@ -132,28 +173,79 @@ export class SusieWrapperComponent {
 
     this.monitorHelper.setVideoRef(this.snapshotVideo);
 
-    // Start snapshots
+    // Iniciar capturas
     if (policies.requireCamera && cfg.capture?.snapshotIntervalSeconds) {
       this.monitorHelper.startSnapshotLoop(cfg.capture.snapshotIntervalSeconds, this.mediaStream());
     }
 
-    // Start gaze if calibrated
+    // Iniciar gaze si está calibrado
     if (policies.requireGazeTracking && this.orchestrator.getGazeService().gazeState() === 'TRACKING') {
       this.monitorHelper.startGazeLoop();
     }
   }
 
   async ngOnInit() {
-    // Initialize orchestrator with config and callbacks
-    this.orchestrator.initialize(this.config(), {
+    // Configurar logger de persistencia
+    this.sessionStorage.setLogger((type, msg, details) => this.log(type, msg, details));
+    
+    if (!SessionStorageService.isAvailable()) {
+      this.log('warn', '⚠️ IndexedDB no disponible — recuperación deshabilitada');
+    }
+    
+    // Sincronizar token y URL con el TokenService (para interceptors HTTP)
+    const token = this.token() || this.config().authToken;
+    const apiUrl = this.apiUrl() || this.config().apiUrl;
+    
+    if (token) {
+      this.tokenService.setToken(token);
+    }
+    if (apiUrl) {
+      this.tokenService.setApiUrl(apiUrl);
+    }
+    
+    const cfg = this.config();
+    const sessionId = cfg.sessionContext.examSessionId;
+    
+    // Verificar sesión recuperable ANTES de inicializar orchestrator
+    if (SessionStorageService.isAvailable()) {
+      const existingSession = await this.sessionStorage.loadState(sessionId);
+      
+      if (existingSession && isSessionRecoverable(existingSession, sessionId, cfg.sessionContext.durationMinutes)) {
+        this.recoveryState.set(existingSession);
+        this.showRecoveryModal.set(true);
+        return; // Esperar decisión del usuario
+      } else if (existingSession) {
+        // Sesión stale/expirada — limpiar silenciosamente
+        await this.sessionStorage.clearState(existingSession.examSessionId);
+        this.log('info', '🗑️ Sesión stale limpiada');
+      }
+    }
+    
+    // Sin recuperación necesaria — proceder con inicialización normal
+    await this.initializeFresh();
+  }
+
+  private async initializeFresh(): Promise<void> {
+    // Preferir inputs sobre config para apiUrl y authToken
+    const effectiveApiUrl = this.apiUrl() || this.config().apiUrl;
+    const effectiveToken = this.token() || this.config().authToken;
+    
+    // Crear config efectiva con los valores correctos
+    const effectiveConfig: SusieConfig = {
+      ...this.config(),
+      apiUrl: effectiveApiUrl,
+      authToken: effectiveToken
+    };
+    
+    this.orchestrator.initialize(effectiveConfig, {
       onStateChange: (state) => {
-        // State changes handled via signal
+        // Cambios de estado manejados via signal
       },
       onViolation: (violation) => {
         this.config().onSecurityViolation?.(violation);
       },
       onExamFinished: (result) => {
-        this.config().onExamFinished?.(result);
+        this.handleExamFinished(result);
       },
       onLog: (type, msg, details) => {
         this.log(type, msg, details);
@@ -162,25 +254,137 @@ export class SusieWrapperComponent {
         return await this.orchestrator.getEvidenceService().validateBiometric(photo, userId);
       },
       onSessionStarted: (sessionId) => {
-        // Could emit to parent if needed
+        // Podría emitir al padre si es necesario
       },
       onInactivityWarning: () => {
-        // Handled by inactivityWarning signal
+        // Manejado por signal inactivityWarning
       },
       onNetworkStatusChange: (isOnline) => {
-        // Could emit to parent
+        // Podría emitir al padre
       }
     });
 
     await this.orchestrator.initializeFlow();
+    
+    // Configurar efecto de persistencia
+    this.setupPersistenceEffect();
+  }
+
+  private async initializeWithRecovery(state: PersistedSessionState): Promise<void> {
+    // Preferir inputs sobre config para apiUrl y authToken
+    const effectiveApiUrl = this.apiUrl() || this.config().apiUrl;
+    const effectiveToken = this.token() || this.config().authToken;
+    
+    // Crear config efectiva con los valores correctos
+    const effectiveConfig: SusieConfig = {
+      ...this.config(),
+      apiUrl: effectiveApiUrl,
+      authToken: effectiveToken
+    };
+    
+    // Inicializar orchestrator con estado recuperado
+    const recoveryState: RecoveryState = {
+      proctoringState: state.proctoringState,
+      totalViolations: state.totalViolations,
+      tabSwitchCount: state.tabSwitchCount,
+      remoteSessionId: state.remoteSessionId,
+    };
+    
+    this.orchestrator.initialize(effectiveConfig, {
+      onStateChange: (s) => {},
+      onViolation: (v) => { effectiveConfig.onSecurityViolation?.(v); },
+      onExamFinished: (r) => { this.handleExamFinished(r); },
+      onLog: (type, msg, details) => { this.log(type, msg, details); },
+      onBiometricValidationRequired: async (photo, userId) => {
+        return await this.orchestrator.getEvidenceService().validateBiometric(photo, userId);
+      },
+      onSessionStarted: (sessionId) => {},
+      onInactivityWarning: () => {},
+      onNetworkStatusChange: (isOnline) => {}
+    }, recoveryState);
+
+    await this.orchestrator.initializeFlow();
+    
+    // Configurar efecto de persistencia
+    this.setupPersistenceEffect();
+  }
+
+  // --- Handlers de Recuperación ---
+
+  async handleRecoveryContinue(): Promise<void> {
+    this.showRecoveryModal.set(false);
+    const state = this.recoveryState();
+    if (!state) return;
+    
+    await this.initializeWithRecovery(state);
+  }
+
+  async handleRecoveryStartFresh(): Promise<void> {
+    this.showRecoveryModal.set(false);
+    const state = this.recoveryState();
+    if (state) {
+      await this.sessionStorage.clearState(state.examSessionId);
+    }
+    await this.initializeFresh();
+  }
+
+  // --- Efecto de Persistencia ---
+
+  private setupPersistenceEffect(): void {
+    // Solo persistir cuando está en estado MONITORING
+    effect(() => {
+      const currentState = this.state();
+      if (currentState !== 'MONITORING') return;
+      
+      const sessionId = this.config().sessionContext.examSessionId;
+      
+      // Construir objeto de estado
+      const examState = this.examEngine?.extractState(sessionId);
+      const proctoringState = this.orchestrator.extractState();
+      
+      if (examState && proctoringState) {
+        const state: PersistedSessionState = {
+          ...examState,
+          ...proctoringState,
+          examSessionId: sessionId,
+          examId: this.config().sessionContext.examId,
+          examStartedAt: examState.examStartedAt,
+        } as PersistedSessionState;
+        
+        this.sessionStorage.saveState(state);
+      }
+    }, { allowSignalWrites: true });
+    
+    // handler beforeunload para guardado inmediato al cerrar pestaña
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
+  }
+
+  private handleBeforeUnload(): void {
+    const sessionId = this.config().sessionContext.examSessionId;
+    const examState = this.examEngine?.extractState(sessionId);
+    const proctoringState = this.orchestrator.extractState();
+    
+    if (examState && proctoringState) {
+      const state: PersistedSessionState = {
+        ...examState,
+        ...proctoringState,
+        examSessionId: sessionId,
+        examId: this.config().sessionContext.examId,
+      } as PersistedSessionState;
+      
+      // Intento de guardado síncrono (best effort)
+      this.sessionStorage.saveState(state);
+    }
   }
 
   ngOnDestroy() {
+    window.removeEventListener('beforeunload', this.beforeUnloadHandler);
     this.monitorHelper?.destroy();
     this.orchestrator.destroy();
+    this.tokenService.clear();
   }
 
-  // --- Child Component Handlers (delegates to orchestrator) ---
+  // --- Handlers de Componentes Hijos (delegan al orchestrator) ---
 
   handlePermissionPrepared() {
     this.orchestrator.handlePermissionPrepared();
@@ -215,10 +419,14 @@ export class SusieWrapperComponent {
   }
 
   handleExamFinished(result: ExamResult) {
+    // Limpiar estado de sesión al completar
+    const sessionId = this.config().sessionContext.examSessionId;
+    this.sessionStorage.clearState(sessionId);
+    
     this.orchestrator.handleExamFinished(result);
   }
 
-  // --- User Actions (delegates to orchestrator) ---
+  // --- Acciones de Usuario (delegan al orchestrator) ---
 
   async returnToFullscreen() {
     await this.orchestrator.returnToFullscreen();
@@ -244,11 +452,11 @@ export class SusieWrapperComponent {
     this.orchestrator.clearLogs();
   }
 
-  // --- Debug Helper ---
+  // --- Helper de Debug ---
 
   log(type: 'info' | 'error' | 'success' | 'warn', msg: string, details?: unknown) {
     if (this.config().debugMode) {
-      // Logs handled by orchestrator
+      // Logs manejados por orchestrator
     }
   }
 }

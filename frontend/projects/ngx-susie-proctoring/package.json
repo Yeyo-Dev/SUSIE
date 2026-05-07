@@ -1,7 +1,7 @@
 {
     "name": "ngx-susie-proctoring",
     "version": "1.0.0",
-    "description": "Angular library for remote exam proctoring with video/audio capture and security features",
+    "description": "Librería Angular para proctoring de exámenes remotos con captura de video/audio y características de seguridad",
     "peerDependencies": {
         "@angular/common": "^17.0.0 || ^18.0.0",
         "@angular/core": "^17.0.0 || ^18.0.0",

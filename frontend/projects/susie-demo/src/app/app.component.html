@@ -29,7 +29,7 @@
     </header>
     }
 
-    <!-- SCREEN: LOADING -->
+    <!-- PANTALLA: CARGANDO -->
     @if (examState() === 'loading') {
     <div class="loading-screen">
         <div class="loading-card">
@@ -48,7 +48,7 @@
             <h2 class="loading-title">SUSIE</h2>
             <p class="loading-subtitle">Sistema de Supervisión Inteligente</p>
 
-            <!-- Progress stepper -->
+            <!-- Indicador de progreso -->
             <div class="loading-steps">
                 @for (step of [{n:1, label:'Conectando con servidor'}, {n:2, label:'Cargando configuración'}, {n:3,
                 label:'Preparando preguntas'}, {n:4, label:'Configurando supervisión'}, {n:5, label:'¡Listo!'}]; track
@@ -75,7 +75,7 @@
     </div>
     }
 
-    <!-- SCREEN: ERROR -->
+    <!-- PANTALLA: ERROR -->
     @if (examState() === 'error') {
     <div class="result-screen">
         <div class="result-card error">
@@ -125,14 +125,14 @@
     </div>
     }
 
-    <!-- SCREEN: EXAM IN PROGRESS -->
+    <!-- PANTALLA: EXAMEN EN CURSO -->
     @if (examState() === 'taking' && examConfig()) {
 
-    <susie-wrapper [config]="examConfig()!" [questions]="questions()"
-        (stateChange)="handleStateChange($event)"></susie-wrapper>
+    <susie-wrapper [config]="examConfig()!" [questions]="questions()" [apiUrl]="apiUrl()"
+        [token]="authToken()" (stateChange)="handleStateChange($event)"></susie-wrapper>
     }
 
-    <!-- SCREEN: RESULTS -->
+    <!-- PANTALLA: RESULTADOS -->
     @if (examState() === 'submitted') {
     <div class="result-screen">
         <div class="result-card success">
@@ -180,7 +180,7 @@
     </div>
     }
 
-    <!-- SCREEN: CANCELLED -->
+    <!-- PANTALLA: CANCELADO -->
     @if (examState() === 'cancelled') {
     <div class="result-screen">
         <div class="result-card error">

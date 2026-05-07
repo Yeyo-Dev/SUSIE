@@ -1,4 +1,6 @@
 import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { catchError, firstValueFrom } from 'rxjs';
 import { EvidenceQueueService } from './evidence-queue.service';
 import { DestroyRefUtility } from '@lib/utils/destroy-ref.utility';
 import {
@@ -17,6 +19,8 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class EvidenceService {
+    private readonly http = inject(HttpClient);
+    
     private apiUrl = '';
     private authToken = '';
     private sessionContext: SessionContextData = {} as SessionContextData;
@@ -43,9 +47,8 @@ export class EvidenceService {
         this.authToken = authToken;
         this.sessionContext = sessionContext;
 
-        // Initialize offline queue
+        // Inicializar cola offline
         this.queue.setLogger(this.logger);
-        this.queue.setAuthToken(authToken);
         this.queue.init();
     }
 
@@ -63,7 +66,7 @@ export class EvidenceService {
     sendEvent(payload: Partial<EvidenceMetadata['_internal']> & { file?: Blob }) {
         const { file, ...restPayload } = payload;
 
-        // Build the meta object aligned with the backend contract
+        // Construir el objeto meta alineado con el contrato del backend
         const metadata: EvidenceMetadata = {
             meta: {
                 sesion_id: Number(this.remoteSessionId) || 0,
@@ -92,8 +95,8 @@ export class EvidenceService {
             case 'SNAPSHOT':
                 return { type: 'snapshot_webcam', source: 'web' };
             default:
-                // Browser events and focus lost don't match the multipart pattern.
-                // Return a default; uploadEvidence handles the routing.
+                // Los eventos de browser y focus lost no coinciden con el patrón multipart.
+                // Retornar un valor por defecto; uploadEvidence maneja el routing.
                 return { type: 'snapshot_webcam', source: 'web' };
         }
     }
@@ -133,7 +136,7 @@ export class EvidenceService {
             });
 
             this.mediaRecorder.ondataavailable = (event) => {
-                // Ignore empty or tiny blobs (e.g. headers only) from rapid stop/starts
+                // Ignorar blobs vacíos o diminutos (ej: solo headers) de stop/starts rápidos
                 if (event.data && event.data.size > 200) {
                     this.sendAudioChunk(event.data);
                 }
@@ -202,6 +205,7 @@ export class EvidenceService {
      */
     async startSession(): Promise<string | null> {
         if (!this.apiUrl) return null;
+        // apiUrl ya incluye el prefijo /susie/api/v1 (configurado por ExamConfigService)
         const url = `${this.apiUrl}/sesiones`;
         const assignmentId = this.sessionContext.assignmentId;
 
@@ -211,20 +215,10 @@ export class EvidenceService {
         }
 
         try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ id_asignacion: Number(assignmentId) })
-            });
+            const sesion = await firstValueFrom(
+                this.http.post<BackendSesionResponse>(url, { id_asignacion: Number(assignmentId) })
+            );
 
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}`);
-            }
-
-            const sesion: BackendSesionResponse = await res.json();
             this.remoteSessionId = sesion.id_sesion;
             this.sessionStartTime = new Date(sesion.fecha_inicio);
             this.logger('success', `🟢 Sesión de examen creada en el backend (id_sesion: ${sesion.id_sesion})`);
@@ -237,19 +231,17 @@ export class EvidenceService {
 
     /**
      * Finaliza la sesión activa en el backend.
-     * Usa POST /sesiones/finalizar/:id_sesion.
+     * Usa PATCH /sesiones/finalizar/:id_sesion.
      */
     async endSession(status: 'submitted' | 'cancelled'): Promise<void> {
         if (!this.apiUrl || !this.remoteSessionId) return;
+        // apiUrl ya incluye el prefijo /susie/api/v1
         const url = `${this.apiUrl}/sesiones/finalizar/${this.remoteSessionId}`;
+        
         try {
-            await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`,
-                },
-                keepalive: true
-            });
+            await firstValueFrom(
+                this.http.patch(url, {})
+            );
             this.logger('success', `🔴 Sesión de examen finalizada (${status}, id_sesion: ${this.remoteSessionId})`);
         } catch (error) {
             this.logger('error', '⚠️ Falló el registro de fin de sesión en el servidor');
@@ -262,14 +254,16 @@ export class EvidenceService {
 
         const internalType = data.metadata?._internal?.type;
 
-        // Determinar endpoint según el tipo de evidencia
+        // Determinar endpoint según el tipo de evidenciatype EvidencePayload
         let endpointUrl = '';
 
         if (internalType === 'AUDIO_CHUNK') {
+            // apiUrl ya incluye el prefijo /susie/api/v1
             endpointUrl = `${this.apiUrl}/monitoreo/evidencias/audios`;
             // Inyectar fragmento_indice en meta
             data.metadata.meta.fragmento_indice = this.audioFragmentIndex;
         } else if (internalType === 'SNAPSHOT') {
+            // apiUrl ya incluye el prefijo /susie/api/v1
             endpointUrl = `${this.apiUrl}/monitoreo/evidencias/snapshots`;
         } else if (internalType === 'BROWSER_EVENT') {
             // Browser events ahora se envían como infracciones dedicadas.
@@ -282,7 +276,7 @@ export class EvidenceService {
 
         try {
             // Audio/Snapshots → FormData (multipart)
-            // Orden obligatorio: meta → payload_info → file
+            // NOTA: NO establecer Content-Type manualmente - HttpClient maneja el boundary
             const formData = new FormData();
             formData.append('meta', JSON.stringify(data.metadata.meta));
             formData.append('payload_info', JSON.stringify(data.metadata.payload_info));
@@ -291,14 +285,24 @@ export class EvidenceService {
                 formData.append('file', data.file);
             }
 
-            await fetch(endpointUrl, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`
-                },
-                body: formData,
-                keepalive: true
-            });
+            await firstValueFrom(
+                this.http.post(endpointUrl, formData).pipe(
+                    catchError((err) => {
+                        this.logger('info', `📥 Evidencia encolada offline (red no disponible)`);
+                        
+                        // Persistir en IndexedDB para reintentar cuando la red se recupere
+                        this.queue.enqueueMultipart(
+                            endpointUrl,
+                            data.metadata.meta,
+                            data.metadata.payload_info,
+                            data.file
+                        );
+                        
+                        // Retornar vacío para que el flujo continúe
+                        return [];
+                    })
+                )
+            );
 
             if (data.file) {
                 const isAudio = internalType === 'AUDIO_CHUNK';
@@ -306,55 +310,43 @@ export class EvidenceService {
                 this.logger('success', `📤 ${label} enviado al servidor (${data.file.size} bytes)`);
             }
 
-         } catch (err) {
-             let label = 'evidencia';
-             if (internalType === 'AUDIO_CHUNK') label = 'audio';
-             else if (internalType === 'SNAPSHOT') label = 'snapshot';
- 
-             this.logger('info', `📥 ${label} encolado offline (red no disponible)`);
- 
-             // Persist in IndexedDB for retry when the network recovers
-            this.queue.enqueueMultipart(
-                endpointUrl,
-                data.metadata.meta,
-                data.metadata.payload_info,
-                data.file
-            );
+        } catch (err) {
+            // Este catch es para errores no manejados por catchError
+            this.logger('error', '⚠️ Error inesperado en uploadEvidence', err);
         }
     }
 
     /**
      * Envía las coordenadas de la mirada al endpoint del backend para generar mapas de calor.
+     * Payload alineado al contrato: { sesion_id, timestamp ISO, gaze_points }.
      */
     async sendGazeData(points: { x: number, y: number }[]): Promise<void> {
         if (!this.remoteSessionId || !this.apiUrl) {
             return;
         }
 
+        // apiUrl ya incluye el prefijo /susie/api/v1
         const url = `${this.apiUrl}/monitoreo/evidencias/gaze_tracking`;
         const payload = {
             sesion_id: Number(this.remoteSessionId),
-            usuario_id: Number(this.sessionContext.userId), // Añadido para mandar a RabbitMQ (el backend debe pasarlo)
             timestamp: new Date().toISOString(),
-            gaze_points: points
+            gaze_points: points.map(p => ({ x: p.x, y: p.y }))
         };
 
         try {
-            await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload),
-                keepalive: true
-            });
+            await firstValueFrom(
+                this.http.post(url, payload).pipe(
+                    catchError((err) => {
+                        this.logger('info', '📥 Datos de gaze tracking encolados offline');
+                        this.queue.enqueueJson(url, payload);
+                        return [];
+                    })
+                )
+            );
             this.logger('success', `📤 Datos de seguimiento ocular enviados (${points.length} puntos)`);
-             } catch (err) {
-                 this.logger('info', '📥 Datos de gaze tracking encolados offline');
- 
-                 this.queue.enqueueJson(url, payload);
-             }
+        } catch (err) {
+            this.logger('error', '⚠️ Error inesperado en sendGazeData', err);
+        }
     }
 
     /**
@@ -379,6 +371,7 @@ export class EvidenceService {
             'RELOAD_ATTEMPT': 'OTRO',
             'CLIPBOARD_ATTEMPT': 'OTRO',
             'GAZE_DEVIATION': 'OTRO',
+            'NETWORK_TIMEOUT': 'OTRO',
         };
 
         const tipoInfraccion: BackendInfraccionTipo = tipoMap[trigger] || 'OTRO';
@@ -396,6 +389,7 @@ export class EvidenceService {
             'RELOAD_ATTEMPT': 'El alumno intentó recargar la página',
             'CLIPBOARD_ATTEMPT': 'El alumno intentó copiar/pegar',
             'GAZE_DEVIATION': 'Se detectó desviación de la mirada del alumno',
+            'NETWORK_TIMEOUT': 'Timeout de conexión de red - no se pudo restablecer conexión',
         };
 
         const payload: BackendInfraccionPayload = {
@@ -406,31 +400,30 @@ export class EvidenceService {
             url_azure_evidencia: null,
         };
 
+        // apiUrl ya incluye el prefijo /susie/api/v1
+        const url = `${this.apiUrl}/monitoreo/infracciones`;
+
         try {
-            await fetch(`${this.apiUrl}/monitoreo/infracciones`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload),
-                keepalive: true
-            });
+            await firstValueFrom(
+                this.http.post(url, payload).pipe(
+                    catchError((err) => {
+                        this.logger('info', '📥 Infracción encolada offline');
+                        this.queue.enqueueJson(url, payload);
+                        return [];
+                    })
+                )
+            );
             this.logger('success', `📤 Infracción registrada: ${tipoInfraccion} (${minuteStr})`);
-             } catch (err) {
-                 this.logger('info', '📥 Infracción encolada offline');
- 
-                 this.queue.enqueueJson(
-                     `${this.apiUrl}/monitoreo/infracciones`,
-                     payload
-                 );
-             }
+        } catch (err) {
+            this.logger('error', '⚠️ Error inesperado en sendInfraccion', err);
+        }
     }
 
     /**
      * Valida la identidad del candidato enviando su foto al endpoint
      * dedicado de biometría del backend.
-     * @returns true si la validación fue exitosa (HTTP 200), false en caso contrario.
+     * El backend devuelve { status, message, data } — se considera exitoso si status === 'success'.
+     * @returns true si la validación fue exitosa (HTTP 200 y status === 'success'), false en caso contrario.
      */
     async validateBiometric(photo: Blob, userId: string | number): Promise<boolean> {
         if (!this.apiUrl) {
@@ -438,52 +431,46 @@ export class EvidenceService {
             return false;
         }
 
+        // apiUrl ya incluye el prefijo /susie/api/v1
         const url = `${this.apiUrl}/usuarios/biometricos/validar`;
 
-        // Timeout de 10s para que el spinner no quede colgado si el servidor no responde
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10_000);
+        const metaPayload = { usuario_id: userId };
+        const formData = new FormData();
+        formData.append('meta', JSON.stringify(metaPayload));
+        formData.append('file', photo);
+
+        this.logger('info', `🔍 [Biométrico] Enviando validación`, {
+            url,
+            metaPayload,
+            photoSize: `${photo.size} bytes`,
+            photoType: photo.type,
+        });
 
         try {
-            const metaPayload = { usuario_id: userId };
-            const formData = new FormData();
-            formData.append('meta', JSON.stringify(metaPayload));
-            formData.append('file', photo);
+            const response = await firstValueFrom(
+                this.http.post<{ status: string; message: string; data?: unknown }>(url, formData).pipe(
+                    catchError((err) => {
+                        if (err.status === 0) {
+                            this.logger('error', '⏱️ Timeout: el servidor tardó más de 10s en responder la validated biométrica');
+                        } else {
+                            this.logger('error', '❌ Error de red al validar biometría', err);
+                        }
+                        return [];
+                    })
+                )
+            );
 
-            this.logger('info', `🔍 [Biométrico] Enviando validación`, {
-                url,
-                metaPayload,
-                photoSize: `${photo.size} bytes`,
-                photoType: photo.type,
-            });
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`
-                },
-                body: formData,
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                this.logger('success', '✅ Validación biométrica exitosa');
+            // Backend devuelve { status, message, data } — exitoso solo si status === 'success'
+            if (response?.status === 'success') {
+                this.logger('success', `✅ Validación biométrica exitosa: ${response.message}`);
                 return true;
             } else {
-                const body = await response.json().catch(() => ({}));
-                this.logger('error', `❌ Validación biométrica fallida (${response.status})`, body);
+                this.logger('error', `❌ Validación biométrica fallida: ${response?.message ?? 'respuesta inválida'}`);
                 return false;
             }
-        } catch (err: unknown) {
-             clearTimeout(timeoutId);
-             if (err instanceof Error && err?.name === 'AbortError') {
-                 this.logger('error', '⏱️ Timeout: el servidor tardó más de 10s en responder la validated biométrica');
-             } else {
-                 this.logger('error', '❌ Error de red al validar biometría', err);
-             }
-             return false;
-         }
-     }
- }
+        } catch (err) {
+            // Error ya manejado por catchError
+            return false;
+        }
+    }
+}

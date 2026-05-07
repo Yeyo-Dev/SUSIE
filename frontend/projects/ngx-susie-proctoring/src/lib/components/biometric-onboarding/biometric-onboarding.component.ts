@@ -29,10 +29,10 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     /** Pantalla de éxito: deriva directo del input (sin effect) */
     readonly showSuccess = computed(() => this.validationSuccess());
 
-    // Access to video element
+    // Acceso al elemento de video
     @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
 
-    // Internal state
+    // Estado interno
     showCard = true;
     capturedImage = signal<string | null>(null);
     private capturedBlob: Blob | null = null;
@@ -43,7 +43,7 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     constructor() {
         effect(() => {
             if (this.validationSuccess()) {
-                // Wait for the animation to finish before proceeding
+                // Esperar a que termine la animación antes de continuar
                 setTimeout(() => {
                     this.successConfirmed.emit();
                 }, 2000);
@@ -56,14 +56,14 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
     }
 
     ngOnDestroy() {
-        // Only stop the specific tracks we might have created if needed, 
-        // but usually MediaService manages the global stream.
-        // However, for this component we want to ensure the video element logic is clean.
-        // We DON'T stop the MediaService stream here because it might be needed for the exam later.
+        // Solo detener las pistas específicas que podríamos haber creado si es necesario,
+        // pero usualmente MediaService maneja el stream global.
+        // Sin embargo, para este componente queremos asegurar que la lógica del elemento de video esté limpia.
+        // NO detenemos el stream de MediaService aquí porque podría necesitarse para el examen más tarde.
     }
 
     async startCamera() {
-        // Re-use the existing stream from MediaService if available
+        // Reutilizar el stream existente de MediaService si está disponible
         this.stream = this.mediaService.stream();
 
         if (this.stream && this.videoElement) {
@@ -85,16 +85,16 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
-            // Draw frame to canvas
-            // Mirroring if needed (CSS transforms visual only, canvas needs explicit transform if we want mirrored output)
-            // Usually for biometrics we want RAW image (not mirrored), but preview is mirrored.
-            // Let's capture RAW.
+            // Dibujar frame al canvas
+            // Mirror si es necesario (CSS transforms solo afecta visual, canvas necesita transform explícito si queremos salida espejada)
+            // Usualmente para biometría queremos imagen RAW (no espejada), pero la vista previa está espejada.
+            // Capturemos RAW.
             ctx.drawImage(video, 0, 0);
 
-            // Convert to DataURL for preview
+            // Convertir a DataURL para la vista previa
             this.capturedImage.set(canvas.toDataURL('image/jpeg', 0.8)); // 80% quality
 
-            // Convert to Blob for upload
+            // Convertir a Blob para subir
             canvas.toBlob(blob => {
                 this.capturedBlob = blob;
             }, 'image/jpeg', 0.8);
@@ -105,7 +105,7 @@ export class BiometricOnboardingComponent implements AfterViewInit, OnDestroy {
         this.capturedImage.set(null);
         this.capturedBlob = null;
         this.retakeRequested.emit();
-        // Re-attach stream to video element on next tick
+        // Readjuntar el stream al elemento de video en el siguiente tick
         setTimeout(() => this.startCamera(), 0);
     }
 

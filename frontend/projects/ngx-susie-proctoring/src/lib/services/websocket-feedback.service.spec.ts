@@ -81,7 +81,7 @@ describe('WebSocketFeedbackService', () => {
 
             expect(MockWebSocket.lastInstance).toBeTruthy();
             expect(MockWebSocket.lastInstance!.url).toBe(
-                'ws://localhost:3000/monitoreo/feedback?session_id=session-42'
+                'ws://localhost:3000/monitoreo/infracciones/ws/session-42'
             );
         });
 
@@ -133,15 +133,21 @@ describe('WebSocketFeedbackService', () => {
             const socket = MockWebSocket.lastInstance!;
             socket.simulateOpen();
 
-            const payload: AIAlertPayload = {
-                type: 'WARNING',
-                msg: 'Persona adicional detectada en cámara',
+            // Backend wire format: { tipo, payload }
+            const backendMsg = {
+                tipo: 'ALERTA_INFRACCION',
+                payload: {
+                    sesion_id: 1,
+                    tipo_infraccion: 'CAMBIO_DE_PESTAÑA',
+                    detalles_infraccion: 'El alumno cambió de pestaña',
+                    minuto_infraccion: '00:05:30',
+                },
             };
 
-            socket.simulateMessage(JSON.stringify(payload));
+            socket.simulateMessage(JSON.stringify(backendMsg));
 
             expect(service.currentAlert()).toEqual(
-                jasmine.objectContaining({ type: 'WARNING', msg: 'Persona adicional detectada en cámara' })
+                jasmine.objectContaining({ type: 'WARNING', msg: 'El alumno cambió de pestaña' })
             );
         });
 
@@ -150,12 +156,17 @@ describe('WebSocketFeedbackService', () => {
             const socket = MockWebSocket.lastInstance!;
             socket.simulateOpen();
 
-            const payload: AIAlertPayload = {
-                type: 'CRITICAL',
-                msg: 'Posible suplantación de identidad',
+            const backendMsg = {
+                tipo: 'ALERTA_INFRACCION',
+                payload: {
+                    sesion_id: 1,
+                    tipo_infraccion: 'USO_DE_TELEFONO',
+                    detalles_infraccion: 'Se detectó uso de teléfono celular',
+                    minuto_infraccion: '00:10:00',
+                },
             };
 
-            socket.simulateMessage(JSON.stringify(payload));
+            socket.simulateMessage(JSON.stringify(backendMsg));
 
             expect(service.currentAlert()).toEqual(
                 jasmine.objectContaining({ type: 'CRITICAL' })
@@ -177,12 +188,25 @@ describe('WebSocketFeedbackService', () => {
             expect(service.currentAlert()).toBeNull();
         });
 
-        it('NO debe actualizar currentAlert cuando el JSON no tiene campo msg', () => {
+        it('NO debe actualizar currentAlert cuando el JSON no tiene campo tipo reconocido', () => {
             service.connect('ws://localhost:3000', '1');
             const socket = MockWebSocket.lastInstance!;
             socket.simulateOpen();
 
-            socket.simulateMessage(JSON.stringify({ type: 'INFO' }));
+            socket.simulateMessage(JSON.stringify({ tipo: 'DESCONOCIDO' }));
+
+            expect(service.currentAlert()).toBeNull();
+        });
+
+        it('debe ignorar mensajes CONECTADO_WS sin mostrar alerta', () => {
+            service.connect('ws://localhost:3000', '1');
+            const socket = MockWebSocket.lastInstance!;
+            socket.simulateOpen();
+
+            socket.simulateMessage(JSON.stringify({
+                tipo: 'CONECTADO_WS',
+                mensaje: 'Conectado exitosamente al monitoreo de la sesión 1'
+            }));
 
             expect(service.currentAlert()).toBeNull();
         });
@@ -199,7 +223,10 @@ describe('WebSocketFeedbackService', () => {
             const socket = MockWebSocket.lastInstance!;
             socket.simulateOpen();
 
-            socket.simulateMessage(JSON.stringify({ type: 'WARNING', msg: 'Test' }));
+            socket.simulateMessage(JSON.stringify({
+                tipo: 'ALERTA_INFRACCION',
+                payload: { tipo_infraccion: 'OTRO', detalles_infraccion: 'Test' }
+            }));
             expect(service.currentAlert()).not.toBeNull();
 
             // Adelantar 5999ms — aún visible
@@ -216,11 +243,17 @@ describe('WebSocketFeedbackService', () => {
             const socket = MockWebSocket.lastInstance!;
             socket.simulateOpen();
 
-            socket.simulateMessage(JSON.stringify({ type: 'INFO', msg: 'Primero' }));
+            socket.simulateMessage(JSON.stringify({
+                tipo: 'ALERTA_INFRACCION',
+                payload: { tipo_infraccion: 'OTRO', detalles_infraccion: 'Primero' }
+            }));
             tick(4000); // Pasan 4s de los 6
 
             // Llega una nueva alerta — reinicia el timer
-            socket.simulateMessage(JSON.stringify({ type: 'CRITICAL', msg: 'Segundo' }));
+            socket.simulateMessage(JSON.stringify({
+                tipo: 'ALERTA_INFRACCION',
+                payload: { tipo_infraccion: 'USO_DE_TELEFONO', detalles_infraccion: 'Segundo' }
+            }));
             expect(service.currentAlert()!.msg).toBe('Segundo');
 
             // 4s más (8s desde la primera, pero solo 4 desde la segunda)
@@ -256,7 +289,10 @@ describe('WebSocketFeedbackService', () => {
             const socket = MockWebSocket.lastInstance!;
             socket.simulateOpen();
 
-            socket.simulateMessage(JSON.stringify({ type: 'WARNING', msg: 'Test' }));
+            socket.simulateMessage(JSON.stringify({
+                tipo: 'ALERTA_INFRACCION',
+                payload: { tipo_infraccion: 'OTRO', detalles_infraccion: 'Test' }
+            }));
             expect(service.currentAlert()).not.toBeNull();
 
             service.disconnect();

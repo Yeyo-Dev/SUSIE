@@ -288,4 +288,333 @@ describe('ExamEngineComponent', () => {
             discardPeriodicTasks();
         }));
     });
+
+    // ═══════════════════════════════════════════════════
+    // REQ-EE-002: Session Recovery — restoreState()
+    // ═══════════════════════════════════════════════════
+
+    describe('Session Recovery — restoreState()', () => {
+        it('debe restaurar respuestas desde estado persistido', fakeAsync(() => {
+            const config = buildConfig(30);
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions(20));
+            fixture.detectChanges();
+
+            // Simular estado persistido
+            const persistedState = {
+                examSessionId: 'sess-1',
+                examId: 'ex-1',
+                answers: { 1: 'A', 2: 'B', 3: 'C', 5: 'D', 10: 'A' },
+                currentQuestionIndex: 10,
+                timerSecondsRemaining: 1200,
+                examStartedAt: new Date(Date.now() - 600000).toISOString(), // started 10min ago
+                proctoringState: 'MONITORING' as const,
+                totalViolations: 2,
+                tabSwitchCount: 1,
+                remoteSessionId: 'remote-123',
+                persistedAt: new Date().toISOString(),
+                version: 1,
+            };
+
+            component.restoreState(persistedState, 30);
+            tick();
+
+            // Verificar respuestas restauradas
+            expect(component.answers()).toEqual({ 1: 'A', 2: 'B', 3: 'C', 5: 'D', 10: 'A' });
+            expect(component.answeredCount()).toBe(5);
+
+            // Verificar índice restaurado
+            expect(component.currentIndex()).toBe(10);
+            discardPeriodicTasks();
+        }));
+
+        it('debe restaurar el índice de pregunta actual', fakeAsync(() => {
+            const config = buildConfig(30);
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions(20));
+            fixture.detectChanges();
+
+            const persistedState = {
+                examSessionId: 'sess-1',
+                examId: 'ex-1',
+                answers: { 1: 'A' },
+                currentQuestionIndex: 15,
+                timerSecondsRemaining: 900,
+                examStartedAt: new Date(Date.now() - 900000).toISOString(),
+                proctoringState: 'MONITORING' as const,
+                totalViolations: 0,
+                tabSwitchCount: 0,
+                remoteSessionId: null,
+                persistedAt: new Date().toISOString(),
+                version: 1,
+            };
+
+            component.restoreState(persistedState, 30);
+            tick();
+
+            expect(component.currentIndex()).toBe(15);
+            discardPeriodicTasks();
+        }));
+
+        it('debe restaurar el timestamp de inicio (startedAt)', fakeAsync(() => {
+            const config = buildConfig(30);
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+
+            const startedAt = new Date(Date.now() - 600000).toISOString(); // 10min ago
+            const persistedState = {
+                examSessionId: 'sess-1',
+                examId: 'ex-1',
+                answers: { 1: 'A' },
+                currentQuestionIndex: 0,
+                timerSecondsRemaining: 1200,
+                examStartedAt: startedAt,
+                proctoringState: 'MONITORING' as const,
+                totalViolations: 0,
+                tabSwitchCount: 0,
+                remoteSessionId: null,
+                persistedAt: new Date().toISOString(),
+                version: 1,
+            };
+
+            component.restoreState(persistedState, 30);
+            tick();
+
+            expect(component.startedAt()).toBe(startedAt);
+            discardPeriodicTasks();
+        }));
+
+        it('debe calcular el tiempo restante basándose en elapsed time', fakeAsync(() => {
+            const config = buildConfig(30); // 30 min exam
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+
+            // Examen iniciado hace 10 minutos (600 segundos)
+            const startedAt = new Date(Date.now() - 600000).toISOString();
+            const persistedState = {
+                examSessionId: 'sess-1',
+                examId: 'ex-1',
+                answers: { 1: 'A' },
+                currentQuestionIndex: 0,
+                timerSecondsRemaining: 1200, // Stale value
+                examStartedAt: startedAt,
+                proctoringState: 'MONITORING' as const,
+                totalViolations: 0,
+                tabSwitchCount: 0,
+                remoteSessionId: null,
+                persistedAt: new Date().toISOString(),
+                version: 1,
+            };
+
+            component.restoreState(persistedState, 30);
+            tick();
+
+            // 30 min *60 = 1800 sec total
+            // - 10 min elapsed = 600 sec
+            // = 1200 sec remaining (20 min)
+            expect(component.timerSeconds()).toBe(1800 - 600);
+            discardPeriodicTasks();
+        }));
+    });
+
+    // ═══════════════════════════════════════════════════
+    // REQ-EE-003: Timer Continuation after Recovery
+    // ═══════════════════════════════════════════════════
+
+    describe('Timer Continuation after Recovery', () => {
+        it('debe continuar el timer desde el tiempo calculado', fakeAsync(() => {
+            const config = buildConfig(10); // 10 min exam
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+
+            // Examen iniciado hace 5 minutos
+            const startedAt = new Date(Date.now() - 300000).toISOString();
+            const persistedState = {
+                examSessionId: 'sess-1',
+                examId: 'ex-1',
+                answers: { 1: 'A' },
+                currentQuestionIndex: 0,
+                timerSecondsRemaining: 300, // Stale
+                examStartedAt: startedAt,
+                proctoringState: 'MONITORING' as const,
+                totalViolations: 0,
+                tabSwitchCount: 0,
+                remoteSessionId: null,
+                persistedAt: new Date().toISOString(),
+                version: 1,
+            };
+
+            component.restoreState(persistedState, 10);
+            tick();
+
+            // 10min * 60 = 600sec, - 5min elapsed = 300sec remaining
+            expect(component.timerSeconds()).toBe(300);
+
+            // Verificar que el timer decrementa
+            tick(3000);
+            expect(component.timerSeconds()).toBe(297);
+            discardPeriodicTasks();
+        }));
+
+        it('debe emitir autoSubmit si el tiempo ya expiró durante recovery', fakeAsync(() => {
+            const config = buildConfig(10); // 10 min exam
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+
+            // Examen iniciado hace 15 minutos (ya expiró)
+            const startedAt = new Date(Date.now() - 900000).toISOString(); // 15min ago
+            const persistedState = {
+                examSessionId: 'sess-1',
+                examId: 'ex-1',
+                answers: { 1: 'A', 2: 'B' },
+                currentQuestionIndex: 5,
+                timerSecondsRemaining: 0,
+                examStartedAt: startedAt,
+                proctoringState: 'MONITORING' as const,
+                totalViolations: 0,
+                tabSwitchCount: 0,
+                remoteSessionId: null,
+                persistedAt: new Date().toISOString(),
+                version: 1,
+            };
+
+            let result: ExamResult | undefined;
+            component.examFinished.subscribe((r: ExamResult) => result = r);
+
+            component.restoreState(persistedState, 10);
+            tick();
+
+            // El timer debe ser 0 y autoSubmit disparado
+            expect(component.timerSeconds()).toBe(0);
+            expect(result).toBeTruthy();
+            expect(result!.answers).toEqual({ 1: 'A', 2: 'B' });
+            discardPeriodicTasks();
+        }));
+
+        it('debe restaurar timer con 1 segundo restante y emitir autoSubmit', fakeAsync(() => {
+            const config = buildConfig(10); // 10 min exam
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+
+            // Examen iniciado hace 599 segundos (1 sec remaining)
+            const startedAt = new Date(Date.now() - 599000).toISOString();
+            const persistedState = {
+                examSessionId: 'sess-1',
+                examId: 'ex-1',
+                answers: { 1: 'C' },
+                currentQuestionIndex: 0,
+                timerSecondsRemaining: 1,
+                examStartedAt: startedAt,
+                proctoringState: 'MONITORING' as const,
+                totalViolations: 0,
+                tabSwitchCount: 0,
+                remoteSessionId: null,
+                persistedAt: new Date().toISOString(),
+                version: 1,
+            };
+
+            let result: ExamResult | undefined;
+            component.examFinished.subscribe((r: ExamResult) => result = r);
+
+            component.restoreState(persistedState, 10);
+            tick();
+
+            // Debe tener 1 segundo restante (aprox)
+            expect(component.timerSeconds()).toBeLessThanOrEqual(2);
+
+            // Avanzar 2 segundos para que expire
+            tick(2000);
+
+            expect(result).toBeTruthy();
+            discardPeriodicTasks();
+        }));
+    });
+
+    // ═══════════════════════════════════════════════════
+    // REQ-EE-001: extractState() — State Extraction for Persistence
+    // ═══════════════════════════════════════════════════
+
+describe('extractState()', () => {
+        it('debe extraer el estado actual correctamente', fakeAsync(() => {
+            const config = buildConfig(30);
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions(20));
+            fixture.detectChanges();
+
+            // Simular interacción del usuario
+            component.selectAnswer(1, 'A');
+            component.selectAnswer(2, 'B');
+            component.selectAnswer(5, 'C');
+            component.nextQuestion();
+            component.nextQuestion();
+            tick();
+
+            const state = component.extractState('sess-test-123');
+
+            expect(state.examSessionId).toBe('sess-test-123');
+            expect(state.answers).toEqual({ 1: 'A', 2: 'B', 5: 'C' });
+            expect(state.currentQuestionIndex).toBe(2);
+            expect(state.timerSecondsRemaining).toBe(30* 60); // Initial timer
+            expect(state.version).toBe(1);
+            expect(state.examStartedAt).toBeTruthy();
+            expect(state.persistedAt).toBeTruthy();
+            // Note: examId is not included in extractState - it's added by SusieWrapper
+            discardPeriodicTasks();
+        }));
+
+        it('debe incluir startedAt timestamp', fakeAsync(() => {
+            const config = buildConfig(30);
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+            tick(100); // Dejar que el effect inicialice startedAt
+
+            const state = component.extractState('sess-1');
+
+            expect(state.examStartedAt).toBeTruthy();
+            expect(new Date(state.examStartedAt).getTime()).toBeLessThanOrEqual(Date.now());
+            discardPeriodicTasks();
+        }));
+
+        it('debe capturar el timer actual', fakeAsync(() => {
+            const config = buildConfig(5); // 5 min
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+
+            // Avanzar 1 minuto
+            tick(60000);
+
+            const state = component.extractState('sess-1');
+
+            // Timer state: 5min - 1min = 4min remaining (240 sec)
+            // Can vary slightly due to timing
+            expect(state.timerSecondsRemaining).toBeLessThanOrEqual(240);
+            expect(state.timerSecondsRemaining).toBeGreaterThan(235);
+            discardPeriodicTasks();
+        }));
+
+        it('debe incluir timestamp de persistencia', fakeAsync(() => {
+            const config = buildConfig(30);
+            fixture.componentRef.setInput('config', config);
+            fixture.componentRef.setInput('questions', buildQuestions());
+            fixture.detectChanges();
+
+            const beforeTime = new Date().toISOString();
+            tick();
+
+            const state = component.extractState('sess-1');
+
+            // persistedAt debe ser reciente
+            const persistedAtTime = new Date(state.persistedAt).getTime();
+            const beforeTimeMs = new Date(beforeTime).getTime();
+            expect(persistedAtTime).toBeGreaterThanOrEqual(beforeTimeMs -1000);
+            discardPeriodicTasks();
+        }));
+    });
 });

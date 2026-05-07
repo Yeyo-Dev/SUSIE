@@ -742,3 +742,132 @@ video {
     outline: 2px solid #dc2626;
     outline-offset: 2px;
 }
+
+/* ══ Recovery Dialog ══ */
+.recovery-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9500;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    animation: fade-in 0.3s ease;
+}
+
+.recovery-dialog {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.5);
+    animation: card-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.recovery-dialog h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 1rem;
+    letter-spacing: -0.03em;
+}
+
+.recovery-message {
+    font-size: 0.9375rem;
+    color: #64748b;
+    margin: 0 0 1rem;
+    line-height: 1.5;
+}
+
+.recovery-details {
+    list-style: none;
+    padding: 1rem 1.5rem;
+    margin: 0 0 1.5rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    text-align: left;
+}
+
+.recovery-details li {
+    font-size: 0.875rem;
+    color: #475569;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
+    line-height: 1.5;
+}
+
+.recovery-details li:last-child {
+    border-bottom: none;
+}
+
+.recovery-details strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.recovery-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 2rem;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    color: #ffffff;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-family: 'Inter', -apple-system, sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 14px -2px rgba(16, 185, 129, 0.3);
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 8px 20px -4px rgba(5, 150, 105, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-primary:focus-visible {
+    outline: 2px solid #10B981;
+    outline-offset: 2px;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: transparent;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: 'Inter', -apple-system, sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #475569;
+}
+
+.btn-secondary:focus-visible {
+    outline: 2px solid #10B981;
+    outline-offset: 2px;
+}

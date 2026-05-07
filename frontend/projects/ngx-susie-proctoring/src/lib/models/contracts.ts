@@ -3,7 +3,7 @@
  * Se usa para notificar tanto al wrapper (debug panel) como a la app host (cancelar examen).
  */
 export interface SecurityViolation {
-  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST' | 'INSPECTION_ATTEMPT' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION' | 'FACE_LOSS_TIMEOUT';
+  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'FOCUS_LOST' | 'INSPECTION_ATTEMPT' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION' | 'FACE_LOSS_TIMEOUT' | 'NETWORK_TIMEOUT';
   message: string;
   timestamp: string;
 }
@@ -43,7 +43,7 @@ export interface SusieQuestion {
   correctAnswer?: string;
 }
 
-// --- Backend API Response Contracts (api_docs.md) ---
+// --- Contratos de Respuesta del Backend (api_docs.md) ---
 
 /** Respuesta de GET /evaluaciones/configuracion/:evaluacion_id */
 export interface BackendEvaluacionResponse {
@@ -99,11 +99,28 @@ export interface BackendSesionResponse {
   estado_sesion: 'EN_CURSO' | 'FINALIZADA';
 }
 
-/** Respuesta de POST /sesiones/finalizar/:id_sesion */
+/** Respuesta de PATCH /sesiones/finalizar/:id_sesion */
 export interface BackendSesionFinalizadaResponse {
   id_sesion: string;
   estado_sesion: 'FINALIZADA';
   fecha_fin: string;
+}
+
+/** Respuesta de POST /usuarios/biometricos/validar */
+export interface BackendBiometricaResponse {
+  status: 'success' | 'error';
+  message: string;
+  data?: {
+    match_score?: number;
+    verified?: boolean;
+  };
+}
+
+/** Payload para gaze tracking: POST /monitoreo/evidencias/gaze_tracking */
+export interface GazeTrackingPayload {
+  sesion_id: number;
+  timestamp: string; // ISO 8601
+  gaze_points: Array<{ x: number; y: number }>;
 }
 
 /** Enum de tipos de infracción conocidos por el backend */
@@ -122,7 +139,7 @@ export interface BackendInfraccionPayload {
  * Resultado final del examen entregado por el motor.
  */
 export interface ExamResult {
-  answers: Record<number, string>; // Map<QuestionId, SelectedOption>
+  answers: Record<number, string>; // Mapa<IdPregunta, OpcionSeleccionada>
   completedAt: string;
   score?: number; // Si se calcula en el cliente
   metadata?: Record<string, unknown>;
@@ -182,8 +199,8 @@ export interface SusieConfig {
 
 
   /** 
-   * (Opcional) Lista de preguntas para que Susie las renderice con su motor interno (Exam Engine).
-   * Si no se provee, Susie asume que el host renderiza el examen (modo legacy/wrapper-only).
+   * (Opcional) Lista de preguntas para que Susie las renderice con su motor interno (Motor de Examen).
+   * Si no se provee, Susie asume que el host renderiza el examen (modo heredado/solo-wrapper).
    */
   questions?: SusieQuestion[];
 
@@ -338,7 +355,7 @@ export interface EvidenceMetadata {
     /** Tipo interno de evidencia (alias: originalType o type). */
     type: 'SNAPSHOT' | 'AUDIO_CHUNK' | 'BROWSER_EVENT' | 'FOCUS_LOST';
     browser_focus: boolean;
-    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION' | 'FACE_LOSS_TIMEOUT';
+    trigger?: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'DEVTOOLS_OPENED' | 'LOSS_FOCUS' | 'NAVIGATION_ATTEMPT' | 'RELOAD_ATTEMPT' | 'CLIPBOARD_ATTEMPT' | 'GAZE_DEVIATION' | 'FACE_LOSS_TIMEOUT' | 'NETWORK_TIMEOUT';
     keyboard_events?: number;
     tab_switches?: number;
     gaze_history?: { x: number; y: number; ts: number }[];
@@ -398,7 +415,7 @@ export function calcularMinutoInfraccion(sessionStartTime: Date): string {
   return `${hours}:${minutes}:${seconds}`;
 }
 
-// --- TYPE INTERFACES (Remover `any` types) ---
+// --- INTERFACES DE TIPO (Remover tipos `any`) ---
 
 /**
  * Firma de función logger reutilizada en múltiples servicios.
@@ -425,7 +442,7 @@ export interface WebGazerPrediction {
 
 /**
  * API pública de WebGazer (biblioteca externa de gaze tracking).
- * Define los métodos que usamos para initializar y usar WebGazer.
+ * Define los métodos que usamos para inicializar y usar WebGazer.
  */
 export interface WebGazerAPI {
   // Configuración
@@ -463,7 +480,7 @@ export interface AudioRecordingConfig {
   bitrate?: number;
   /** Intervalo de duración de cada chunk en segundos (default: 15) */
   chunkIntervalSeconds?: number;
-  /** MIME type para la grabación (e.g., 'audio/webm;codecs=opus') */
+  /** MIME type para la grabación (ej., 'audio/webm;codecs=opus') */
   mimeType?: string;
 }
 

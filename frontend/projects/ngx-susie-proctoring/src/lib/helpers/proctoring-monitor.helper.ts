@@ -1,6 +1,6 @@
 import { ElementRef } from '@angular/core';
 import { EvidenceService } from '@lib/services/evidence.service';
-import { GazeTrackingService } from '@lib/services/gaze-tracking.service';
+import { GazeTrackingService } from '@lib/services/gaze';
 import { MediaService } from '@lib/services/media.service';
 import { IntervalHandle, LoggerFn, MediaStreamSource } from '@lib/models/contracts';
 
@@ -14,7 +14,7 @@ export class ProctoringMonitorHelper {
   private snapshotInterval: IntervalHandle | null = null;
   private gazeInterval: IntervalHandle | null = null;
   
-  // Reference to video element for snapshot capture
+  // Referencia al elemento de video para captura de snapshots
   private snapshotVideoRef: ElementRef<HTMLVideoElement> | null = null;
 
   constructor(
@@ -39,7 +39,7 @@ export class ProctoringMonitorHelper {
     this.log('info', `📸 Iniciando snapshots cada ${intervalSeconds}s`);
     this.stopSnapshotLoop();
 
-    // Attach stream to hidden video after a tick
+    // Adjuntar stream al video oculto después de un tick
     setTimeout(() => {
       if (this.snapshotVideoRef?.nativeElement && mediaStream) {
         const videoEl = this.snapshotVideoRef.nativeElement;
@@ -71,7 +71,7 @@ export class ProctoringMonitorHelper {
     if (!this.snapshotVideoRef?.nativeElement) return;
     
     const video = this.snapshotVideoRef.nativeElement;
-    if (video.readyState < 2) return; // HAVE_CURRENT_DATA
+    if (video.readyState < 2) return; // HAVE_CURRENT_DATA (readyState >= 2)
 
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth || 640;

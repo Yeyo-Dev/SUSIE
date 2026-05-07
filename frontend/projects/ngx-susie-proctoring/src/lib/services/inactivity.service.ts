@@ -24,22 +24,22 @@ export class InactivityService implements OnDestroy {
     startMonitoring() {
         this.stopMonitoring();
 
-        // Listen to user events
+        // Escuchar eventos de usuario
         this.events.forEach(event => {
             this.cleanup.addEventListener(window, event, this.handleUserActivity, { passive: true });
         });
 
-        // Check periodically
+        // Verificar periódicamente
         this.checkInterval = this.cleanup.setInterval(() => {
             const now = Date.now();
             const elapsed = now - this.lastActivity;
 
-            // Warning logic: Show warning if 90% of time passed
+            // Lógica de advertencia: mostrar alerta si pasó el 90% del tiempo
             if (!this.showWarning() && elapsed > this.inactivityLimitMs * 0.9) {
                 this.showWarning.set(true);
             }
 
-            // Timeout logic
+            // Lógica de timeout
             if (elapsed > this.inactivityLimitMs) {
                 this.handleTimeout();
             }
@@ -63,9 +63,9 @@ export class InactivityService implements OnDestroy {
     }
 
     private handleUserActivity = () => {
-        // Only reset if not already in warning state (force user to click "I'm here")
-        // Or maybe reset automatically? Let's reset automatically unless warning is shown?
-        // User requirement typically implies explicit confirmation if warning is shown.
+        // Solo resetear si no está en estado de advertencia (forzar usuario a hacer click en "Estoy aquí")
+        // O quizás resetear automáticamente? Reseteemos automáticamente a menos que se muestre advertencia?
+        // El requerimiento del usuario típicamente implica confirmación explícita si se muestra advertencia.
         if (!this.showWarning()) {
             this.lastActivity = Date.now();
         }
@@ -73,7 +73,7 @@ export class InactivityService implements OnDestroy {
 
     private handleTimeout() {
         this.onInactivityCallback?.();
-        // Reset to avoid multiple triggers? Or keep triggering?
+        // Resetear para evitar múltiples triggers? O seguir disparando?
         this.resetTimer();
     }
 
