@@ -6,4 +6,6 @@ export async function examenRoutes(fastify: FastifyInstance) {
 
     //Obtener un examen específico con sus preguntas
     fastify.get('/:examen_id', controller.obtenerExamenHandler);
+    //Registrar respuestas
+    fastify.post('/respuestas', controller.registrarRespuestasHandler);
 }

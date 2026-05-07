@@ -110,6 +110,7 @@ model asignacion_examen {
   usuarios_asignacion_examen_reclutador_idTousuarios usuarios?           @relation("asignacion_examen_reclutador_idTousuarios", fields: [reclutador_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkquqmh4byxm3gc97955xechyda")
   respuestas                                         respuesta_usuario[]
   sesion_evaluacion                                  sesion_evaluacion[]
+  configuracion_examen                               configuracion_examen[]
 
   @@map("asignacion_examen")
 }
@@ -140,6 +141,11 @@ model configuracion_examen {
   toleran_desconexion    Int?
   validacion_biometrica  Boolean? @default(false)
   tiempo_duracion        Int?
+  asignacion_id          BigInt?
+
+  asignacion_examen      asignacion_examen? @relation(fields: [asignacion_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkht1xs56nabl50g0k940orkxnu")
+
+  @@map("configuracion_examen")
 }
 
 

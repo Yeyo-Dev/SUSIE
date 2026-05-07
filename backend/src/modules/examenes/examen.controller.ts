@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ExamenService } from './examen.service';
+import { PayloadRespuestasDTO } from './examen.interface';
 
 export class ExamenController {
     
@@ -44,6 +45,46 @@ export class ExamenController {
             return reply.code(500).send({
                 success: false,
                 message: "Error interno del servidor al obtener el examen."
+            });
+        }
+    }
+
+    registrarRespuestasHandler = async (req: FastifyRequest, reply: FastifyReply) => {
+        try {
+            // Extraemos el cuerpo de la petición y lo tipamos
+            const payload = req.body as PayloadRespuestasDTO;
+
+            // Validaciones básicas de defensa
+            if (!payload.asignacion_id || !payload.examen_id || !payload.usuario_id || !payload.respuestas) {
+                return reply.code(400).send({
+                    success: false,
+                    message: "BAD_REQUEST: Faltan datos obligatorios (asignacion_id, examen_id, usuario_id, respuestas)."
+                });
+            }
+
+            if (!Array.isArray(payload.respuestas) || payload.respuestas.length === 0) {
+                return reply.code(400).send({
+                    success: false,
+                    message: "BAD_REQUEST: El arreglo de respuestas no puede estar vacío."
+                });
+            }
+
+            // Llamamos al servicio
+            const resultado = await this.examenService.registrarRespuestas(payload);
+
+            // Devolvemos 201 Created
+            return reply.code(201).send(resultado);
+
+        } catch (error: any) {
+            console.error("Error en ExamenController al guardar respuestas:", error);
+            
+            if (error.message?.includes('BAD_REQUEST')) {
+                return reply.code(400).send({ success: false, message: error.message });
+            }
+
+            return reply.code(500).send({
+                success: false,
+                message: "Error interno del servidor al guardar las respuestas."
             });
         }
     }

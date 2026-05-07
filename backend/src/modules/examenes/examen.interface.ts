@@ -19,3 +19,15 @@ export interface ExamenCompletoResponseDTO {
     detalles: DetallesExamenDTO;
     preguntas: PreguntaResponseDTO[];
 }
+
+export interface RegistroRespuestaDTO {
+    pregunta_id: bigint;
+    respuesta_usuario: string;
+}
+
+export interface PayloadRespuestasDTO {
+    asignacion_id: bigint | number | string;
+    examen_id: bigint | number | string;
+    usuario_id: bigint | number | string;
+    respuestas: RegistroRespuestaDTO[];
+}

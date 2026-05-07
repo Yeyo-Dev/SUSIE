@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma";
-import { ExamenCompletoResponseDTO, PreguntaResponseDTO } from "./examen.interface";
+import { ExamenCompletoResponseDTO, PreguntaResponseDTO, PayloadRespuestasDTO } from "./examen.interface";
 
 export class ExamenService {
     
@@ -55,6 +55,47 @@ export class ExamenService {
         } catch (error: any) {
             console.error("Error en ExamenService al obtener preguntas:", error);
             throw new Error("Fallo interno al consultar el examen en la base de datos.");
+        }
+    }
+
+    async registrarRespuestas(payload: PayloadRespuestasDTO) {
+        try {
+            // se convierten los IDs generales a BigInt de forma segura
+            const asignacionIdBigInt = BigInt(payload.asignacion_id);
+            const examenIdBigInt = BigInt(payload.examen_id);
+            const usuarioIdBigInt = BigInt(payload.usuario_id);
+
+            // se prepara el arreglo de datos con la estructura exacta de la BD
+            const datosAInsertar = payload.respuestas.map((item) => {
+                return {
+                    asignacion_id: asignacionIdBigInt,
+                    examen_examen_id: examenIdBigInt,
+                    usuario_id: usuarioIdBigInt,
+                    pregunta_pregunta_id: BigInt(item.pregunta_id),
+                    respuesta_dada: item.respuesta_usuario,
+                    fecha_respuesta: new Date() // Le ponemos la fecha actual exacta
+                };
+            });
+
+            // se hace una inserción masiva optimizada (1 sola consulta SQL)
+            const resultado = await prisma.respuesta_usuario.createMany({
+                data: datosAInsertar,
+                skipDuplicates: true // Evita que el código explote si por error se manda la misma respuesta 2 veces
+            });
+
+            return {
+                success: true,
+                message: "Respuestas registradas exitosamente",
+                registros_guardados: resultado.count
+            };
+
+        } catch (error: any) {
+            console.error("Error en ExamenService al registrar respuestas:", error);
+            // Validaciones de datos faltantes o llaves foráneas inválidas
+            if (error.code === 'P2003') {
+                throw new Error("BAD_REQUEST: Algunos IDs proporcionados (usuario, examen, asignación o pregunta) no existen en la base de datos.");
+            }
+            throw new Error("Fallo interno al registrar las respuestas en la base de datos.");
         }
     }
 }
